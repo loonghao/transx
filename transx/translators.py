@@ -1,4 +1,3 @@
-from __future__ import absolute_import, unicode_literals, print_function, division
 
 import sys
 import abc
@@ -6,7 +5,7 @@ import abc
 # Python 2 and 3 compatibility
 PY2 = sys.version_info[0] == 2
 if PY2:
-    ABC = abc.ABCMeta('ABC', (object,), {'__slots__': ()})
+    ABC = abc.ABCMeta("ABC", (object,), {"__slots__": ()})
     text_type = unicode  # noqa: F821
 else:
     ABC = abc.ABC
@@ -18,8 +17,7 @@ class BaseTranslator(ABC):
     @abc.abstractmethod
     def translate(self, text, source_lang="auto", target_lang="en"):
         # type: (str, str, str) -> str
-        """
-        Translate the given text from source language to target language.
+        """Translate the given text from source language to target language.
         
         Args:
             text: Text to translate
@@ -37,7 +35,7 @@ class DummyTranslator(BaseTranslator):
     def translate(self, text, source_lang="auto", target_lang="en"):
         # type: (str, str, str) -> str
         if isinstance(text, bytes):
-            text = text.decode('utf-8')
+            text = text.decode("utf-8")
         return text_type(text)
 
 class GoogleTranslatorAdapter(BaseTranslator):
@@ -50,14 +48,13 @@ class GoogleTranslatorAdapter(BaseTranslator):
     def translate(self, text, source_lang="auto", target_lang="en"):
         # type: (str, str, str) -> str
         if isinstance(text, bytes):
-            text = text.decode('utf-8')
+            text = text.decode("utf-8")
         result = self.translator.translate(text_type(text))
         return text_type(result)
 
 def create_translator(translator_type="dummy", **kwargs):
     # type: (str, **dict) -> BaseTranslator
-    """
-    Factory function to create a translator instance.
+    """Factory function to create a translator instance.
     
     Args:
         translator_type: Type of translator to create ("dummy", "google", etc.)

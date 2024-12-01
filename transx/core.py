@@ -1,14 +1,11 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """Core translation functionality."""
-from __future__ import absolute_import, unicode_literals, print_function, division
 
 # Import built-in modules
 import os
 import gettext
 import logging
 import sys
-import codecs
 
 # Import local modules
 from transx.constants import (
@@ -85,7 +82,7 @@ class TransX:
         if locale in self._translations or locale in self._catalogs:
             return True
             
-        locale_dir = os.path.join(self.locales_root, locale, 'LC_MESSAGES')
+        locale_dir = os.path.join(self.locales_root, locale, "LC_MESSAGES")
         
         if not os.path.exists(locale_dir):
             msg = "Locale directory not found: {}".format(locale_dir)
@@ -100,7 +97,7 @@ class TransX:
         # Try loading MO file first
         if os.path.exists(mo_file):
             try:
-                with open(mo_file, 'rb') as fp:
+                with open(mo_file, "rb") as fp:
                     self._translations[locale] = MOFile(fp)
                 return True
             except Exception as e:
@@ -135,14 +132,14 @@ class TransX:
         
         for line in fileobj:
             line = line.strip()
-            if not line or line.startswith('#'):
+            if not line or line.startswith("#"):
                 continue
                 
             if line.startswith('msgctxt "'):
                 current_context = line[9:-1]
             elif line.startswith('msgid "'):
                 if current_msgid is not None:
-                    catalog.add_message(current_msgid, ''.join(current_msgstr), current_context)
+                    catalog.add_message(current_msgid, "".join(current_msgstr), current_context)
                 current_msgid = line[7:-1]
                 current_msgstr = []
                 current_context = None
@@ -153,7 +150,7 @@ class TransX:
                     current_msgstr.append(line[1:-1])
         
         if current_msgid is not None:
-            catalog.add_message(current_msgid, ''.join(current_msgstr), current_context)
+            catalog.add_message(current_msgid, "".join(current_msgstr), current_context)
     
     def add_translation(self, msgid, msgstr, context=None):
         """Add a translation entry.
@@ -164,7 +161,7 @@ class TransX:
             context: The context for the message (optional)
         """
         if context:
-            msgid = context + '\x04' + msgid
+            msgid = context + "\x04" + msgid
         if self._current_locale not in self._catalogs:
             self._catalogs[self._current_locale] = TranslationCatalog(locale=self._current_locale)
         self._catalogs[self._current_locale].add_translation(msgid, msgstr)
@@ -183,8 +180,16 @@ class TransX:
             
         Raises:
             LocaleNotFoundError: If the locale directory doesn't exist
+            ValueError: If locale is None or empty
         """
+        if not locale:
+            raise ValueError("Locale cannot be None or empty")
+            
         if locale != self._current_locale:
+            locale_dir = os.path.join(self.locales_root, locale, "LC_MESSAGES")
+            if not os.path.exists(locale_dir):
+                raise LocaleNotFoundError(f"Locale directory not found: {locale_dir}")
+                
             self._current_locale = locale
             if locale not in self._translations:
                 self.load_catalog(locale)
@@ -200,14 +205,26 @@ class TransX:
         Returns:
             Translated text with parameters filled in, or original text if translation not found
             and strict_mode is False
+            
+        Raises:
+            ValueError: If text is None
+            KeyError: If required format parameters are missing
         """
+        # Handle None input
+        if text is None:
+            raise ValueError("Translation text cannot be None")
+            
+        # Handle empty string
+        if text == "":
+            return ""
+            
         # Ensure text is unicode in both Python 2 and 3
         if isinstance(text, binary_type):
             text = text.decode(DEFAULT_CHARSET)
             
         if context:
             # Add context separator
-            msgid = context + '\x04' + text
+            msgid = context + "\x04" + text
         else:
             msgid = text
             
@@ -216,7 +233,6 @@ class TransX:
             text, context, kwargs))
         
         translated = None
-        
         # Try to get translation
         if self._current_locale in self._translations:
             trans = self._translations[self._current_locale]
@@ -230,15 +246,12 @@ class TransX:
         
         # If no translation found and not in strict mode, use original text
         if translated is None:
-            if self.strict_mode:
-                raise KeyError("No translation found for text: {} (context: {})".format(text, context))
             translated = text
             logging.debug("No translation found for text: {} (context: {}), using original text".format(
                 text, context))
         
         # Log translation result
         logging.debug("Translation result: '{}'".format(translated))
-
         if kwargs:
             try:
                 translated = translated.format(**kwargs)

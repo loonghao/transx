@@ -3,15 +3,13 @@ import os
 import re
 from datetime import datetime
 from transx.constants import (
-    DEFAULT_CHARSET,
     DEFAULT_ENCODING,
     METADATA_KEYS,
     DEFAULT_METADATA
 )
 import logging
 
-# Set up logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 class PotExtractor:
     """Extract translatable messages from source files."""
@@ -31,7 +29,7 @@ class PotExtractor:
         Args:
             filepath (str): Path to file to scan
         """
-        with open(filepath, 'r', encoding=DEFAULT_ENCODING) as f:
+        with open(filepath, encoding=DEFAULT_ENCODING) as f:
             content = f.read()
         
         # Find all tr() calls
@@ -44,21 +42,21 @@ class PotExtractor:
             self.messages.add((msgid, context))
         
         # Log extracted messages
-        logging.debug(f"Extracted messages from {filepath}: {self.messages}")
+        logger.debug("Extracted messages from %s: %s", filepath, self.messages)
     
     def save_pot(self):
         """Save extracted messages to POT file."""
         os.makedirs(os.path.dirname(self.output_file), exist_ok=True)
         
-        with open(self.output_file, 'w', encoding=DEFAULT_ENCODING) as f:
+        with open(self.output_file, "w", encoding=DEFAULT_ENCODING) as f:
             # Write header
             f.write('msgid ""\nmsgstr ""\n')
             metadata = DEFAULT_METADATA.copy()
-            metadata[METADATA_KEYS['PO_REVISION_DATE']] = datetime.now().strftime('%Y-%m-%d %H:%M%z')
+            metadata[METADATA_KEYS["PO_REVISION_DATE"]] = datetime.now().strftime("%Y-%m-%d %H:%M%z")
             
             for key, value in metadata.items():
                 f.write('"{0}: {1}\\n"\n'.format(key, value))
-            f.write('\n')
+            f.write("\n")
             
             # Write messages
             for msgid, context in sorted(self.messages):
@@ -68,4 +66,4 @@ class PotExtractor:
                 f.write('msgstr ""\n\n')
         
         # Log saved messages
-        logging.debug(f"Saved messages to {self.output_file}: {self.messages}")
+        logger.debug("Saved messages to %s: %s", self.output_file, self.messages)

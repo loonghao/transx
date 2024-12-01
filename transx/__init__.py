@@ -10,15 +10,15 @@ from transx.exceptions import (
 )
 from transx.formats import POFile, PotExtractor, compile_po_file
 
-__version__ = '0.0.1'
+__version__ = "0.0.1"
 __all__ = [
-    'TransX',
-    'TranslationCatalog',
-    'TransXError',
-    'LocaleNotFoundError',
-    'CatalogNotFoundError',
-    'InvalidFormatError',
-    'POFile',
-    'PotExtractor',
-    'compile_po_file',
+    "TransX",
+    "TranslationCatalog",
+    "TransXError",
+    "LocaleNotFoundError",
+    "CatalogNotFoundError",
+    "InvalidFormatError",
+    "POFile",
+    "PotExtractor",
+    "compile_po_file",
 ]

@@ -1,26 +1,53 @@
-# TransX
+# 🌏 TransX
 
-A lightweight, zero-dependency Python internationalization library that supports Python 2.7 through 3.12.
+🚀 A lightweight, zero-dependency Python internationalization library that supports Python 3.7 through 3.12.
 
-## Features
+<div align="center">
 
-- Zero external dependencies
-- Python 2.7 to 3.12 compatibility
-- Context-based translations for accurate localization
-- Standard gettext .po/.mo file format support
-- Simple and intuitive API
-- Automatic translation file management
-- String extraction from Python source code
-- Unicode support
-- Parameter substitution in translations
+[![Python Version](https://img.shields.io/pypi/pyversions/transx)](https://img.shields.io/pypi/pyversions/transx)
+[![Nox](https://img.shields.io/badge/%F0%9F%A6%8A-Nox-D85E00.svg)](https://github.com/wntrblm/nox)
+[![PyPI Version](https://img.shields.io/pypi/v/transx?color=green)](https://pypi.org/project/transx/)
+[![Downloads](https://static.pepy.tech/badge/transx)](https://pepy.tech/project/transx)
+[![Downloads](https://static.pepy.tech/badge/transx/month)](https://pepy.tech/project/transx)
+[![Downloads](https://static.pepy.tech/badge/transx/week)](https://pepy.tech/project/transx)
+[![License](https://img.shields.io/pypi/l/transx)](https://pypi.org/project/transx/)
+[![PyPI Format](https://img.shields.io/pypi/format/transx)](https://pypi.org/project/transx/)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/loonghao/transx/graphs/commit-activity)
 
-## Installation
+</div>
+
+---
+
+## ✨ Features
+
+<div align="center">
+
+| Feature | Description |
+|---------|-------------|
+| 🚀 Zero Dependencies | No external dependencies required |
+| 🐍 Python Support | Full support for Python 3.7-3.12 |
+| 🌍 Context-based | Accurate translations with context support |
+| 📦 Standard Format | Compatible with gettext .po/.mo files |
+| 🎯 Simple API | Clean and intuitive interface |
+| 🔄 Auto Management | Automatic translation file handling |
+| 🔍 String Extraction | Built-in source code string extraction |
+| 🌐 Unicode | Complete Unicode support |
+| 🔠 Parameters | Dynamic parameter substitution |
+| ⚡ Performance | High-speed and thread-safe operations |
+| 🛡️ Error Handling | Comprehensive error management |
+| 🧪 Testing | Extensive test coverage |
+
+</div>
+
+## 🚀 Quick Start
+
+### 📥 Installation
 
 ```bash
 pip install transx
 ```
 
-## Quick Start
+### 📝 Basic Usage
 
 ```python
 from transx import TransX
@@ -38,193 +65,122 @@ print(tx.tr('Open', context='menu'))    # Output: 打开文件
 
 # Translation with parameters
 print(tx.tr('Hello {name}!', name='张三'))  # Output: 你好 张三！
-print(tx.tr('Save {filename}', context='button', filename='test.txt'))  # Output: 保存 test.txt
+```
 
-## Command Line Interface
+## 🛠️ Command Line Interface
 
-TransX provides a convenient command-line interface for managing translations:
+TransX comes with powerful CLI tools for translation management:
 
-### Extract Messages
-
-Extract translatable messages from source files to a POT file:
+### 📤 Extract Messages
 
 ```bash
 # Extract from a single file
 transx extract app.py
 
-# Extract from a directory
-transx extract ./src
-
-# Extract with custom options
+# Extract from a directory with custom options
 transx extract ./src \
     --output locales/custom.pot \
     --project "My Project" \
-    --version "1.0" \
-    --copyright "My Company" \
-    --bugs-address "bugs@example.com"
+    --version "1.0"
 ```
 
-### Update Translation Files
-
-Create or update PO files for specific languages:
+### 🔄 Update Translations
 
 ```bash
-# Update translations for multiple languages
+# Update multiple languages
 transx update locales/messages.pot en zh_CN ja_JP
 
-# Specify custom output directory
+# Custom output directory
 transx update messages.pot en zh_CN --output-dir ./translations
 ```
 
-### Compile Translations
-
-Compile PO files to MO files for use in production:
+### ⚙️ Compile Translations
 
 ```bash
-# Compile a single PO file
-transx compile locales/en/LC_MESSAGES/messages.po
-
-# Compile multiple PO files
+# Compile translations
 transx compile locales/*/LC_MESSAGES/messages.po
 ```
 
-## Directory Structure
-
-TransX follows the standard gettext directory structure:
+## 📁 Project Structure
 
 ```
 your_project/
-├── locales/
-│   ├── zh_CN/
-│   │   └── LC_MESSAGES/
-│   │       ├── messages.po    # Source translation file
-│   │       └── messages.mo    # Compiled translation file
-│   └── ja_JP/
-│       └── LC_MESSAGES/
-│           ├── messages.po
-│           └── messages.mo
-└── your_code.py
+├── 📂 locales/
+│   ├── 📂 zh_CN/
+│   │   └── 📂 LC_MESSAGES/
+│   │       ├── 📝 messages.po    # Source translations
+│   │       └── 📦 messages.mo    # Compiled translations
+│   └── 📂 ja_JP/
+│       └── 📂 LC_MESSAGES/
+│           ├── 📝 messages.po
+│           └── 📦 messages.mo
+└── 📜 your_code.py
 ```
 
-## Examples
+## 🎯 Advanced Features
 
-### Basic Usage
-
-```python
-from transx import TransX
-
-# Initialize translator
-tx = TransX(locales_root='locales')
-tx.current_locale = 'zh_CN'
-
-# Basic translation
-print(tx.tr('Hello'))  # Output: 你好
-print(tx.tr('Goodbye'))  # Output: 再见
-
-# With parameters
-print(tx.tr('Hello {name}!', name='张三'))  # Output: 你好 张三！
-```
-
-### Context-Based Translations
+### 🌍 Context-Based Translations
 
 ```python
-# UI Context Example
-print(tx.tr('Open', context='button'))  # Output: 打开
-print(tx.tr('Open', context='menu'))    # Output: 打开文件
+# UI Context
+print(tx.tr('Open', context='button'))  # 打开
+print(tx.tr('Open', context='menu'))    # 打开文件
 
-# Part of Speech Context
-print(tx.tr('Post', context='verb'))  # Output: 发布
-print(tx.tr('Post', context='noun'))  # Output: 文章
+# Part of Speech
+print(tx.tr('Post', context='verb'))    # 发布
+print(tx.tr('Post', context='noun'))    # 文章
 
 # Scene Context
-print(tx.tr('Welcome', context='login'))  # Output: 欢迎登录
-print(tx.tr('Welcome', context='home'))   # Output: 欢迎回来
+print(tx.tr('Welcome', context='login')) # 欢迎登录
+print(tx.tr('Welcome', context='home'))  # 欢迎回来
 ```
 
-### Advanced Usage
-
-### Loading Translation Catalogs
-
-TransX supports loading translation catalogs directly:
+### 🛡️ Error Handling
 
 ```python
-from transx import TransX
+from transx.exceptions import LocaleNotFoundError, CatalogNotFoundError
 
-tx = TransX()
+try:
+    tx.current_locale = 'invalid_locale'
+except LocaleNotFoundError:
+    print("❌ Locale not found")
 
-# Load a specific catalog file
-tx.load_catalog('path/to/messages.mo')
-
-# Load catalogs from a directory structure
-tx = TransX(locales_root='locales')
-tx.current_locale = 'zh_CN'  # Will automatically load catalogs for zh_CN
+try:
+    tx.load_catalog('missing_catalog.mo')
+except CatalogNotFoundError:
+    print("❌ Catalog not found")
 ```
 
-### Working with Multiple Catalogs
-
-You can work with multiple translation catalogs:
+### 📚 Multiple Catalogs
 
 ```python
 tx = TransX()
-tx.load_catalog('path/to/main.mo')    # Load main translations
-tx.load_catalog('path/to/extra.mo')   # Load additional translations
-
-# Translations from both catalogs will be available
-print(tx.tr('Hello'))  # Uses translations from either catalog
+tx.load_catalog('path/to/main.mo')     # Main catalog
+tx.load_catalog('path/to/extra.mo')    # Extra translations
 ```
 
-### Translation Workflow
+## ⚡ Performance Tips
 
-1. Extract messages from source code:
-```python
-from transx.formats.pot import PotExtractor
+- 🚀 Uses compiled MO files for optimal speed
+- 💾 Automatic translation caching
+- 🔒 Thread-safe for concurrent access
+- 📉 Minimal memory footprint
 
-# Create POT extractor
-extractor = PotExtractor('locales/messages.pot')
+## 🤝 Contributing
 
-# Scan Python files
-extractor.scan_file('your_code.py')
-extractor.save_pot()
-```
+Contributions are welcome! Here's how you can help:
 
-2. Create/Update PO files:
-```python
-from transx.formats.po import POFile
+- 🐛 Report bugs
+- 💡 Suggest features
+- 📝 Improve documentation
+- 🔧 Submit pull requests
 
-# Create PO file for Chinese
-po = POFile('locales/zh_CN/LC_MESSAGES/messages.po', locale='zh_CN')
+## 📄 License
 
-# Add translations
-po.add_translation("Hello", msgstr="你好")
-po.add_translation("Open", msgstr="打开", context="button")
-po.save()
-```
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-3. Compile PO to MO:
-```python
-from transx.formats.mo import compile_po_file
+---
 
-# Compile PO to MO
-compile_po_file(
-    'locales/zh_CN/LC_MESSAGES/messages.po',
-    'locales/zh_CN/LC_MESSAGES/messages.mo'
-)
-```
-
-For more examples, check out the [examples](examples/) directory.
-
-## Development
-
-### Running Tests
-
-```bash
-# Install development dependencies
-pip install -r requirements-dev.txt
-
-# Run tests
-pytest tests/ -v --cov=transx
-```
-
-## License
-
-MIT License - see LICENSE file for details
+<div align="center">
+Made with ❤️ by the LongHao
+</div>

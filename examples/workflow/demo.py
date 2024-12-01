@@ -1,5 +1,4 @@
-"""
-多语言支持演示程序
+"""多语言支持演示程序
 """
 from transx import TransX
 
@@ -28,10 +27,10 @@ def test_error_messages(tx):
 
 def main():
     # 初始化TransX实例，指定语言包目录
-    tx = TransX(locales_root='locales')
+    tx = TransX(locales_root="locales")
     
     # 测试不同语言的翻译
-    languages = ['en_US', 'zh_CN', 'ja_JP', 'ko_KR']
+    languages = ["en_US", "zh_CN", "ja_JP", "ko_KR"]
     
     for lang in languages:
         # 切换语言
