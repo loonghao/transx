@@ -1,0 +1,99 @@
+[tool.poetry]
+name = "transx"
+version = "0.0.1"
+description = "A lightweight, zero-dependency Python library for internationalization and translation management."
+authors = ["longhao <hal.long@outlook.com>"]
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 2.7",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+
+[tool.poetry.dependencies]
+python = ">=2.7,<4.0"
+
+[tool.poetry.scripts]
+transx = "transx.cli:cli"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test"]
+python_functions = ["test_*"]
+addopts = "--verbose --cov=transx --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["transx"]
+omit = [
+    "*/tests/*",
+    "setup.py"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError"
+]
+
+[tool.flake8]
+max-line-length = 100
+exclude = [".git", "__pycache__", "build", "dist"]
+ignore = ["E203", "W503"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+
+[tool.nox]
+sessions = ["tests", "lint", "type_check"]
+python = ["2.7", "3.7", "3.8", "3.9", "3.10", "3.11"]
+reuse_existing_virtualenvs = true
+stop_on_first_error = true
+
+[tool.nox.session.tests]
+deps = [
+    "pytest>=4.6.0",
+    "pytest-cov>=2.6.0",
+    "coverage>=4.5.0"
+]
+commands = [
+    "pytest {posargs:tests}"
+]
+
+[tool.nox.session.lint]
+deps = [
+    "flake8>=3.9.0",
+    "flake8-docstrings>=1.6.0",
+    "isort>=5.0.0"
+]
+commands = [
+    "flake8 transx tests",
+    "isort --check-only --diff transx tests"
+]
+
+[tool.nox.session.type_check]
+python = ["3.7", "3.8", "3.9", "3.10", "3.11"]  # Type checking only for Python 3
+deps = [
+    "mypy>=0.910",
+    "types-setuptools"
+]
+commands = [
+    "mypy transx"
+]
