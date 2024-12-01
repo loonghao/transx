@@ -19,24 +19,24 @@ def sample_source_dir(tmp_path):
     
     # 创建主应用文件
     app_py = source_dir / "app.py"
-    app_py.write_text('''
+    app_py.write_text("""
 from transx import tr
 
 def main():
     print(tr("Hello"))
     print(tr("Welcome", context="greeting"))
     print(tr("Goodbye {name}!", name="John"))
-''')
+""")
     
     # 创建另一个模块文件
     utils_py = source_dir / "utils.py"
-    utils_py.write_text('''
+    utils_py.write_text("""
 from transx import tr
 
 def show_messages():
     print(tr("Loading...", context="status"))
     print(tr("Error: {msg}", context="error"))
-''')
+""")
     
     return str(source_dir)
 
@@ -44,7 +44,7 @@ def run_cli(*args):
     """Helper function to run CLI commands in tests."""
     old_sys_argv = sys.argv
     try:
-        sys.argv = ['transx'] + list(args)
+        sys.argv = ["transx"] + list(args)
         return main()
     finally:
         sys.argv = old_sys_argv
@@ -55,11 +55,11 @@ def test_extract_command(sample_source_dir, tmp_path):
     
     # 运行提取命令
     exit_code = run_cli(
-        'extract',
+        "extract",
         sample_source_dir,
-        '--output', str(output_pot),
-        '--project', 'Test Project',
-        '--version', '1.0'
+        "--output", str(output_pot),
+        "--project", "Test Project",
+        "--version", "1.0"
     )
     
     # 验证命令执行成功
@@ -70,8 +70,8 @@ def test_extract_command(sample_source_dir, tmp_path):
     pot_content = output_pot.read_text(encoding=DEFAULT_CHARSET)
     
     # 验证元数据
-    assert 'Project-Id-Version: Test Project 1.0' in pot_content
-    assert 'Content-Type: text/plain; charset={0}'.format(DEFAULT_CHARSET) in pot_content
+    assert "Project-Id-Version: Test Project 1.0" in pot_content
+    assert "Content-Type: text/plain; charset={0}".format(DEFAULT_CHARSET) in pot_content
     
     # 验证消息条目
     assert 'msgid "Hello"' in pot_content
@@ -87,7 +87,7 @@ def test_update_command(tmp_path):
     """Test the update command for creating/updating PO files."""
     # 创建示例POT文件
     messages_pot = tmp_path / "messages.pot"
-    messages_pot.write_text('''msgid ""
+    messages_pot.write_text("""msgid ""
 msgstr ""
 "Project-Id-Version: Test Project\\n"
 "Content-Type: text/plain; charset={0}\\n"
@@ -98,14 +98,14 @@ msgstr ""
 msgctxt "greeting"
 msgid "Welcome"
 msgstr ""
-'''.format(DEFAULT_CHARSET))
+""".format(DEFAULT_CHARSET))
     
     # 运行更新命令
     exit_code = run_cli(
-        'update',
+        "update",
         str(messages_pot),
-        'en', 'zh_CN',
-        '--output-dir', str(tmp_path)
+        "en", "zh_CN",
+        "--output-dir", str(tmp_path)
     )
     
     # 验证命令执行成功
@@ -121,8 +121,8 @@ msgstr ""
     po_content = en_po.read_text(encoding=DEFAULT_CHARSET)
     
     # 验证元数据
-    assert 'Language: en' in po_content
-    assert 'Content-Type: text/plain; charset={0}'.format(DEFAULT_CHARSET) in po_content
+    assert "Language: en" in po_content
+    assert "Content-Type: text/plain; charset={0}".format(DEFAULT_CHARSET) in po_content
     
     # 验证消息条目
     assert 'msgid "Hello"' in po_content
@@ -135,7 +135,7 @@ def test_compile_command(tmp_path):
     po_dir = tmp_path / "en" / "LC_MESSAGES"
     po_dir.mkdir(parents=True)
     po_file = po_dir / (DEFAULT_MESSAGES_DOMAIN + PO_FILE_EXTENSION)
-    po_file.write_text('''msgid ""
+    po_file.write_text("""msgid ""
 msgstr ""
 "Content-Type: text/plain; charset={0}\\n"
 "Language: en\\n"
@@ -146,10 +146,10 @@ msgstr "Hello"
 msgctxt "greeting"
 msgid "Welcome"
 msgstr "Welcome"
-'''.format(DEFAULT_CHARSET))
+""".format(DEFAULT_CHARSET))
     
     # 运行编译命令
-    exit_code = run_cli('compile', str(po_file))
+    exit_code = run_cli("compile", str(po_file))
     
     # 验证命令执行成功
     assert exit_code == 0
@@ -158,17 +158,17 @@ msgstr "Welcome"
 
 def test_extract_invalid_path(tmp_path):
     """Test extract command with non-existent path."""
-    exit_code = run_cli('extract', '/nonexistent/path')
+    exit_code = run_cli("extract", "/nonexistent/path")
     assert exit_code == 1
 
 def test_update_invalid_pot(tmp_path):
     """Test update command with non-existent POT file."""
-    exit_code = run_cli('update', '/nonexistent/messages.pot', 'en')
+    exit_code = run_cli("update", "/nonexistent/messages.pot", "en")
     assert exit_code == 1
 
 def test_compile_invalid_po(tmp_path):
     """Test compile command with non-existent PO file."""
-    exit_code = run_cli('compile', '/nonexistent/messages.po')
+    exit_code = run_cli("compile", "/nonexistent/messages.po")
     assert exit_code == 1
 
 def test_no_command():

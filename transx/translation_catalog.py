@@ -1,7 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """Translation catalog functionality."""
-from __future__ import absolute_import, unicode_literals, print_function, division
 
 # Import built-in modules
 import re
@@ -46,12 +44,12 @@ class TranslationCatalog:
             text = text.decode(self.charset)
             
         # Remove punctuation and whitespace
-        text = re.sub(r'[^\w\s]', '', text.lower())
+        text = re.sub(r"[^\w\s]", "", text.lower())
         # Normalize whitespace
-        text = re.sub(r'\s+', ' ', text).strip()
+        text = re.sub(r"\s+", " ", text).strip()
         return text
 
-    def add_message(self, msgid, msgstr='', context=None, is_plural=False):
+    def add_message(self, msgid, msgstr="", context=None, is_plural=False):
         """Add a message to the catalog."""
         # Ensure strings are unicode in both Python 2 and 3
         if isinstance(msgid, binary_type):
@@ -61,7 +59,7 @@ class TranslationCatalog:
         
         # Add context separator if context is provided
         if context:
-            msgid = context + '\x04' + msgid
+            msgid = context + "\x04" + msgid
             
         self._messages[msgid] = (msgstr, context, is_plural)
         

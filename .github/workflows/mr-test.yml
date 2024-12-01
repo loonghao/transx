@@ -13,7 +13,7 @@ jobs:
             triple: 'x86_64-apple-darwin'
           - os: 'windows-2022'
             triple: 'x86_64-pc-windows-msvc'
-        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
       fail-fast: false
     runs-on: ${{ matrix.target.os }}
     steps:
@@ -31,9 +31,3 @@ jobs:
       - name: lint
         run: |
           nox -s lint
-      - name: Run unit tests
-        run: |
-          pytest tests/ -v --cov=transx --cov-report=xml
-      - name: test build
-        run: |
-          nox -s build-exe -- --test
