@@ -1,6 +1,6 @@
 # 🌏 TransX
 
-🚀 A lightweight, zero-dependency Python internationalization library that supports Python 3.7 through 3.12.
+🚀 A lightweight, zero-dependency Python internationalization library that supports Python 2.7 through 3.12.
 
 <div align="center">
 
@@ -22,20 +22,20 @@
 
 <div align="center">
 
-| Feature | Description |
-|---------|-------------|
-| 🚀 Zero Dependencies | No external dependencies required |
-| 🐍 Python Support | Full support for Python 3.7-3.12 |
+| Feature | Description                                |
+|---------|--------------------------------------------|
+| 🚀 Zero Dependencies | No external dependencies required          |
+| 🐍 Python Support | Full support for Python 2.7-3.12           |
 | 🌍 Context-based | Accurate translations with context support |
-| 📦 Standard Format | Compatible with gettext .po/.mo files |
-| 🎯 Simple API | Clean and intuitive interface |
-| 🔄 Auto Management | Automatic translation file handling |
-| 🔍 String Extraction | Built-in source code string extraction |
-| 🌐 Unicode | Complete Unicode support |
-| 🔠 Parameters | Dynamic parameter substitution |
-| ⚡ Performance | High-speed and thread-safe operations |
-| 🛡️ Error Handling | Comprehensive error management |
-| 🧪 Testing | Extensive test coverage |
+| 📦 Standard Format | Compatible with gettext .po/.mo files      |
+| 🎯 Simple API | Clean and intuitive interface              |
+| 🔄 Auto Management | Automatic translation file handling        |
+| 🔍 String Extraction | Built-in source code string extraction     |
+| 🌐 Unicode | Complete Unicode support                   |
+| 🔠 Parameters | Dynamic parameter substitution             |
+| ⚡ Performance | High-speed and thread-safe operations      |
+| 🛡️ Error Handling | Comprehensive error management             |
+| 🧪 Testing | Extensive test coverage                    |
 
 </div>
 
@@ -66,7 +66,27 @@ print(tx.tr('Open', context='menu'))    # Output: 打开文件
 # Translation with parameters
 print(tx.tr('Hello {name}!', name='张三'))  # Output: 你好 张三！
 ```
+### 🛠️ Advanced API Usage
 
+```python
+from transx.api.pot import PotExtractor
+from transx.api.po import POFile
+from transx.api.mo import compile_po_file
+
+# Extract messages from source code
+extractor = PotExtractor("messages.pot")
+extractor.extract_from_file("app.py")
+extractor.save()
+
+# Create/Update PO file
+po = POFile("zh_CN/LC_MESSAGES/messages.po", locale="zh_CN")
+po.add_translation("Hello", "你好")
+po.add_translation("Welcome", "欢迎", context="greeting")
+po.save()
+
+# Compile PO to MO
+compile_po_file("zh_CN/LC_MESSAGES/messages.po", "zh_CN/LC_MESSAGES/messages.mo")
+```
 ## 🛠️ Command Line Interface
 
 TransX comes with powerful CLI tools for translation management:
