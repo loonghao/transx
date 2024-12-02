@@ -8,6 +8,9 @@ import sys
 # Import third-party modules
 import pytest
 
+# Import local modules
+from transx.constants import DEFAULT_CHARSET
+
 
 logger = logging.getLogger(__name__)
 
@@ -31,109 +34,92 @@ def makedirs(path):
 # Basic Translation Tests
 def test_basic_translation(transx_instance):
     """Test basic translation without context."""
-    assert transx_instance.tr("Hello") == "你好"
-    assert transx_instance.tr("Goodbye") == "再见"
+    assert isinstance(transx_instance.tr("Hello"), text_type)
+    assert transx_instance.tr("Hello") == text_type("你好")
+    assert transx_instance.tr("Goodbye") == text_type("再见")
 
 
 def test_translation_with_context(transx_instance):
     """Test translations with different contexts."""
-    assert transx_instance.tr("Open", context="button") == "打开"
-    assert transx_instance.tr("Open", context="menu") == "打开文件"
-    assert transx_instance.tr("Welcome", context="home") == "欢迎回来"
-    assert transx_instance.tr("Welcome", context="login") == "欢迎登录"
+    assert transx_instance.tr("Open", context="button") == text_type("打开")
+    assert transx_instance.tr("Open", context="menu") == text_type("打开文件")
+    assert transx_instance.tr("Welcome", context="home") == text_type("欢迎回来")
+    assert transx_instance.tr("Welcome", context="login") == text_type("欢迎登录")
 
 
 def test_translation_with_parameters(transx_instance):
     """Test translations with parameter substitution."""
-    name = "Alice"
-    filename = "test.txt"
-    assert transx_instance.tr("Hello {name}", name=name) == "你好 {}".format(name)
-    assert transx_instance.tr("File {filename} saved", filename=filename) == "文件 {} 已保存".format(filename)
+    name = text_type("Alice")
+    filename = text_type("test.txt")
+    assert transx_instance.tr("Hello {name}", name=name) == text_type("你好 {}").format(name)
+    assert transx_instance.tr("File {filename} saved", filename=filename) == text_type("文件 {} 已保存").format(filename)
 
 
-# Edge Cases and Error Handling
 def test_missing_translation(transx_instance):
     """Test behavior when translation is missing."""
-    missing_text = "This text has no translation"
-    assert transx_instance.tr(missing_text) == missing_text
+    missing_text = "This text does not exist in translations"
+    assert transx_instance.tr(missing_text) == text_type(missing_text)
 
 
 def test_empty_string_translation(transx_instance):
     """Test translation of empty string."""
-    assert transx_instance.tr("") == ""
+    assert transx_instance.tr("") == text_type("")
 
 
 def test_none_input(transx_instance):
     """Test handling of None input."""
-    with pytest.raises((ValueError, TypeError)):
+    with pytest.raises(ValueError):
         transx_instance.tr(None)
+
 
 # Locale Management Tests
 def test_locale_switching(transx_instance):
     """Test switching between locales."""
-    original_text = transx_instance.tr("Hello")
-    assert original_text == "你好"
-
-    # Create test locales directory structure
-    locales_dir = os.path.join(os.path.dirname(__file__), "data", "locales")
-    en_us_dir = os.path.join(locales_dir, "en_US", "LC_MESSAGES")
-    makedirs(en_us_dir)
-
-    # Create test MO file
-    # Import local modules
-    from transx.api.mo import compile_po_file
-    from transx.api.po import POFile
-    po_file = os.path.join(en_us_dir, "messages.po")
-    mo_file = os.path.join(en_us_dir, "messages.mo")
-
-    po = POFile(po_file)
-    po.add_translation("Hello", "Hello")
-    po.save()
-    compile_po_file(po_file, mo_file)
-
-    try:
-        transx_instance.current_locale = "en_US"
-        assert transx_instance.tr("Hello") == "Hello"
-    finally:
-        transx_instance.current_locale = "zh_CN"
-        assert transx_instance.tr("Hello") == "你好"
-
+    # Default locale
+    assert transx_instance.tr("Hello") == text_type("你好")
+    
+    # Non-existent locale should use fallback behavior
+    transx_instance.current_locale = "fr_FR"
+    assert transx_instance.tr("Hello") == text_type("Hello")
+    
+    # Switch back to zh_CN
+    transx_instance.current_locale ="zh_CN"
+    assert transx_instance.tr("Hello") == text_type("你好")
 
 
 # Unicode and Encoding Tests
 def test_unicode_handling(transx_instance):
     """Test handling of unicode characters."""
-    result = transx_instance.tr("Hello")
-    assert result == "你好"
-    assert isinstance(result, text_type)
+    assert isinstance(transx_instance.tr("Hello\nWorld"), text_type)
+    assert transx_instance.tr("Hello\nWorld") == text_type("你好\n世界")
+    assert transx_instance.tr("Tab\there") == text_type("制表符\t在这里")
 
 
 def test_string_operations(transx_instance):
     """Test string operations across Python versions."""
-    result = transx_instance.tr("Hello")
-    assert isinstance(result, text_type)
-    assert result == "你好"
+    text = transx_instance.tr("Hello")
+    assert isinstance(text, text_type)
+    assert text.encode(DEFAULT_CHARSET).decode(DEFAULT_CHARSET) == text
 
 
-@pytest.mark.skipif(PY2, reason="Unicode string handling differs in Python 2")
+@pytest.mark.skipif(PY2, reason="Python 3 specific unicode test")
 def test_unicode_py3(transx_instance):
     """Test Python 3 specific unicode handling."""
-    result = transx_instance.tr("Hello")
-    assert isinstance(result, str)
-    assert result == "你好"
-
-
+    text = transx_instance.tr("Hello")
+    assert isinstance(text, str)
+    assert isinstance(text.encode(), bytes)
+    assert isinstance(text.encode().decode(), str)
 
 
 # Context Management Tests
 def test_empty_context(transx_instance):
     """Test handling of empty context."""
-    assert transx_instance.tr("Hello", context="") == transx_instance.tr("Hello")
+    assert transx_instance.tr("Hello", context="") == text_type("你好")
 
 
 def test_none_context(transx_instance):
     """Test handling of None context."""
-    assert transx_instance.tr("Hello", context=None) == transx_instance.tr("Hello")
+    assert transx_instance.tr("Hello", context=None) == text_type("你好")
 
 
 def test_invalid_context_type(transx_instance):
@@ -142,11 +128,6 @@ def test_invalid_context_type(transx_instance):
         transx_instance.tr("Hello", context=123)
 
 
-# Cleanup any resources if needed
 def teardown_module(module):
     """Clean up any resources after all tests have run."""
-    test_locales = os.path.join(os.path.dirname(__file__), "data", "locales")
-    if os.path.exists(test_locales):
-        # Import built-in modules
-        import shutil
-        shutil.rmtree(test_locales)
+    pass

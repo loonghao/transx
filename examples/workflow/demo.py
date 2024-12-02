@@ -27,6 +27,13 @@ def test_error_messages(tx):
     print(tx.tr("Invalid input: {input}", input="abc123"))
     print(tx.tr("Operation failed: {reason}", reason="timeout"))
 
+def test_unicode_handling(tx):
+    """Test unicode handling."""
+    print("\n=== Unicode Handling ===")
+    print(tx.tr("Hello\nWorld"))
+    print(tx.tr("Tab\there"))
+
+
 def main():
     # Initialize TransX instance with language pack directory
     tx = TransX(locales_root="locales", strict_mode=True)
@@ -47,6 +54,7 @@ def main():
         test_basic_translations(tx)
         test_workflow_messages(tx)
         test_error_messages(tx)
+        test_unicode_handling(tx)
 
 if __name__ == "__main__":
     main()

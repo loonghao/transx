@@ -14,6 +14,12 @@ msgctxt "error"
 msgid "Error: {msg}"
 msgstr ""
 
+msgid "Hello\nWorld"
+msgstr "你好\n世界"
+
+msgid "Tab\there"
+msgstr "制表符\t在这里"
+
 msgid "Hello"
 msgstr ""
 

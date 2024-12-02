@@ -9,6 +9,7 @@ import sys
 
 # Import local modules
 from transx.constants import DEFAULT_CHARSET
+from transx.api.po import POFile  # Import POFile class
 
 
 # Python 2 and 3 compatibility
@@ -26,65 +27,10 @@ def _unescape(string):
     """Unescape a string using string literal evaluation."""
     try:
         # First try to handle it as a regular string
-        return eval('"""' + string + '"""')
+        return eval('"""' + string + '"""', {"__builtins__": {}})
     except Exception:
         # If that fails, try to handle escapes manually
         return string.encode("raw_unicode_escape").decode("unicode_escape")
-
-def _read_po_file(po_file):
-    """Read a PO file and return a catalog of messages."""
-    catalog = {}
-    metadata = {}
-    current_msgid = []
-    current_msgstr = []
-    current_msgctxt = None
-
-    def _store_current():
-        if current_msgid:
-            msgid = "".join(current_msgid)
-            if not msgid:  # Metadata
-                msgstr = "".join(current_msgstr)
-                for item in msgstr.split("\\n"):
-                    if not item:
-                        continue
-                    try:
-                        key, val = item.split(":", 1)
-                        metadata[key.strip()] = val.strip()
-                    except ValueError:
-                        continue
-            else:
-                key = msgid
-                if current_msgctxt:
-                    key = current_msgctxt + "\x04" + msgid
-                catalog[key] = "".join(current_msgstr)
-
-    with open(po_file, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-
-            if line.startswith('msgctxt "'):
-                _store_current()
-                current_msgctxt = _unescape(line[9:-1])
-                current_msgid = []
-                current_msgstr = []
-            elif line.startswith('msgid "'):
-                _store_current()
-                current_msgid = [_unescape(line[7:-1])]
-                current_msgstr = []
-            elif line.startswith('msgstr "'):
-                current_msgstr = [_unescape(line[8:-1])]
-            elif line.startswith('"'):
-                if current_msgstr is not None:
-                    current_msgstr.append(_unescape(line[1:-1]))
-                elif current_msgid is not None:
-                    current_msgid.append(_unescape(line[1:-1]))
-
-    # Store the last message
-    _store_current()
-
-    return catalog, metadata
 
 def _read_mo_file(mo_file):
     """Read a MO file and return a catalog of messages."""
@@ -161,7 +107,7 @@ def _write_mo(fileobj, catalog, metadata):
 
     for key, val in sorted(metadata.items()):
         meta_str.append(f"{key}: {val}")
-    catalog[""] = "\n".join(meta_str) + "\n"
+    catalog[""] = "\n".join(meta_str) + "\n\n"  # Add two newlines for proper metadata format
 
     # Sort messages to ensure deterministic output
     messages = sorted(catalog.items())
@@ -227,14 +173,22 @@ class MOFile(gettext.GNUTranslations):
 def compile_po_file(po_file, mo_file):
     """Compile a PO file into MO format."""
     try:
-        # Read PO file
-        catalog, metadata = _read_po_file(po_file)
+        # Load PO file using POFile class
+        with POFile(po_file) as po:
+            # Convert PO file to MO format
+            catalog = {}
+            for entry in po.get_all_entries():
+                msgid = entry['msgid']
+                if entry['context'] is not None:
+                    # Handle context by adding context prefix
+                    msgid = f"{entry['context']}\x04{msgid}"
+                catalog[msgid] = entry['msgstr']
 
-        # Write MO file
-        with open(mo_file, "wb") as f:
-            _write_mo(f, catalog, metadata)
+            # Write MO file
+            with open(mo_file, "wb") as f:
+                _write_mo(f, catalog, po.metadata)
 
-        logger.info("Successfully compiled %s to %s", po_file, mo_file)
+            logger.info("Successfully compiled %s to %s", po_file, mo_file)
 
     except Exception as e:
         logger.error("Error compiling %s: %s", po_file, str(e))
