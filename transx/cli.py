@@ -1,6 +1,7 @@
 """Command-line interface for transx."""
 # Import built-in modules
 import argparse
+import errno
 import os
 import sys
 
@@ -100,11 +101,15 @@ def create_parser():
 def extract_command(args):
     """Execute extract command."""
     if not os.path.exists(args.source_path):
-        print(f"Error: Path does not exist: {args.source_path}", file=sys.stderr)
+        print("Error: Path does not exist: {}".format(args.source_path), file=sys.stderr)
         return 1
 
     # Ensure output directory exists
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
+    try:
+        os.makedirs(os.path.dirname(args.output))
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
 
     # Create POT extractor
     extractor = PotExtractor(args.output)
@@ -115,10 +120,10 @@ def extract_command(args):
             for file in files:
                 if file.endswith(".py"):
                     file_path = os.path.join(root, file)
-                    print(f"Scanning {file_path} for translatable messages...")
+                    print("Scanning {} for translatable messages...".format(file_path))
                     extractor.scan_file(file_path)
     else:
-        print(f"Scanning {args.source_path} for translatable messages...")
+        print("Scanning {} for translatable messages...".format(args.source_path))
         extractor.scan_file(args.source_path)
 
     # Save POT file
@@ -132,26 +137,39 @@ def extract_command(args):
     # Generate language files
     languages = args.languages.split(",") if args.languages else ["en", "zh_CN", "ja_JP", "ko_KR"]
     locales_dir = os.path.abspath(args.output_dir)
-    extractor.generate_language_files(languages, locales_dir)
-    print(f"POT file created and language files updated: {args.output}")
-    return 0
+    try:
+        extractor.generate_language_files(languages, locales_dir)
+        print("POT file created and language files updated: {}".format(args.output))
+        return 0
+    except Exception as e:
+        print("Error generating language files: {}".format(e), file=sys.stderr)
+        return 1
+
 
 def update_command(args):
     """Execute update command."""
     if not os.path.exists(args.pot_file):
-        print(f"Error: POT file not found: {args.pot_file}", file=sys.stderr)
+        print("Error: POT file not found: {}".format(args.pot_file), file=sys.stderr)
         return 1
 
     # Create POT extractor and load
     extractor = PotExtractor(args.pot_file)
-    extractor.messages.load(args.pot_file)
+    try:
+        extractor.messages.load(args.pot_file)
+    except Exception as e:
+        print("Error loading POT file: {}".format(e), file=sys.stderr)
+        return 1
 
     # Generate language files
     languages = args.languages.split(",") if args.languages else ["en", "zh_CN", "ja_JP", "ko_KR"]
     locales_dir = os.path.abspath(args.output_dir)
-    extractor.generate_language_files(languages, locales_dir)
-    print("Language files updated.")
-    return 0
+    try:
+        extractor.generate_language_files(languages, locales_dir)
+        print("Language files updated.")
+        return 0
+    except Exception as e:
+        print("Error updating language files: {}".format(e), file=sys.stderr)
+        return 1
 
 def compile_command(args):
     """Execute compile command."""
@@ -178,6 +196,10 @@ def main():
     """Main entry function."""
     parser = create_parser()
     args = parser.parse_args()
+
+    if not args.command:
+        parser.print_help()
+        sys.exit(1)
 
     if args.command == "extract":
         return extract_command(args)

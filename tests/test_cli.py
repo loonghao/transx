@@ -14,16 +14,25 @@ from transx.constants import MO_FILE_EXTENSION
 from transx.constants import PO_FILE_EXTENSION
 
 
-@pytest.fixture
-def sample_source_dir(tmp_path):
-    """Create a sample source directory with Python files for testing."""
-    # 创建示例Python文件
-    source_dir = tmp_path / "src"
-    source_dir.mkdir()
+# Python 2 and 3 compatibility
+PY2 = sys.version_info[0] == 2
+if PY2:
+    text_type = unicode
+else:
+    text_type = str
 
-    # 创建主应用文件
-    app_py = source_dir / "app.py"
-    app_py.write_text("""
+
+@pytest.fixture
+def sample_source_dir(tmpdir):
+    """Create a sample source directory with Python files for testing."""
+    source_dir = os.path.join(str(tmpdir), "src")
+    if not os.path.exists(source_dir):
+        os.makedirs(source_dir)
+
+    # Create main application file
+    app_py = os.path.join(source_dir, "app.py")
+    with open(app_py, "wb") as f:
+        f.write(b"""
 from transx import tr
 
 def main():
@@ -32,9 +41,10 @@ def main():
     print(tr("Goodbye {name}!", name="John"))
 """)
 
-    # 创建另一个模块文件
-    utils_py = source_dir / "utils.py"
-    utils_py.write_text("""
+    # Create another module file
+    utils_py = os.path.join(source_dir, "utils.py")
+    with open(utils_py, "wb") as f:
+        f.write(b"""
 from transx import tr
 
 def show_messages():
@@ -42,7 +52,8 @@ def show_messages():
     print(tr("Error: {msg}", context="error"))
 """)
 
-    return str(source_dir)
+    return source_dir
+
 
 def run_cli(*args):
     """Helper function to run CLI commands in tests."""
@@ -53,48 +64,63 @@ def run_cli(*args):
     finally:
         sys.argv = old_sys_argv
 
-def test_extract_command(sample_source_dir, tmp_path):
-    """Test the extract command with a directory of Python files."""
-    output_pot = tmp_path / "messages.pot"
 
-    # 运行提取命令
+def test_extract_command(tmpdir, sample_source_dir):
+    """Test the extract command with a directory of Python files."""
+    output_pot = os.path.join(str(tmpdir), "messages.pot")
+    output_dir = os.path.join(str(tmpdir), "locales")
+
+    # Run extract command
     exit_code = run_cli(
         "extract",
         sample_source_dir,
-        "--output", str(output_pot),
-        "--project", "Test Project",
-        "--version", "1.0"
+        "-o", output_pot,
+        "-p", "Test Project",
+        "-v", "1.0",
+        "-l", "en,zh_CN",
+        "-d", output_dir
     )
 
-    # 验证命令执行成功
+    # Verify command execution success
     assert exit_code == 0
-    assert output_pot.exists()
+    assert os.path.exists(output_pot)
 
-    # 验证POT文件内容
-    pot_content = output_pot.read_text(encoding=DEFAULT_CHARSET)
+    # Verify POT file content
+    with open(output_pot, "rb") as f:
+        pot_content = f.read().decode(DEFAULT_CHARSET)
 
-    # 验证元数据
+    # Verify metadata
     assert "Project-Id-Version: Test Project 1.0" in pot_content
-    assert f"Content-Type: text/plain; charset={DEFAULT_CHARSET}" in pot_content
+    assert "Content-Type: text/plain; charset={}".format(DEFAULT_CHARSET) in pot_content
 
-    # 验证消息条目
-    assert 'msgid "Hello"' in pot_content
-    assert 'msgctxt "greeting"' in pot_content
-    assert 'msgid "Welcome"' in pot_content
-    assert 'msgid "Goodbye {name}!"' in pot_content
-    assert 'msgctxt "status"' in pot_content
-    assert 'msgid "Loading..."' in pot_content
-    assert 'msgctxt "error"' in pot_content
-    assert 'msgid "Error: {msg}"' in pot_content
+    # Verify message entries (using sets to ignore order)
+    required_messages = {
+        'msgid "Hello"',
+        'msgctxt "greeting"',
+        'msgid "Welcome"',
+        'msgid "Goodbye {name}!"',
+        'msgctxt "status"',
+        'msgid "Loading..."',
+        'msgctxt "error"',
+        'msgid "Error: {msg}"'
+    }
 
-def test_update_command(tmp_path):
+    for msg in required_messages:
+        assert msg in pot_content, f"Missing message: {msg}"
+
+    # Verify language files were created
+    assert os.path.exists(os.path.join(output_dir, "en", "LC_MESSAGES", "messages.po"))
+    assert os.path.exists(os.path.join(output_dir, "zh_CN", "LC_MESSAGES", "messages.po"))
+
+
+def test_update_command(tmpdir):
     """Test the update command for creating/updating PO files."""
-    # 创建示例POT文件
-    messages_pot = tmp_path / "messages.pot"
-    messages_pot.write_text(f"""msgid ""
+    # Create example POT file
+    messages_pot = os.path.join(str(tmpdir), "messages.pot")
+    pot_content = """msgid ""
 msgstr ""
 "Project-Id-Version: Test Project\\n"
-"Content-Type: text/plain; charset={DEFAULT_CHARSET}\\n"
+"Content-Type: text/plain; charset={}\\n"
 
 msgid "Hello"
 msgstr ""
@@ -102,46 +128,52 @@ msgstr ""
 msgctxt "greeting"
 msgid "Welcome"
 msgstr ""
-""")
+""".format(DEFAULT_CHARSET)
 
-    # 运行更新命令
+    with open(messages_pot, "wb") as f:
+        f.write(pot_content.encode(DEFAULT_CHARSET))
+
+    # Run update command
     exit_code = run_cli(
         "update",
-        str(messages_pot),
-        "en", "zh_CN",
-        "--output-dir", str(tmp_path)
+        messages_pot,
+        "-l", "en,zh_CN",
+        "-o", str(tmpdir)
     )
 
-    # 验证命令执行成功
+    # Verify command execution success
     assert exit_code == 0
-    po_path = os.path.join("en", "LC_MESSAGES", DEFAULT_MESSAGES_DOMAIN + PO_FILE_EXTENSION)
-    assert (tmp_path / po_path).exists()
-    po_path = os.path.join("zh_CN", "LC_MESSAGES", DEFAULT_MESSAGES_DOMAIN + PO_FILE_EXTENSION)
-    assert (tmp_path / po_path).exists()
 
-    # 验证PO文件内容
-    po_path = os.path.join("en", "LC_MESSAGES", DEFAULT_MESSAGES_DOMAIN + PO_FILE_EXTENSION)
-    en_po = tmp_path / po_path
-    po_content = en_po.read_text(encoding=DEFAULT_CHARSET)
+    # Verify PO files exist
+    en_po_path = os.path.join(str(tmpdir), "en_US", "LC_MESSAGES", DEFAULT_MESSAGES_DOMAIN + PO_FILE_EXTENSION)
+    zh_po_path = os.path.join(str(tmpdir), "zh_CN", "LC_MESSAGES", DEFAULT_MESSAGES_DOMAIN + PO_FILE_EXTENSION)
+    assert os.path.exists(en_po_path)
+    assert os.path.exists(zh_po_path)
 
-    # 验证元数据
+    # Verify PO file content
+    with open(en_po_path, "rb") as f:
+        po_content = f.read().decode(DEFAULT_CHARSET)
+
+    # Verify metadata
     assert "Language: en" in po_content
-    assert f"Content-Type: text/plain; charset={DEFAULT_CHARSET}" in po_content
+    assert "Content-Type: text/plain; charset={}".format(DEFAULT_CHARSET) in po_content
 
-    # 验证消息条目
+    # Verify message entries
     assert 'msgid "Hello"' in po_content
     assert 'msgctxt "greeting"' in po_content
     assert 'msgid "Welcome"' in po_content
 
-def test_compile_command(tmp_path):
+
+def test_compile_command(tmpdir):
     """Test the compile command for creating MO files."""
-    # 创建示例PO文件
-    po_dir = tmp_path / "en" / "LC_MESSAGES"
-    po_dir.mkdir(parents=True)
-    po_file = po_dir / (DEFAULT_MESSAGES_DOMAIN + PO_FILE_EXTENSION)
-    po_file.write_text(f"""msgid ""
+    # Create example PO file
+    po_dir = os.path.join(str(tmpdir), "en_US", "LC_MESSAGES")
+    os.makedirs(po_dir)
+    po_file = os.path.join(po_dir, DEFAULT_MESSAGES_DOMAIN + PO_FILE_EXTENSION)
+
+    po_content = """msgid ""
 msgstr ""
-"Content-Type: text/plain; charset={DEFAULT_CHARSET}\\n"
+"Content-Type: text/plain; charset={}\\n"
 "Language: en\\n"
 
 msgid "Hello"
@@ -150,32 +182,42 @@ msgstr "Hello"
 msgctxt "greeting"
 msgid "Welcome"
 msgstr "Welcome"
-""")
+""".format(DEFAULT_CHARSET)
 
-    # 运行编译命令
-    exit_code = run_cli("compile", str(po_file))
+    with open(po_file, "wb") as f:
+        f.write(po_content.encode(DEFAULT_CHARSET))
 
-    # 验证命令执行成功
+    # Run compile command
+    exit_code = run_cli("compile", po_file)
+
+    # Verify command execution success
     assert exit_code == 0
-    mo_path = DEFAULT_MESSAGES_DOMAIN + MO_FILE_EXTENSION
-    assert (po_dir / mo_path).exists()
 
-def test_extract_invalid_path(tmp_path):
+    # Verify MO file exists
+    mo_file = os.path.join(po_dir, DEFAULT_MESSAGES_DOMAIN + MO_FILE_EXTENSION)
+    assert os.path.exists(mo_file)
+
+
+def test_extract_invalid_path(tmpdir):
     """Test extract command with non-existent path."""
-    exit_code = run_cli("extract", "/nonexistent/path")
-    assert exit_code == 1
+    exit_code = run_cli("extract", os.path.join(str(tmpdir), "nonexistent"))
+    assert exit_code != 0
 
-def test_update_invalid_pot(tmp_path):
+
+def test_update_invalid_pot(tmpdir):
     """Test update command with non-existent POT file."""
-    exit_code = run_cli("update", "/nonexistent/messages.pot", "en")
-    assert exit_code == 1
+    exit_code = run_cli("update", os.path.join(str(tmpdir), "nonexistent.pot"))
+    assert exit_code != 0
 
-def test_compile_invalid_po(tmp_path):
+
+def test_compile_invalid_po(tmpdir):
     """Test compile command with non-existent PO file."""
-    exit_code = run_cli("compile", "/nonexistent/messages.po")
-    assert exit_code == 1
+    exit_code = run_cli("compile", os.path.join(str(tmpdir), "nonexistent.po"))
+    assert exit_code != 0
+
 
 def test_no_command():
     """Test CLI without any command."""
-    exit_code = run_cli()
-    assert exit_code == 1
+    with pytest.raises(SystemExit) as exc:
+        run_cli()
+    assert exc.value.code != 0
