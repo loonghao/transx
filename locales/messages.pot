@@ -1,0 +1,18 @@
+# Translation template for Workflow Demo.
+# Copyright (C) 2024 TransX
+# This file is distributed under the same license as the Workflow Demo project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Content-Transfer-Encoding: 8bit\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: \n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"POT-Creation-Date: 2024-12-02 23:14\n"
+"Project-Id-Version: Workflow Demo 1.0\n"
+"Report-Msgid-Bugs-To: transx@example.com\n"

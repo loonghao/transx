@@ -6,11 +6,13 @@ import sys
 
 # Import local modules
 from transx.api.po import POFile
+from transx.api.pot import PotExtractor
+from transx.api.message import Message
 from transx.constants import DEFAULT_LOCALE
 from transx.constants import INVALID_LANGUAGE_CODE_ERROR
 from transx.constants import LANGUAGE_CODES
 from transx.constants import LANGUAGE_CODE_ALIASES
-
+from transx.api.locale import normalize_locale
 
 # Python 2 and 3 compatibility
 PY2 = sys.version_info[0] == 2
@@ -21,9 +23,6 @@ else:
     ABC = abc.ABC
     text_type = str
 
-# Set up logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
 
 class Translator(ABC):
     """Base class for translation API."""
@@ -43,65 +42,6 @@ def ensure_dir(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
-def normalize_locale(locale):
-    """Normalize language code format.
-
-    Convert various language code formats to standard format (e.g., 'zh-CN' -> 'zh_CN').
-    Supported formats include:
-    - ISO 639-1 language codes (e.g., 'en')
-    - ISO 3166-1 country/region codes (e.g., 'zh_CN')
-    - Common non-standard codes (e.g., 'cn' -> 'zh_CN')
-
-    Args:
-        locale (str): Language code (e.g., 'zh-CN', 'zh_cn', 'zh')
-
-    Returns:
-        str: Normalized language code (e.g., 'zh_CN')
-
-    Raises:
-        ValueError: If an invalid language code is provided
-
-    """
-    if not locale:
-        return DEFAULT_LOCALE
-
-    # Remove all whitespace and convert to lowercase
-    normalized = locale.strip().lower()
-
-    # Check if it's a standard code
-    if normalized in LANGUAGE_CODES:
-        return normalized
-
-    # Check if it's an alias
-    if normalized in LANGUAGE_CODE_ALIASES:
-        return LANGUAGE_CODE_ALIASES[normalized]
-
-    # If the code contains a separator, try to normalize the format
-    if "-" in normalized or "_" in normalized:
-        parts = normalized.replace("-", "_").split("_")
-        if len(parts) == 2:
-            lang, region = parts
-            # Build a possible standard code
-            possible_code = f"{lang}_{region.upper()}"
-            if possible_code in LANGUAGE_CODES:
-                return possible_code
-
-    # If no matching code is found, generate an error message
-    valid_codes = "\n".join(
-        "- {} ({}): {}".format(
-            code,
-            name,
-            ", ".join(["'" + a + "'" for a in aliases])
-        )
-        for code, (name, aliases) in sorted(LANGUAGE_CODES.items())
-    )
-
-    raise ValueError(
-        INVALID_LANGUAGE_CODE_ERROR.format(
-            code=locale,
-            valid_codes=valid_codes
-        )
-    )
 
 def translate_po_file(po_file_path, translator=None):
     """Translate a PO file using the specified translator.
@@ -110,6 +50,7 @@ def translate_po_file(po_file_path, translator=None):
         po_file_path (str): Path to the PO file
         translator (Translator, optional): Translator instance to use
     """
+    logger = logging.getLogger(__name__)
     if translator is None:
         translator = DummyTranslator()
 
@@ -133,7 +74,9 @@ def translate_po_file(po_file_path, translator=None):
                 try:
                     logger.debug("Translating: %s", entry['msgid'])
                     translation = translator.translate(entry['msgid'], target_lang=lang)
-                    po.translations[(entry['msgid'], entry['context'])] = translation
+                    # Create a new Message object with the translation
+                    message = Message(msgid=entry['msgid'], msgstr=translation, context=entry['context'])
+                    po.translations[(entry['msgid'], entry['context'])] = message
                 except Exception as e:
                     logger.error("Failed to translate '%s': %s", entry['msgid'], str(e))
 
@@ -152,6 +95,7 @@ def translate_pot_file(pot_file_path, languages, output_dir=None, translator=Non
         output_dir (str, optional): Output directory for PO files
         translator (Translator, optional): Translator instance to use
     """
+    logger = logging.getLogger(__name__)
     if translator is None:
         translator = DummyTranslator()
 
@@ -166,7 +110,7 @@ def translate_pot_file(pot_file_path, languages, output_dir=None, translator=Non
     ensure_dir(output_dir)
 
     # Load POT file and process translations
-    with POFile(pot_file_path) as pot:
+    with PotExtractor(pot_file=pot_file_path) as pot:
         # Normalize language codes and create PO files
         for lang in languages:
             lang = normalize_locale(lang)
@@ -181,5 +125,5 @@ def translate_pot_file(pot_file_path, languages, output_dir=None, translator=Non
 
             # Create and translate PO file
             logger.info("Generating PO file: %s", po_file)
-            pot.generate_language_files([lang], output_dir)
+            pot.create_language_catalogs([lang], output_dir)
             translate_po_file(po_file, translator)

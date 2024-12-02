@@ -40,7 +40,7 @@ def setup_translations(locales_dir, translations):
 
     # Add translations
     for (msgid, context), msgstr in translations[locale].items():
-        po.add_translation(msgid, msgstr=msgstr, context=context)
+        po.add(msgid, msgstr=msgstr, context=context)
     po.save()
 
     # Compile PO to MO

@@ -1,0 +1,62 @@
+msgid ""
+msgstr ""
+"Content-Transfer-Encoding: 8bit\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Generated-By: TransX\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Project-Id-Version: TransX 1.0\n"
+
+msgid "Hello"
+msgstr "你好"
+
+msgid "Welcome {name}"
+msgstr "欢迎 {name}"
+
+msgid "Current language is {lang}"
+msgstr "当前语言是{lang}"
+
+msgid "Starting workflow"
+msgstr "启动工作流程"
+
+msgid "Processing file {filename}"
+msgstr "正在处理文件 {filename}"
+
+msgid "Workflow completed"
+msgstr "工作流程已完成"
+
+msgid "Validating input data"
+msgstr "验证输入数据"
+
+msgid "Analyzing results"
+msgstr "分析结果"
+
+msgid "Task completed successfully"
+msgstr "任务已成功完成"
+
+msgid "Error: File not found"
+msgstr "错误：未找到文件"
+
+msgid "Warning: Low disk space"
+msgstr "警告：磁盘空间不足"
+
+msgid "Invalid input: {input}"
+msgstr "无效输入：{input}"
+
+msgid "Operation failed: {reason}"
+msgstr "操作失败：{reason}"
+
+msgid "Hello\\nWorld"
+msgstr "你好\\n世界"
+
+msgid "Tab\\there"
+msgstr "Tab\\there"
+
+msgid "Tab\\there!"
+msgstr "卡在那里！"
+
+msgid "Path to the file: \"C:\\Program Files\\MyApp\""
+msgstr "文件路径：“C:\\Program Files\\MyApp”"
+

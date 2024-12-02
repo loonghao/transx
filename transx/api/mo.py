@@ -1,195 +1,253 @@
 #!/usr/bin/env python
 """MO file format handler for TransX."""
+from __future__ import unicode_literals
 
-# Import built-in modules
-import gettext
-import logging
 import struct
-import sys
+from collections import OrderedDict
+import re
 
-# Import local modules
+from transx.api.po import POFile, Message
 from transx.constants import DEFAULT_CHARSET
-from transx.api.po import POFile  # Import POFile class
+from transx.compat import ensure_unicode, is_string
 
+class MOFile:
+    """Class representing a MO file."""
 
-# Python 2 and 3 compatibility
-PY2 = sys.version_info[0] == 2
-if PY2:
-    text_type = unicode
-    binary_type = str
-else:
-    text_type = str
-    binary_type = bytes
+    def __init__(self, fileobj=None):
+        """Initialize a new MO file handler.
+        
+        Args:
+            fileobj: Optional file object to read from
+        """
+        self.magic = 0x950412de  # Little endian magic
+        self.version = 0
+        self.num_strings = 0
+        self.orig_table_offset = 0
+        self.trans_table_offset = 0
+        self.hash_table_size = 0
+        self.hash_table_offset = 0
+        self.translations = OrderedDict()
+        self.metadata = OrderedDict()
 
-logger = logging.getLogger(__name__)
+        if fileobj is not None:
+            self._parse(fileobj)
 
-def _unescape(string):
-    """Unescape a string using string literal evaluation."""
-    try:
-        # First try to handle it as a regular string
-        return eval('"""' + string + '"""', {"__builtins__": {}})
-    except Exception:
-        # If that fails, try to handle escapes manually
-        return string.encode("raw_unicode_escape").decode("unicode_escape")
-
-def _read_mo_file(mo_file):
-    """Read a MO file and return a catalog of messages."""
-    with open(mo_file, "rb") as f:
-        # MO file format magic number and version
-        data = f.read()
-        if len(data) < 20:  # At least magic(4) + version(4) + numstrings(4) + orig_offset(4) + trans_offset(4)
-            raise ValueError("Invalid MO file format: file too small")
-
-        magic = data[:4]
-        if magic == b"\x95\x04\x12\xde":  # Little endian
-            version, num_strings, orig_offset, trans_offset = struct.unpack("<4I", data[4:20])
-        elif magic == b"\xde\x12\x04\x95":  # Big endian
-            version, num_strings, orig_offset, trans_offset = struct.unpack(">4I", data[4:20])
+    def _parse(self, fileobj):
+        """Parse MO file format.
+        
+        See: https://www.gnu.org/software/gettext/manual/html_node/MO-Files.html
+        """
+        # Read header
+        magic = struct.unpack('<I', fileobj.read(4))[0]
+        if magic == 0xde120495:  # Big endian
+            byte_order = '>'
+        elif magic == 0x950412de:  # Little endian
+            byte_order = '<'
         else:
-            raise ValueError("Invalid MO file format: wrong magic number")
+            raise ValueError('Bad magic number')
 
-        # Read string table
-        catalog = {}
+        # Read version and number of strings
+        version = struct.unpack(byte_order + 'I', fileobj.read(4))[0]
+        if version not in (0, 1):
+            raise ValueError('Bad version number')
+
+        num_strings = struct.unpack(byte_order + 'I', fileobj.read(4))[0]
+        orig_table_offset = struct.unpack(byte_order + 'I', fileobj.read(4))[0]
+        trans_table_offset = struct.unpack(byte_order + 'I', fileobj.read(4))[0]
+        hash_table_size = struct.unpack(byte_order + 'I', fileobj.read(4))[0]
+        hash_table_offset = struct.unpack(byte_order + 'I', fileobj.read(4))[0]
+
+        # Store header values
+        self.magic = magic
+        self.version = version
+        self.num_strings = num_strings
+        self.orig_table_offset = orig_table_offset
+        self.trans_table_offset = trans_table_offset
+        self.hash_table_size = hash_table_size
+        self.hash_table_offset = hash_table_offset
+
+        # Read string tables
+        orig_strings = []
+        trans_strings = []
+
+        # Read original strings
+        fileobj.seek(orig_table_offset)
+        for i in range(num_strings):
+            length = struct.unpack(byte_order + 'I', fileobj.read(4))[0]
+            offset = struct.unpack(byte_order + 'I', fileobj.read(4))[0]
+            orig_strings.append((length, offset))
+
+        # Read translated strings
+        fileobj.seek(trans_table_offset)
+        for i in range(num_strings):
+            length = struct.unpack(byte_order + 'I', fileobj.read(4))[0]
+            offset = struct.unpack(byte_order + 'I', fileobj.read(4))[0]
+            trans_strings.append((length, offset))
+
+        # Read actual strings
         for i in range(num_strings):
             # Read original string
-            if orig_offset + (i + 1) * 8 > len(data):
-                break
-            length, offset = struct.unpack("<2I", data[orig_offset + i * 8:orig_offset + (i + 1) * 8])
-            if offset + length > len(data):
-                break
-            msgid = data[offset:offset + length].decode("utf-8")
+            fileobj.seek(orig_strings[i][1])
+            orig = fileobj.read(orig_strings[i][0]).decode('utf-8')
 
-            # Read translation
-            if trans_offset + (i + 1) * 8 > len(data):
-                break
-            length, offset = struct.unpack("<2I", data[trans_offset + i * 8:trans_offset + (i + 1) * 8])
-            if offset + length > len(data):
-                break
-            msgstr = data[offset:offset + length].decode("utf-8")
+            # Read translated string
+            fileobj.seek(trans_strings[i][1])
+            trans = fileobj.read(trans_strings[i][0]).decode('utf-8')
 
-            catalog[msgid] = msgstr
+            # Handle context
+            if '\x04' in orig:
+                context, msgid = orig.split('\x04', 1)
+            else:
+                context, msgid = None, orig
 
-        # Extract metadata
-        metadata = {}
-        if "" in catalog:
-            meta_str = catalog[""]
-            for line in meta_str.split("\n"):
-                if not line or ": " not in line:
-                    continue
-                key, val = line.split(": ", 1)
-                metadata[key] = val
+            # Store in translations
+            key = (msgid, context)
+            self.translations[key] = Message(msgid=msgid, msgstr=trans, context=context)
 
-        return catalog, metadata
+            # Parse header if this is the header message
+            if msgid == "":
+                self.metadata.update(self._parse_header(trans))
 
-def _write_mo(fileobj, catalog, metadata):
-    """Write a catalog to MO file format."""
-    # Prepare metadata
-    meta_str = []
-    # Ensure required metadata fields are present
-    if "Project-Id-Version" not in metadata:
-        metadata["Project-Id-Version"] = "1.0"
-    if "POT-Creation-Date" not in metadata:
-        metadata["POT-Creation-Date"] = "2023-01-01 00:00+0000"
-    if "PO-Revision-Date" not in metadata:
-        metadata["PO-Revision-Date"] = "2023-01-01 00:00+0000"
-    if "Last-Translator" not in metadata:
-        metadata["Last-Translator"] = "Unknown"
-    if "Language-Team" not in metadata:
-        metadata["Language-Team"] = "Unknown"
-    if "MIME-Version" not in metadata:
-        metadata["MIME-Version"] = "1.0"
-    if "Content-Type" not in metadata:
-        metadata["Content-Type"] = "text/plain; charset=UTF-8"
-    if "Content-Transfer-Encoding" not in metadata:
-        metadata["Content-Transfer-Encoding"] = "8bit"
-    if "Language" not in metadata:
-        metadata["Language"] = "en_US"  # Only set default if not present in PO file
+    def _parse_header(self, header):
+        """Parse the header into a dictionary."""
+        headers = {}
+        for line in header.split('\\n'):
+            if not line:
+                continue
+            try:
+                key, value = line.split(':', 1)
+                headers[key.strip()] = value.strip()
+            except ValueError:
+                continue
+        return headers
 
-    for key, val in sorted(metadata.items()):
-        meta_str.append(f"{key}: {val}")
-    catalog[""] = "\n".join(meta_str) + "\n\n"  # Add two newlines for proper metadata format
+    def _normalize_string(self, s):
+        """Normalize string by handling escape sequences consistently.
+        
+        Args:
+            s: Input string to normalize
+            
+        Returns:
+            Normalized string with consistent escape sequences
+        """
+        if is_string(s):
+            # 将所有单个反斜杠后跟特殊字符的情况替换为双反斜杠
+            return re.sub(r'\\([ntr\\])', r'\\\\\\1', s)
+        return s
 
-    # Sort messages to ensure deterministic output
-    messages = sorted(catalog.items())
+    def gettext(self, msgid):
+        """Get the translated string for a given msgid.
+        
+        Args:
+            msgid: The message ID to translate
+            
+        Returns:
+            The translated string if found, otherwise the original msgid
+        """
+        # Ensure msgid is unicode
+        msgid = ensure_unicode(msgid)
+            
+        # Normalize the input msgid
+        normalized_msgid = self._normalize_string(msgid)
+        
+        # Try with normalized msgid first
+        key = (normalized_msgid, None)
+        if key in self.translations:
+            return self.translations[key].msgstr
+            
+        # Try with original msgid as fallback
+        key = (msgid, None)
+        if key in self.translations:
+            return self.translations[key].msgstr
+            
+        # Return original string if no translation found
+        return msgid
 
-    # Compute size of string table
-    msgids = msgstrs = b""
-    offsets = []
+    def ngettext(self, msgid1, msgid2, n):
+        """Get the pluralized translated string.
+        
+        Args:
+            msgid1: The singular form
+            msgid2: The plural form 
+            n: The number determining plural form
+            
+        Returns:
+            The translated string in appropriate plural form if found,
+            otherwise the original msgid1/msgid2 based on n
+        """
+        # For now just handle basic singular/plural
+        if n == 1:
+            return self.gettext(msgid1)
+        return self.gettext(msgid2)
 
-    # Write strings and compute offsets
-    for msgid, msgstr in messages:
-        # Convert strings to bytes
-        if isinstance(msgid, text_type):
-            msgid = msgid.encode("utf-8")
-        if isinstance(msgstr, text_type):
-            msgstr = msgstr.encode("utf-8")
 
-        # Add offsets and strings
-        offsets.append((len(msgids), len(msgid), len(msgstrs), len(msgstr)))
-        msgids += msgid + b"\x00"
-        msgstrs += msgstr + b"\x00"
+def compile_po_file(po_file_path, mo_file_path):
+    """Compile a PO file to MO format."""
+    # Load PO file
+    po = POFile(po_file_path)
+    po.load()
 
-    # Compute header size and string table size
-    N = len(messages)
+    # Write MO file
+    with open(mo_file_path, 'wb') as mo_file:
+        write_mo(mo_file, po.translations)
 
-    # Compute base offsets
-    keystart = 7 * 4 + 16 * len(messages)  # After header and index tables
-    valuestart = keystart + len(msgids)
 
-    # Build offset tables
-    koffsets = []
-    voffsets = []
-    for o1, l1, o2, l2 in offsets:
-        koffsets += [l1, o1 + keystart]
-        voffsets += [l2, o2 + valuestart]
-    offsets = koffsets + voffsets
+def write_mo(fileobj, messages):
+    """Write MO file format."""
+    # Prepare data
+    raw_messages = []
+    for key, message in messages.items():
+        msgid = key[0]  # Extract msgid from (msgid, context) tuple
+        if msgid == "":  # Header
+            # If no metadata, use msgstr directly
+            if not message.metadata:
+                msgstr = message.msgstr
+            else:
+                # Convert metadata to string format
+                header_lines = []
+                for meta_key, value in message.metadata.items():
+                    header_lines.append(f"{meta_key}: {value}")
+                msgstr = "\\n".join(header_lines) + "\\n"
+        else:
+            msgstr = message.msgstr
+            if message.context:  # Add context prefix if present
+                msgid = f"{message.context}\x04{msgid}"
+        raw_messages.append((msgid, msgstr))
+
+    # Sort by msgid
+    raw_messages.sort()
 
     # Write header
-    fileobj.write(struct.pack("<I", 0x950412de))  # Magic number (LE)
-    fileobj.write(struct.pack("<I", 0))           # Version
-    fileobj.write(struct.pack("<I", N))           # Number of strings
-    fileobj.write(struct.pack("<I", 7 * 4))       # Start of key index
-    fileobj.write(struct.pack("<I", 7 * 4 + N * 8))  # Start of value index
-    fileobj.write(struct.pack("<I", 0))           # Size of hash table
-    fileobj.write(struct.pack("<I", 0))           # Offset of hash table
+    fileobj.write(struct.pack('<I', 0x950412de))  # Magic
+    fileobj.write(struct.pack('<I', 0))  # Version
+    fileobj.write(struct.pack('<I', len(raw_messages)))  # Number of strings
+    fileobj.write(struct.pack('<I', 28))  # Start of original strings
+    fileobj.write(struct.pack('<I', 28 + len(raw_messages) * 8))  # Start of translation strings
+    fileobj.write(struct.pack('<I', 0))  # Size of hashing table
+    fileobj.write(struct.pack('<I', 28 + len(raw_messages) * 16))  # Offset of hashing table
 
     # Write offset tables
-    for offset in offsets:
-        fileobj.write(struct.pack("<I", offset))
+    offset = 28 + len(raw_messages) * 16  # Skip headers and offset tables
 
-    # Write string tables
-    fileobj.write(msgids)
-    fileobj.write(msgstrs)
+    # Original strings
+    for msgid, msgstr in raw_messages:
+        encoded_msgid = msgid.encode('utf-8')
+        length = len(encoded_msgid)
+        fileobj.write(struct.pack('<II', length, offset))
+        offset += length + 1  # Add null terminator
 
-class MOFile(gettext.GNUTranslations):
-    """Custom MO file handler with proper encoding support."""
+    # Translation strings
+    for msgid, msgstr in raw_messages:
+        encoded_msgstr = msgstr.encode('utf-8')
+        length = len(encoded_msgstr)
+        fileobj.write(struct.pack('<II', length, offset))
+        offset += length + 1  # Add null terminator
 
-    def _parse(self, fp):
-        """Parse MO file with UTF-8 encoding."""
-        self._charset = DEFAULT_CHARSET
-        self._output_charset = DEFAULT_CHARSET
-        super(MOFile, self)._parse(fp)
+    # Write strings
+    for msgid, msgstr in raw_messages:
+        encoded_msgid = msgid.encode('utf-8')
+        fileobj.write(encoded_msgid + b'\0')
 
-def compile_po_file(po_file, mo_file):
-    """Compile a PO file into MO format."""
-    try:
-        # Load PO file using POFile class
-        with POFile(po_file) as po:
-            # Convert PO file to MO format
-            catalog = {}
-            for entry in po.get_all_entries():
-                msgid = entry['msgid']
-                if entry['context'] is not None:
-                    # Handle context by adding context prefix
-                    msgid = f"{entry['context']}\x04{msgid}"
-                catalog[msgid] = entry['msgstr']
-
-            # Write MO file
-            with open(mo_file, "wb") as f:
-                _write_mo(f, catalog, po.metadata)
-
-            logger.info("Successfully compiled %s to %s", po_file, mo_file)
-
-    except Exception as e:
-        logger.error("Error compiling %s: %s", po_file, str(e))
-        raise
+    for msgid, msgstr in raw_messages:
+        encoded_msgstr = msgstr.encode('utf-8')
+        fileobj.write(encoded_msgstr + b'\0')

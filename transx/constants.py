@@ -37,7 +37,9 @@ METADATA_KEYS = {
     "CONTENT_TRANSFER_ENCODING": "Content-Transfer-Encoding",
     "GENERATED_BY": "Generated-By",
     "REPORT_MSGID_BUGS_TO": "Report-Msgid-Bugs-To",
+    "COPYRIGHT_HOLDER": "Copyright-Holder",
     "COPYRIGHT": "Copyright",
+    "PLURAL_FORMS": "Plural-Forms",
 }
 
 # Default metadata values
@@ -53,7 +55,8 @@ DEFAULT_METADATA = {
 }
 
 # Translation function pattern
-TR_FUNCTION_PATTERN = r'tr\(["\']([^"\']+)["\'](?:\s*,\s*context=["\']([^"\']+)["\'])?[\s,)]*\)'
+# https://regex101.com/r/aAs6bz/1
+TR_FUNCTION_PATTERN = r'''tr\((['"])((?:(?!\1|\\).|\\.)*?)\1(?:\s*,\s*context=(['"])((?:(?!\3|\\).|\\.)*?)\3)?[\s,)]*\)'''
 
 # Default keywords for message extraction
 DEFAULT_KEYWORDS = {

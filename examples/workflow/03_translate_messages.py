@@ -10,8 +10,8 @@ import sys
 from deep_translator import GoogleTranslator
 
 # Import local modules
-from transx.translate import Translator
-from transx.translate import translate_pot_file
+from transx.api import Translator
+from transx.api import translate_pot_file
 
 
 class DeepGoogleTranslator(Translator):
