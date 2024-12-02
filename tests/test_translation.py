@@ -128,6 +128,37 @@ def test_invalid_context_type(transx_instance):
         transx_instance.tr("Hello", context=123)
 
 
+@pytest.fixture
+def transx_instance(tmp_path):
+    """Create a TransX instance for testing."""
+    from transx import TransX
+    from transx.api.po import POFile
+    
+    # Create test PO file
+    po_dir = tmp_path / "locales" / "zh_CN" / "LC_MESSAGES"
+    po_dir.mkdir(parents=True, exist_ok=True)
+    po_file = po_dir / "messages.po"
+    
+    po = POFile(path=str(po_file), locale="zh_CN")
+    # Add test translations
+    po.add(msgid="Hello", msgstr="你好")
+    po.add(msgid="Goodbye", msgstr="再见")
+    po.add(msgid="Open", msgstr="打开", msgctxt="button")
+    po.add(msgid="Open", msgstr="打开文件", msgctxt="menu")
+    po.add(msgid="Welcome", msgstr="欢迎回来", msgctxt="home")
+    po.add(msgid="Welcome", msgstr="欢迎登录", msgctxt="login")
+    po.add(msgid="Hello {name}", msgstr="你好 {name}")
+    po.add(msgid="File {filename} saved", msgstr="文件 {filename} 已保存")
+    po.add(msgid="Hello\nWorld", msgstr="你好\n世界")
+    po.add(msgid="Tab\there", msgstr="制表符\t在这里")
+    po.save()
+    
+    # Initialize TransX
+    tx = TransX(locale_dir=str(tmp_path / "locales"))
+    tx.current_locale = "zh_CN"
+    return tx
+
+
 def teardown_module(module):
     """Clean up any resources after all tests have run."""
     pass

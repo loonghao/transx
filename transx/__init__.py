@@ -9,7 +9,7 @@ from transx.exceptions import CatalogNotFoundError
 from transx.exceptions import InvalidFormatError
 from transx.exceptions import LocaleNotFoundError
 from transx.exceptions import TransXError
-from transx.translation_catalog import TranslationCatalog
+from transx.api.translation_catalog import TranslationCatalog
 
 
 __all__ = [

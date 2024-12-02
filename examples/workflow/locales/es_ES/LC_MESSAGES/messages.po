@@ -1,0 +1,62 @@
+msgid ""
+msgstr ""
+"Content-Transfer-Encoding: 8bit\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Generated-By: TransX\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Project-Id-Version: TransX 1.0\n"
+
+msgid "Hello"
+msgstr "Hola"
+
+msgid "Welcome {name}"
+msgstr "Bienvenido {nombre}"
+
+msgid "Current language is {lang}"
+msgstr "El idioma actual es {lang}"
+
+msgid "Starting workflow"
+msgstr "Iniciando flujo de trabajo"
+
+msgid "Processing file {filename}"
+msgstr "Procesando archivo {filename}"
+
+msgid "Workflow completed"
+msgstr "Flujo de trabajo completado"
+
+msgid "Validating input data"
+msgstr "Validación de datos de entrada"
+
+msgid "Analyzing results"
+msgstr "Analizando resultados"
+
+msgid "Task completed successfully"
+msgstr "Tarea completada con éxito"
+
+msgid "Error: File not found"
+msgstr "Error: Archivo no encontrado"
+
+msgid "Warning: Low disk space"
+msgstr "Advertencia: poco espacio en disco"
+
+msgid "Invalid input: {input}"
+msgstr "Entrada no válida: {input}"
+
+msgid "Operation failed: {reason}"
+msgstr "Operación fallida: {reason}"
+
+msgid "Hello\\nWorld"
+msgstr "Hola\\nMundo"
+
+msgid "Tab\\there"
+msgstr "Pestaña_allí"
+
+msgid "Tab\\there!"
+msgstr "¡Tab_ahí!"
+
+msgid "Path to the file: \"C:\\Program Files\\MyApp\""
+msgstr "Ruta al archivo: \"C:\\Archivos de programa\\MyApp\""
+

@@ -8,26 +8,17 @@ import sys
 
 # Import local modules
 from transx.api.mo import MOFile
-from transx.constants import DEFAULT_CHARSET
-from transx.constants import DEFAULT_LOCALE
-from transx.constants import DEFAULT_LOCALES_DIR
-from transx.constants import DEFAULT_MESSAGES_DOMAIN
-from transx.constants import MO_FILE_EXTENSION
-from transx.constants import PO_FILE_EXTENSION
-from transx.exceptions import CatalogNotFoundError
-from transx.exceptions import LocaleNotFoundError
-from transx.translation_catalog import TranslationCatalog
-
-
-# Python 2 and 3 compatibility
-PY2 = sys.version_info[0] == 2
-if PY2:
-    text_type = unicode
-    binary_type = str
-else:
-    text_type = str
-    binary_type = bytes
-
+from transx.constants import (
+    DEFAULT_CHARSET,
+    DEFAULT_LOCALE,
+    DEFAULT_LOCALES_DIR,
+    DEFAULT_MESSAGES_DOMAIN,
+    MO_FILE_EXTENSION,
+    PO_FILE_EXTENSION
+)
+from transx.exceptions import CatalogNotFoundError, LocaleNotFoundError
+from transx.api.translation_catalog import TranslationCatalog
+from transx.compat import ensure_unicode
 
 class TransX:
     """Main translation class for handling translations."""
@@ -200,74 +191,47 @@ class TransX:
         except Exception:
             return msgstr
 
-    def tr(self, text, context=None, **kwargs):
-        """Translate text.
+    def tr(self, text: str, **kwargs) -> str:
+        """Translate a string.
 
         Args:
-            text: Text to translate
-            context: Message context
-            **kwargs: Format parameters
+            text: The string to translate
+            **kwargs: Format arguments
 
         Returns:
-            Translated text with parameters filled in, or original text if translation not found
-            and strict_mode is False
-
-        Raises:
-            ValueError: If text is None
-            TranslationNotFoundError: If translation not found (only in strict mode)
+            The translated string
         """
-        # Handle None input
-        if text is None:
-            raise ValueError("Translation text cannot be None")
+        # Ensure text is unicode
+        text = ensure_unicode(text)
 
-        # Handle empty string
-        if text == "":
-            return ""
+        if not self._translations:
+            return text
 
-        # Ensure text is unicode in both Python 2 and 3
-        text = text.decode(DEFAULT_CHARSET) if isinstance(text, binary_type) else text
+        trans = self._translations.get(self._current_locale)
+        if not trans:
+            return text
 
-        # Add context separator if context exists
-        msgid = context + "\x04" + text if context else text
-
-        # Log translation attempt
-        self.logger.debug("Translating text: '{}' with context: '{}' and kwargs: {}".format(
-            text, context, kwargs))
-
-        translated = None
-        # Try to get translation
-        if self._current_locale in self._translations:
-            trans = self._translations[self._current_locale]
-            if context:
-                translated = trans.pgettext(context, text)
-            else:
-                translated = trans.gettext(text)
-        elif self._current_locale in self._catalogs:
-            catalog = self._catalogs[self._current_locale]
-            translated = self.translate(msgid, catalog)
-
-        # If no translation found and not in strict mode, use original text
-        if translated is None:
-            translated = text
-            self.logger.debug("No translation found for text: {} (context: {}), using original text".format(
-                text, context))
-
-        # Log translation result
-        self.logger.debug("Translation result: '{}'".format(translated))
+        translated = trans.gettext(text)
+        
+        # If we have format parameters, ensure they are consistent
         if kwargs:
             try:
+                # First check if the original text can be formatted with the provided kwargs
+                text.format(**kwargs)
+                
+                # If translation has different parameter names, replace them with original ones
+                import re
+                format_params = re.findall(r'\{(\w+)\}', text)
+                for param in format_params:
+                    if param in kwargs:
+                        translated = re.sub(r'\{[^}]+\}', '{' + param + '}', translated, count=1)
+                
                 translated = translated.format(**kwargs)
             except KeyError as e:
                 msg = "Missing format parameter in translation: {}".format(str(e))
-                if self.strict_mode:
-                    raise KeyError(msg)
-                self.logger.debug(msg)
-                return text
+                raise KeyError(msg)
             except Exception as e:
                 msg = "Error formatting translation: {}".format(str(e))
-                if self.strict_mode:
-                    raise
-                self.logger.debug(msg)
-                return text
+                raise ValueError(msg)
 
         return translated

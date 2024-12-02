@@ -30,8 +30,12 @@ def test_error_messages(tx):
 def test_unicode_handling(tx):
     """Test unicode handling."""
     print("\n=== Unicode Handling ===")
-    print(tx.tr("Hello\nWorld"))
-    print(tx.tr("Tab\there"))
+    # 使用原始字符串(raw string)来处理特殊字符
+    print(tx.tr("Hello"))
+    print(tx.tr(r"Hello\nWorld"))  # 显式展示换行符
+    print(tx.tr(r"Tab\there"))     # 显式展示制表符
+    print(tx.tr("Tab\\there!"))     # 显式展示制表符
+    print(tx.tr(r'Path to the file: "C:\Program Files\MyApp"'))  # 使用原始字符串处理路径
 
 
 def main():
@@ -39,7 +43,7 @@ def main():
     tx = TransX(locales_root="locales", strict_mode=True)
 
     # Test translations for different languages
-    languages = ["en_US", "zh_CN", "ja_JP", "ko_KR"]
+    languages = ["en_US", "zh_CN", "ja_JP", "ko_KR", "fr_FR"]
 
     for lang in languages:
         # Switch language

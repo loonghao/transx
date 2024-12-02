@@ -11,18 +11,17 @@ def update_translations():
     # Set file paths
     pot_file = os.path.join(os.path.abspath("locales"), "messages.pot")
     if not os.path.exists(pot_file):
-        print(f"Error: POT file not found: {pot_file}")
+        print("Error: POT file not found: {0}".format(pot_file))
         return
 
-    # Create POT extractor and load
-    extractor = PotExtractor(pot_file)
-    extractor.messages.load(pot_file)
-
-    # Generate language files
+    # Update language catalogs
     languages = ["zh_CN", "ja", "ko", "fr", "es_ES"]
     locales_dir = os.path.abspath("locales")
-    extractor.generate_language_files(languages, locales_dir)
-    print("Language files updated.")
+    
+    with PotExtractor(pot_file=pot_file) as extractor:
+        extractor.create_language_catalogs(languages, locales_dir)
+        print("Language catalogs updated.")
+
 
 if __name__ == "__main__":
     update_translations()
