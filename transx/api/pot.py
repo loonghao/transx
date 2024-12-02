@@ -42,6 +42,21 @@ class PotExtractor:
                 if file.endswith(".py"):
                     self.scan_file(os.path.join(root, file))
 
+    def extract_from_dir(self, directory, output_file=None):
+        """Extract messages from a directory and save to POT file.
+
+        This is an alias for scan_directory for API consistency.
+
+        Args:
+            directory (str): Directory to scan for Python files
+            output_file (str, optional): Output POT file path. If provided,
+                                     updates the output file path.
+        """
+        if output_file:
+            self.output_file = output_file
+
+        self.scan_directory(directory)
+
     def scan_file(self, filename):
         """Scan a file for translatable strings."""
         self.current_file = filename

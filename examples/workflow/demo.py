@@ -29,7 +29,7 @@ def test_error_messages(tx):
 
 def main():
     # Initialize TransX instance with language pack directory
-    tx = TransX(locales_root="locales")
+    tx = TransX(locales_root="locales", strict_mode=True)
 
     # Test translations for different languages
     languages = ["en_US", "zh_CN", "ja_JP", "ko_KR"]

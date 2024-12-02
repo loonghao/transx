@@ -2,12 +2,12 @@
 """Core translation functionality."""
 
 # Import built-in modules
-import gettext
 import logging
 import os
 import sys
 
 # Import local modules
+from transx.api.mo import MOFile
 from transx.constants import DEFAULT_CHARSET
 from transx.constants import DEFAULT_LOCALE
 from transx.constants import DEFAULT_LOCALES_DIR
@@ -29,16 +29,6 @@ else:
     binary_type = bytes
 
 
-class MOFile(gettext.GNUTranslations):
-    """Custom MO file handler with proper encoding support."""
-
-    def _parse(self, fp):
-        """Parse MO file with UTF-8 encoding."""
-        self._charset = DEFAULT_CHARSET
-        self._output_charset = DEFAULT_CHARSET
-        super(MOFile, self)._parse(fp)
-
-
 class TransX:
     """Main translation class for handling translations."""
 
@@ -50,6 +40,7 @@ class TransX:
             default_locale: Default locale to use. Defaults to 'en'
             strict_mode: If True, raise exceptions for missing translations. Defaults to False
         """
+        self.logger = logging.getLogger(__name__)
         self.locales_root = os.path.abspath(locales_root or DEFAULT_LOCALES_DIR)
         self.default_locale = default_locale
         self.strict_mode = strict_mode
@@ -62,7 +53,7 @@ class TransX:
             os.makedirs(self.locales_root)
 
         # Log initialization details
-        logging.debug("Initialized TransX with locales_root: {}, default_locale: {}, strict_mode: {}".format(
+        self.logger.debug("Initialized TransX with locales_root: {}, default_locale: {}, strict_mode: {}".format(
             self.locales_root, self.default_locale, self.strict_mode))
 
     def load_catalog(self, locale):
@@ -87,7 +78,7 @@ class TransX:
             msg = "Locale directory not found: {}".format(locale_dir)
             if self.strict_mode:
                 raise LocaleNotFoundError(msg)
-            logging.debug(msg)
+            self.logger.debug(msg)
             return False
 
         mo_file = os.path.join(locale_dir, DEFAULT_MESSAGES_DOMAIN + MO_FILE_EXTENSION)
@@ -103,7 +94,7 @@ class TransX:
                 msg = "Failed to load MO file {}: {}".format(mo_file, str(e))
                 if self.strict_mode:
                     raise CatalogNotFoundError(msg)
-                logging.debug(msg)
+                self.logger.debug(msg)
 
         # Fall back to PO file if MO file not found or failed to load
         if os.path.exists(po_file):
@@ -116,11 +107,11 @@ class TransX:
                 msg = "Failed to load PO file {}: {}".format(po_file, str(e))
                 if self.strict_mode:
                     raise CatalogNotFoundError(msg)
-                logging.debug(msg)
+                self.logger.debug(msg)
 
         if self.strict_mode:
             raise CatalogNotFoundError("No translation catalog found for locale: {}".format(locale))
-        logging.debug("No translation catalog found for locale: {}".format(locale))
+        self.logger.debug("No translation catalog found for locale: {}".format(locale))
         return False
 
     def _parse_po_file(self, fileobj, catalog):
@@ -185,12 +176,29 @@ class TransX:
 
         if locale != self._current_locale:
             locale_dir = os.path.join(self.locales_root, locale, "LC_MESSAGES")
-            if not os.path.exists(locale_dir):
-                raise LocaleNotFoundError(f"Locale directory not found: {locale_dir}")
+            if not os.path.exists(locale_dir) and self.strict_mode:
+                    raise LocaleNotFoundError(f"Locale directory not found: {locale_dir}")
 
             self._current_locale = locale
             if locale not in self._translations:
                 self.load_catalog(locale)
+
+    def translate(self, msgid, catalog=None, **kwargs):
+        """Translate a message."""
+        if catalog is None:
+            raise CatalogNotFoundError("No catalog provided")
+
+        if msgid not in catalog:
+            return msgid
+
+        msgstr = catalog[msgid]
+
+        try:
+            return msgstr.format(**kwargs) if kwargs else msgstr
+        except KeyError as e:
+            raise KeyError("Missing parameter in translation: {}".format(e))
+        except Exception:
+            return msgstr
 
     def tr(self, text, context=None, **kwargs):
         """Translate text.
@@ -223,7 +231,7 @@ class TransX:
         msgid = context + "\x04" + text if context else text
 
         # Log translation attempt
-        logging.debug("Translating text: '{}' with context: '{}' and kwargs: {}".format(
+        self.logger.debug("Translating text: '{}' with context: '{}' and kwargs: {}".format(
             text, context, kwargs))
 
         translated = None
@@ -236,16 +244,16 @@ class TransX:
                 translated = trans.gettext(text)
         elif self._current_locale in self._catalogs:
             catalog = self._catalogs[self._current_locale]
-            translated = catalog.get_message(msgid)
+            translated = self.translate(msgid, catalog)
 
         # If no translation found and not in strict mode, use original text
         if translated is None:
             translated = text
-            logging.debug("No translation found for text: {} (context: {}), using original text".format(
+            self.logger.debug("No translation found for text: {} (context: {}), using original text".format(
                 text, context))
 
         # Log translation result
-        logging.debug("Translation result: '{}'".format(translated))
+        self.logger.debug("Translation result: '{}'".format(translated))
         if kwargs:
             try:
                 translated = translated.format(**kwargs)
@@ -253,13 +261,13 @@ class TransX:
                 msg = "Missing format parameter in translation: {}".format(str(e))
                 if self.strict_mode:
                     raise KeyError(msg)
-                logging.debug(msg)
+                self.logger.debug(msg)
                 return text
             except Exception as e:
                 msg = "Error formatting translation: {}".format(str(e))
                 if self.strict_mode:
                     raise
-                logging.debug(msg)
+                self.logger.debug(msg)
                 return text
 
         return translated
