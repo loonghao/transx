@@ -113,39 +113,35 @@ def translate_po_file(po_file_path, translator=None):
     if translator is None:
         translator = DummyTranslator()
 
-    # Ensure directory exists
-    po_dir = os.path.dirname(po_file_path)
-    ensure_dir(po_dir)
+    logger.info("Translating PO file: %s", po_file_path)
 
-    logger.info("Loading PO file: %s", po_file_path)
-    po = POFile(po_file_path)
-    po.load()
+    with POFile(po_file_path) as po:
+        # Get target language and normalize
+        lang_dir = os.path.basename(os.path.dirname(os.path.dirname(po_file_path)))
+        lang = normalize_locale(lang_dir)
+        logger.info("Target language: %s", lang)
 
-    # Get target language and normalize
-    lang_dir = os.path.basename(os.path.dirname(os.path.dirname(po_file_path)))
-    lang = normalize_locale(lang_dir)
-    logger.info("Target language: %s", lang)
+        # Get all entries and count untranslated ones
+        entries = po.get_all_entries()
+        logger.info("Total translation entries: %d", len(entries))
 
-    # Print the number of current translation entries
-    logger.info("Total translation entries: %d", len(po.translations))
+        # Translate untranslated entries
+        untranslated_count = 0
+        for entry in entries:
+            if not entry['msgstr']:  # Only translate empty entries
+                untranslated_count += 1
+                try:
+                    logger.debug("Translating: %s", entry['msgid'])
+                    translation = translator.translate(entry['msgid'], target_lang=lang)
+                    po.translations[(entry['msgid'], entry['context'])] = translation
+                except Exception as e:
+                    logger.error("Failed to translate '%s': %s", entry['msgid'], str(e))
 
-    # Iterate over all untranslated entries
-    untranslated_count = 0
-    for (msgid, context), msgstr in po.translations.items():
-        if not msgstr:  # Only translate empty entries
-            untranslated_count += 1
-            try:
-                logger.debug("Translating: %s", msgid)
-                translation = translator.translate(msgid, target_lang=lang)
-                po.translations[(msgid, context)] = translation
-            except Exception as e:
-                logger.error("Failed to translate '%s': %s", msgid, str(e))
-
-    if untranslated_count > 0:
-        logger.info("Translated %d entries", untranslated_count)
-        po.save()
-    else:
-        logger.info("No untranslated entries found")
+        if untranslated_count > 0:
+            logger.info("Translated %d entries", untranslated_count)
+            po.save()
+        else:
+            logger.info("No untranslated entries found")
 
 def translate_pot_file(pot_file_path, languages, output_dir=None, translator=None):
     """Generate and translate PO files from a POT file for specified languages.
@@ -169,24 +165,21 @@ def translate_pot_file(pot_file_path, languages, output_dir=None, translator=Non
     # Ensure output directory exists
     ensure_dir(output_dir)
 
-    # Load POT file
-    logger.info("Loading POT file: %s", pot_file_path)
-    pot = POFile(pot_file_path)
-    pot.load()
+    # Load POT file and process translations
+    with POFile(pot_file_path) as pot:
+        # Normalize language codes and create PO files
+        for lang in languages:
+            lang = normalize_locale(lang)
+            logger.info("Processing language: %s", lang)
 
-    # Normalize language codes and create PO files
-    for lang in languages:
-        lang = normalize_locale(lang)
-        logger.info("Processing language: %s", lang)
+            # Create language directory structure
+            lang_dir = os.path.join(output_dir, lang, "LC_MESSAGES")
+            ensure_dir(lang_dir)
 
-        # Create language directory structure
-        lang_dir = os.path.join(output_dir, lang, "LC_MESSAGES")
-        ensure_dir(lang_dir)
+            # Generate PO file path
+            po_file = os.path.join(lang_dir, os.path.basename(pot_file_path).replace(".pot", ".po"))
 
-        # Generate PO file path
-        po_file = os.path.join(lang_dir, os.path.basename(pot_file_path).replace(".pot", ".po"))
-
-        # Create and translate PO file
-        logger.info("Generating PO file: %s", po_file)
-        pot.generate_language_files([lang], output_dir)
-        translate_po_file(po_file, translator)
+            # Create and translate PO file
+            logger.info("Generating PO file: %s", po_file)
+            pot.generate_language_files([lang], output_dir)
+            translate_po_file(po_file, translator)

@@ -112,6 +112,7 @@ class POFile:
             context (str, optional): Message context
             comments (list, optional): List of translator comments
         """
+        print(msgid, msgstr, context)
         self.translations[(msgid, context)] = msgstr
         if comments:
             self.comments[(msgid, context)] = comments
@@ -133,56 +134,111 @@ class POFile:
 
         Args:
             path (str, optional): Path to PO file. If not provided,
-                                    uses the path from initialization.
+                                uses the path from initialization.
         """
         path = path or self.path
         if not os.path.exists(path):
             return
 
-        with open(path, encoding=DEFAULT_ENCODING) as f:
-            content = f.read()
-
         # Reset translations dictionary
         self.translations = {}
         self.comments = {}
 
-        # Parse metadata
-        header_match = re.search(r'msgid ""\nmsgstr "(.*?)"', content, re.DOTALL)
-        if header_match:
-            header = header_match.group(1)
-            for line in header.split("\\n"):
-                if not line or ": " not in line:
+        current_msgid = []
+        current_msgstr = []
+        current_msgctxt = None
+        current_comments = []
+        in_msgid = False
+        in_msgstr = False
+
+        with open(path, encoding=DEFAULT_ENCODING) as f:
+            content = f.read()
+            lines = content.split('\n')
+            i = 0
+            while i < len(lines):
+                line = lines[i].strip()
+                if not line:
+                    # Store current translation when encountering empty line
+                    if current_msgid or current_msgstr:
+                        self._store_current(current_msgid, current_msgstr, current_msgctxt, current_comments)
+                        current_msgid = []
+                        current_msgstr = []
+                        current_msgctxt = None
+                        current_comments = []
+                        in_msgid = False
+                        in_msgstr = False
+                    i += 1
                     continue
-                key, value = line.split(": ", 1)
-                if key in METADATA_KEYS.values():
-                    self.metadata[key] = value
 
-        # Use regular expressions to match all translation entries
-        pattern = re.compile(
-            r'(?:msgctxt\s+(".*?")\s+)?'  # optional msgctxt
-            r'msgid\s+(".*?")\s+'          # msgid
-            r'msgstr\s+(".*?")',           # msgstr
-            re.DOTALL | re.MULTILINE
-        )
+                if line.startswith("#"):  # Comments
+                    if line.startswith("#. "):  # Translator comments
+                        current_comments.append(line[3:].strip())
+                    i += 1
+                    continue
 
-        for match in pattern.finditer(content):
-            context = None
-            if match.group(1):  # msgctxt exists
-                context = self._unescape(match.group(1))
-            msgid = self._unescape(match.group(2))
-            msgstr = self._unescape(match.group(3))
+                if line.startswith('msgctxt "'):
+                    current_msgctxt = self._unescape(line[9:])
+                    i += 1
+                    # Handle multi-line msgctxt
+                    while i < len(lines) and lines[i].strip().startswith('"'):
+                        current_msgctxt = current_msgctxt[:-1] + self._unescape(lines[i].strip())
+                        i += 1
+                    continue
 
-            # Skip metadata entries
-            if msgid == "":
-                continue
+                if line.startswith('msgid "'):
+                    # Store previous translation if any
+                    if current_msgid or current_msgstr:
+                        self._store_current(current_msgid, current_msgstr, current_msgctxt, current_comments)
+                        current_msgstr = []
+                    current_msgid = [self._unescape(line[7:])]
+                    in_msgid = True
+                    in_msgstr = False
+                    i += 1
+                    # Handle multi-line msgid
+                    while i < len(lines) and lines[i].strip().startswith('"'):
+                        current_msgid.append(self._unescape(lines[i].strip()))
+                        i += 1
+                    continue
 
-            comments = []
-            # Find translator comments
-            for line in content.splitlines():
-                if line.startswith("#. ") and msgid in line:
-                    comments.append(line[3:].strip())
+                if line.startswith('msgstr "'):
+                    current_msgstr = [self._unescape(line[8:])]
+                    in_msgid = False
+                    in_msgstr = True
+                    i += 1
+                    # Handle multi-line msgstr
+                    while i < len(lines) and lines[i].strip().startswith('"'):
+                        current_msgstr.append(self._unescape(lines[i].strip()))
+                        i += 1
+                    continue
 
-            self.add_translation(msgid, msgstr, context, comments)
+                i += 1
+
+            # Store the last translation
+            if current_msgid or current_msgstr:
+                self._store_current(current_msgid, current_msgstr, current_msgctxt, current_comments)
+
+    def _store_current(self, current_msgid, current_msgstr, current_msgctxt, current_comments):
+        """Store current translation entry."""
+        if not current_msgid:
+            return
+
+        # Join multi-line strings and remove quotes
+        msgid = "".join(current_msgid).strip('"')
+        if not msgid:  # Metadata
+            msgstr = "".join(current_msgstr).strip('"')
+            # Split by actual newlines and escaped newlines
+            lines = [line for part in msgstr.split("\\n") for line in part.split("\n") if line]
+            for line in lines:
+                if ": " not in line:
+                    continue
+                try:
+                    key, val = line.split(":", 1)
+                    self.metadata[key.strip()] = val.strip()
+                except ValueError:
+                    continue
+        else:
+            msgstr = "".join(current_msgstr).strip('"')
+            self.add_translation(msgid, msgstr, current_msgctxt, current_comments)
 
     def _unescape(self, string):
         """Unescape a string from PO file format.
@@ -196,12 +252,9 @@ class POFile:
         if not string:
             return ""
 
-        # Remove leading and trailing quotes
-        string = string.strip()[1:-1]
-
-        # Handle multi-line strings
-        parts = string.split('" "')
-        string = "".join(parts)
+        # Remove quotes if present
+        if string.startswith('"') and string.endswith('"'):
+            string = string[1:-1]
 
         # Handle escape characters
         return string.replace("\\\\", "\\").replace('\\"', '"').replace("\\n", "\n").replace("\\t", "\t").replace("\\r", "\r")
@@ -219,7 +272,7 @@ class POFile:
         with open(path, "w", encoding=DEFAULT_ENCODING) as f:
             # Write metadata
             f.write('msgid ""\nmsgstr ""\n')
-            for key, value in self.metadata.items():
+            for key, value in sorted(self.metadata.items()):
                 if key == METADATA_KEYS["PO_REVISION_DATE"]:
                     value = time.strftime("%Y-%m-%d %H:%M+0000", time.gmtime())
                 f.write(f'"{key}: {value}\\n"\n')
@@ -233,9 +286,9 @@ class POFile:
                         f.write(f"#. {comment}\n")
 
                 if context is not None:
-                    f.write(f'{MSGCTXT_PREFIX}{context}"\n')
-                f.write(f'{MSGID_PREFIX}{msgid}"\n')
-                f.write(f'{MSGSTR_PREFIX}{msgstr}"\n\n')
+                    f.write(f'msgctxt "{context}"\n')
+                f.write(f'msgid "{msgid}"\n')
+                f.write(f'msgstr "{msgstr}"\n\n')
 
     def generate_language_files(self, languages, locales_dir):
         """Generate language files based on the current POT file.
@@ -252,19 +305,31 @@ class POFile:
             os.makedirs(po_dir, exist_ok=True)
             po_file = os.path.join(po_dir, "messages.po")
 
-            # If PO file already exists, read it first
+            # Create new PO file with template metadata
             po = POFile(po_file, locale=lang)
-            if os.path.exists(po_file):
-                po.load(po_file)
+            po.metadata = self.metadata.copy()  # Copy metadata from template
+            po.metadata[METADATA_KEYS["LANGUAGE"]] = lang  # Update language
 
-            # Update translations
+            # If PO file already exists, merge existing translations
+            if os.path.exists(po_file):
+                existing_po = POFile(po_file)
+                existing_po.load(po_file)
+                # Only copy existing translations
+                for (msgid, context), msgstr in existing_po.translations.items():
+                    if msgstr:  # Only keep non-empty translations
+                        po.translations[(msgid, context)] = msgstr
+                        if (msgid, context) in existing_po.comments:
+                            po.comments[(msgid, context)] = existing_po.comments[(msgid, context)]
+
+            # Add/update translations from template
             for (msgid, context) in self.translations:
                 if (msgid, context) not in po.translations:
                     po.add_translation(msgid, "", context)
+                    if (msgid, context) in self.comments:
+                        po.comments[(msgid, context)] = self.comments[(msgid, context)]
 
-            # Save updated PO file
+            # Save the updated PO file
             po.save()
-            print(f"Updated {po_file}")
 
     def translate_entries(self, translator=None):
         # type: (BaseTranslator) -> None
@@ -289,3 +354,65 @@ class POFile:
                     print(f"Translated: {msgid} -> {translated}")
                 except Exception as e:
                     print(f"Failed to translate '{msgid}': {e!s}")
+
+    def get_all_entries(self):
+        """Get all translation entries.
+
+        Returns:
+            list: List of dictionaries containing msgid, msgstr, context and comments
+                 for each translation entry.
+        """
+        entries = []
+        for (msgid, context), msgstr in self.translations.items():
+            entry = {
+                'msgid': msgid,
+                'msgstr': msgstr,
+                'context': context,
+                'comments': self.comments.get((msgid, context), [])
+            }
+            entries.append(entry)
+        return entries
+
+    def get_entry(self, msgid, context=None):
+        """Get a single translation entry with all its information.
+
+        Args:
+            msgid (str): Message ID to look up
+            context (str, optional): Message context
+
+        Returns:
+            dict: Dictionary containing msgid, msgstr, context and comments
+                 for the specified entry, or None if not found
+        """
+        if (msgid, context) not in self.translations:
+            return None
+            
+        return {
+            'msgid': msgid,
+            'msgstr': self.translations[(msgid, context)],
+            'context': context,
+            'comments': self.comments.get((msgid, context), [])
+        }
+
+    def iter_entries(self):
+        """Iterate over all translation entries.
+
+        Yields:
+            tuple: (msgid, msgstr, context, comments) for each translation entry
+        """
+        for (msgid, context), msgstr in self.translations.items():
+            comments = self.comments.get((msgid, context), [])
+            yield msgid, msgstr, context, comments
+
+    def __enter__(self):
+        """Context manager entry point.
+        
+        Returns:
+            POFile: The POFile instance with loaded translations
+        """
+        self.load()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit point."""
+        pass

@@ -2,7 +2,6 @@
 """Test cases for API module."""
 
 # Import local modules
-from transx.api.mo import _read_mo_file
 from transx.api.mo import _read_po_file
 from transx.api.mo import compile_po_file
 from transx.api.po import POFile
@@ -47,52 +46,122 @@ def greet():
 
 def test_po_file_operations(tmp_path):
     """Test PO file operations."""
-    # Create PO file
-    po_file = tmp_path / "messages.po"
-    po = POFile(str(po_file))
-    
-    # Add translations
-    po.add_translation("Hello", "你好")
-    po.add_translation("Welcome", "欢迎", context="greeting")
-    po.add_translation("Goodbye", "再见")
-    
-    # Save PO file
-    po.save()
-    
-    # Verify PO file exists and contains correct content
-    assert po_file.exists()
-    content = po_file.read_text(encoding=DEFAULT_CHARSET)
-    assert "你好" in content
-    assert "欢迎" in content
-    assert "再见" in content
-    
-    # Test loading translations
-    new_po = POFile(str(po_file))
-    new_po.load()
-    assert new_po.get_translation("Hello") == "你好"
-    assert new_po.get_translation("Welcome", context="greeting") == "欢迎"
-    assert new_po.get_translation("Goodbye") == "再见"
-
-
-def test_mo_compilation(tmp_path):
-    """Test MO file compilation."""
     # Create a test PO file
     po_file = tmp_path / "messages.po"
     po_content = """msgid ""
 msgstr ""
-"Project-Id-Version: 1.0\\n"
+"Project-Id-Version: TransX 1.0\\n"
+"PO-Revision-Date: 2024-12-02 08:42+0000\\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\\n"
+"Language-Team: LANGUAGE <LL@li.org>\\n"
+"MIME-Version: 1.0\\n"
+"Content-Type: text/plain; charset=utf-8\\n"
+"Content-Transfer-Encoding: 8bit\\n"
+"Generated-By: TransX\\n"
 "Language: zh_CN\\n"
-"Content-Type: text/plain; charset=UTF-8\\n"
 
+#. Greeting message
 msgid "Hello"
 msgstr "你好"
 
+#. Welcome message
 msgctxt "greeting"
 msgid "Welcome"
 msgstr "欢迎"
 
 msgid "Goodbye"
 msgstr "再见"
+
+#. Special characters test
+msgid "Hello\\nWorld"
+msgstr "你好\\n世界"
+
+msgid "Tab\\here"
+msgstr "制表符\\t在这里"
+"""
+    po_file.write_text(po_content, encoding=DEFAULT_CHARSET)
+
+    # Test loading
+    po = POFile(str(po_file), locale="zh_CN")
+    po.load()
+
+    # Check metadata
+    assert po.metadata["Project-Id-Version"] == "TransX 1.0"
+    assert po.metadata["Language"] == "zh_CN"
+    assert po.metadata["Content-Type"] == "text/plain; charset=utf-8"
+
+    # Check translations
+    assert po.get_translation("Hello") == "你好"
+    assert po.get_translation("Welcome", context="greeting") == "欢迎"
+    assert po.get_translation("Goodbye") == "再见"
+    assert po.get_translation("Hello\nWorld") == "你好\n世界"
+    assert po.get_translation("Tab\there") == "制表符\t在这里"
+
+    # Test saving to a new file
+    new_po_file = tmp_path / "new_messages.po"
+    po.save(str(new_po_file))
+
+    # Load the saved file and verify
+    new_po = POFile(str(new_po_file))
+    new_po.load()
+
+    # Check metadata in new file
+    assert new_po.metadata["Project-Id-Version"] == "TransX 1.0"
+    assert new_po.metadata["Language"] == "zh_CN"
+
+    # Check translations in new file
+    assert new_po.get_translation("Hello") == "你好"
+    assert new_po.get_translation("Welcome", context="greeting") == "欢迎"
+    assert new_po.get_translation("Goodbye") == "再见"
+    assert new_po.get_translation("Hello\nWorld") == "你好\n世界"
+    assert new_po.get_translation("Tab\there") == "制表符\t在这里"
+
+
+def test_po_to_mo_roundtrip(tmp_path):
+    """Test PO to MO conversion roundtrip."""
+    # Create source PO file
+    po_file = tmp_path / "messages.po"
+    po_content = """msgid ""
+msgstr ""
+"Project-Id-Version: TransX 1.0\\n"
+"PO-Revision-Date: 2024-12-02 08:42+0000\\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\\n"
+"Language-Team: LANGUAGE <LL@li.org>\\n"
+"MIME-Version: 1.0\\n"
+"Content-Type: text/plain; charset=utf-8\\n"
+"Content-Transfer-Encoding: 8bit\\n"
+"Generated-By: TransX\\n"
+"Language: zh_CN\\n"
+
+msgid "Analyzing results"
+msgstr "分析结果"
+
+msgid "Error: File not found"
+msgstr "错误：未找到文件"
+
+msgid "Hello"
+msgstr "你好"
+
+msgid "Starting workflow"
+msgstr "启动工作流程"
+
+msgid "Task completed successfully"
+msgstr "任务已成功完成"
+
+msgid "Validating input data"
+msgstr "验证输入数据"
+
+msgid "Warning: Low disk space"
+msgstr "警告：磁盘空间不足"
+
+msgid "Workflow completed"
+msgstr "工作流程已完成"
+
+msgid "Hello\\nWorld"
+msgstr "你好\\n世界"
+
+msgid "Tab\\here"
+msgstr "制表符\\t在这里"
 """
     po_file.write_text(po_content, encoding=DEFAULT_CHARSET)
 
@@ -103,54 +172,36 @@ msgstr "再见"
     # Verify MO file exists
     assert mo_file.exists()
 
-    # Read back the catalog and verify contents
-    catalog, metadata = _read_mo_file(str(mo_file))
-    
-    # Check translations
-    assert catalog.get("Hello") == "你好"
-    assert catalog.get("greeting\x04Welcome") == "欢迎"
-    assert catalog.get("Goodbye") == "再见"
+    # Create a new PO file from the MO file
+    new_po_file = tmp_path / "new_messages.po"
+    new_po = POFile(str(new_po_file))
+
+    # Load translations from MO file
+    with open(str(mo_file), "rb") as f:
+        catalog, metadata = MOFile()._parse(f)
+        for msgid, msgstr in catalog.items():
+            new_po.add_translation(msgid, msgstr)
+        new_po.metadata.update(metadata)
+
+    new_po.save()
+
+    # Compare original and new PO files
+    orig_po = POFile(str(po_file))
+    orig_po.load()
 
     # Check metadata
-    assert metadata["Project-Id-Version"] == "1.0"
-    assert metadata["Language"] == "zh_CN"
-    assert metadata["Content-Type"] == "text/plain; charset=UTF-8"
+    assert new_po.metadata["Project-Id-Version"] == orig_po.metadata["Project-Id-Version"]
+    assert new_po.metadata["Language"] == orig_po.metadata["Language"]
+    assert new_po.metadata["Content-Type"] == orig_po.metadata["Content-Type"]
 
-
-def test_po_to_mo_roundtrip(tmp_path):
-    """Test PO to MO conversion roundtrip."""
-    # Create source PO file
-    po_file = tmp_path / "source.po"
-    po_content = """msgid ""
-msgstr ""
-"Project-Id-Version: 1.0\\n"
-"Language: fr\\n"
-"Content-Type: text/plain; charset=UTF-8\\n"
-
-msgid "Hello"
-msgstr "Bonjour"
-
-msgctxt "ui"
-msgid "Menu"
-msgstr "Menu"
-
-msgid "World"
-msgstr "Monde"
-"""
-    po_file.write_text(po_content, encoding=DEFAULT_CHARSET)
-
-    # Compile to MO
-    mo_file = tmp_path / "output.mo"
-    compile_po_file(str(po_file), str(mo_file))
-
-    # Create new PO from the same content
-    verify_file = tmp_path / "verify.po"
-    verify_file.write_text(po_content, encoding=DEFAULT_CHARSET)
-
-    # Read both catalogs
-    catalog1, metadata1 = _read_po_file(str(po_file))
-    catalog2, metadata2 = _read_po_file(str(verify_file))
-
-    # Compare catalogs
-    assert catalog1 == catalog2
-    assert metadata1 == metadata2
+    # Check translations
+    assert new_po.get_translation("Analyzing results") == "分析结果"
+    assert new_po.get_translation("Error: File not found") == "错误：未找到文件"
+    assert new_po.get_translation("Hello") == "你好"
+    assert new_po.get_translation("Starting workflow") == "启动工作流程"
+    assert new_po.get_translation("Task completed successfully") == "任务已成功完成"
+    assert new_po.get_translation("Validating input data") == "验证输入数据"
+    assert new_po.get_translation("Warning: Low disk space") == "警告：磁盘空间不足"
+    assert new_po.get_translation("Workflow completed") == "工作流程已完成"
+    assert new_po.get_translation("Hello\nWorld") == "你好\n世界"
+    assert new_po.get_translation("Tab\there") == "制表符\t在这里"
