@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 """Basic usage examples for TransX."""
+# Import local modules
 from transx import TransX
+
 
 def basic_translation():
     """Basic translation without context."""
     tx = TransX(locales_root="locales")
     tx.current_locale = "zh_CN"
-    
+
     # Basic translations
     print("\n=== Basic Translation Example ===")
     print(f"Simple text: {tx.tr('Hello')}")
@@ -16,17 +18,17 @@ def context_translation():
     """Translation with different contexts."""
     tx = TransX(locales_root="locales")
     tx.current_locale = "zh_CN"
-    
+
     # UI Context Example
     print("\n=== UI Context Example ===")
     print(f"Button: {tx.tr('Open', context='button')}")
     print(f"Menu: {tx.tr('Open', context='menu')}")
-    
+
     # Part of Speech Context Example
     print("\n=== Part of Speech Context Example ===")
     print(f"Verb: {tx.tr('Post', context='verb')}")
     print(f"Noun: {tx.tr('Post', context='noun')}")
-    
+
     # Scene Context Example
     print("\n=== Scene Context Example ===")
     print(f"Home: {tx.tr('Welcome', context='home')}")
@@ -36,7 +38,7 @@ def parameter_translation():
     """Translation with parameters and context."""
     tx = TransX(locales_root="locales")
     tx.current_locale = "zh_CN"
-    
+
     print("\n=== Parameters with Context Example ===")
     filename = "test.txt"
     print(f"File Menu: {tx.tr('Save {filename}', context='menu', filename=filename)}")

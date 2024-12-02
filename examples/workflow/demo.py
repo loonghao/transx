@@ -1,24 +1,26 @@
-"""多语言支持演示程序
-"""
+"""Multilingual support demo program."""
+# Import local modules
 from transx import TransX
 
+
 def test_basic_translations(tx):
-    """测试基本翻译"""
+    """Test basic translations."""
     print(tx.tr("Hello"))
     print(tx.tr("Welcome {name}", name="Alice"))
     print(tx.tr("Current language is {lang}", lang=tx.current_locale))
 
 def test_workflow_messages(tx):
-    """测试工作流相关消息"""
+    """Test workflow related messages."""
     print("\n=== Workflow Messages ===")
     print(tx.tr("Starting workflow"))
-    print(tx.tr("Processing step {step} of {total}", step=1, total=3))
+    print(tx.tr("Processing file {filename}", filename="data.txt"))
+    print(tx.tr("Workflow completed"))
     print(tx.tr("Validating input data"))
     print(tx.tr("Analyzing results"))
     print(tx.tr("Task completed successfully"))
 
 def test_error_messages(tx):
-    """测试错误消息"""
+    """Test error messages."""
     print("\n=== Error Messages ===")
     print(tx.tr("Error: File not found"))
     print(tx.tr("Warning: Low disk space"))
@@ -26,22 +28,22 @@ def test_error_messages(tx):
     print(tx.tr("Operation failed: {reason}", reason="timeout"))
 
 def main():
-    # 初始化TransX实例，指定语言包目录
+    # Initialize TransX instance with language pack directory
     tx = TransX(locales_root="locales")
-    
-    # 测试不同语言的翻译
+
+    # Test translations for different languages
     languages = ["en_US", "zh_CN", "ja_JP", "ko_KR"]
-    
+
     for lang in languages:
-        # 切换语言
+        # Switch language
         tx.current_locale = lang
-        
-        # 打印分隔线
+
+        # Print separator
         print("\n" + "="*50)
         print(f"Testing language: {lang}")
         print("="*50)
-        
-        # 运行所有测试
+
+        # Run all tests
         test_basic_translations(tx)
         test_workflow_messages(tx)
         test_error_messages(tx)
