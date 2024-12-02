@@ -5,24 +5,23 @@
 import os
 import re
 import sys
-from datetime import datetime
+import time
 
 # Import local modules
-from transx.constants import (
-    DEFAULT_CHARSET,
-    DEFAULT_ENCODING,
-    METADATA_KEYS,
-    DEFAULT_METADATA,
-    MSGID_PREFIX,
-    MSGSTR_PREFIX,
-    MSGCTXT_PREFIX
-)
+from transx.constants import DEFAULT_CHARSET
+from transx.constants import DEFAULT_ENCODING
+from transx.constants import DEFAULT_METADATA
+from transx.constants import METADATA_KEYS
+from transx.constants import MSGCTXT_PREFIX
+from transx.constants import MSGID_PREFIX
+from transx.constants import MSGSTR_PREFIX
 from transx.translators import DummyTranslator
+
 
 # Python 2 and 3 compatibility
 PY2 = sys.version_info[0] == 2
 if PY2:
-    text_type = unicode  # noqa: F821
+    text_type = unicode
     binary_type = str
 else:
     text_type = str
@@ -34,7 +33,7 @@ class POFile:
 
     def __init__(self, path, locale=None):
         """Initialize a new PO file handler.
-        
+
         Args:
             path (str): Path to the PO file
             locale (str, optional): Locale code (e.g., 'en_US', 'zh_CN')
@@ -44,7 +43,7 @@ class POFile:
         self.translations = {}  # {(msgid, context): msgstr}
         self.comments = {}  # {(msgid, context): [comments]}
         self.metadata = DEFAULT_METADATA.copy()
-        
+
         self.metadata[METADATA_KEYS["LANGUAGE"]] = self.locale
 
     def _normalize_key(self, msgid):
@@ -79,7 +78,7 @@ class POFile:
         """Convert a string into PO file format with proper line wrapping."""
         if not string:
             return '""'
-        
+
         if isinstance(string, binary_type):
             string = string.decode(DEFAULT_CHARSET)
 
@@ -106,7 +105,7 @@ class POFile:
 
     def add_translation(self, msgid, msgstr="", context=None, comments=None):
         """Add a new translation entry.
-        
+
         Args:
             msgid (str): Message ID (source text)
             msgstr (str, optional): Translated text
@@ -119,11 +118,11 @@ class POFile:
 
     def get_translation(self, msgid, context=None):
         """Get translation for a message.
-        
+
         Args:
             msgid (str): Message ID to look up
             context (str, optional): Message context
-            
+
         Returns:
             str: Translated text or empty string if not found
         """
@@ -131,7 +130,7 @@ class POFile:
 
     def load(self, path=None):
         """Load translations from a PO file.
-        
+
         Args:
             path (str, optional): Path to PO file. If not provided,
                                     uses the path from initialization.
@@ -139,15 +138,15 @@ class POFile:
         path = path or self.path
         if not os.path.exists(path):
             return
-        
+
         with open(path, encoding=DEFAULT_ENCODING) as f:
             content = f.read()
 
-        # 重置translations字典
+        # Reset translations dictionary
         self.translations = {}
         self.comments = {}
-        
-        # 解析元数据
+
+        # Parse metadata
         header_match = re.search(r'msgid ""\nmsgstr "(.*?)"', content, re.DOTALL)
         if header_match:
             header = header_match.group(1)
@@ -158,7 +157,7 @@ class POFile:
                 if key in METADATA_KEYS.values():
                     self.metadata[key] = value
 
-        # 使用正则表达式匹配所有翻译条目
+        # Use regular expressions to match all translation entries
         pattern = re.compile(
             r'(?:msgctxt\s+(".*?")\s+)?'  # optional msgctxt
             r'msgid\s+(".*?")\s+'          # msgid
@@ -172,112 +171,112 @@ class POFile:
                 context = self._unescape(match.group(1))
             msgid = self._unescape(match.group(2))
             msgstr = self._unescape(match.group(3))
-            
-            # 跳过元数据条目
+
+            # Skip metadata entries
             if msgid == "":
                 continue
-                
+
             comments = []
             # Find translator comments
             for line in content.splitlines():
                 if line.startswith("#. ") and msgid in line:
                     comments.append(line[3:].strip())
-            
+
             self.add_translation(msgid, msgstr, context, comments)
 
     def _unescape(self, string):
         """Unescape a string from PO file format.
-        
+
         Args:
             string (str): String to unescape (including quotes)
-            
+
         Returns:
             str: Unescaped string
         """
         if not string:
             return ""
-            
-        # 移除首尾引号
+
+        # Remove leading and trailing quotes
         string = string.strip()[1:-1]
-        
-        # 处理多行字符串
+
+        # Handle multi-line strings
         parts = string.split('" "')
         string = "".join(parts)
-        
-        # 处理转义字符
+
+        # Handle escape characters
         return string.replace("\\\\", "\\").replace('\\"', '"').replace("\\n", "\n").replace("\\t", "\t").replace("\\r", "\r")
 
     def save(self, path=None):
         """Save translations to a PO file.
-        
+
         Args:
             path (str, optional): Path to save PO file. If not provided,
                                     uses the path from initialization.
         """
         path = path or self.path
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        
+
         with open(path, "w", encoding=DEFAULT_ENCODING) as f:
-            # 写入元数据
+            # Write metadata
             f.write('msgid ""\nmsgstr ""\n')
             for key, value in self.metadata.items():
                 if key == METADATA_KEYS["PO_REVISION_DATE"]:
-                    value = datetime.now().strftime("%Y-%m-%d %H:%M%z")
-                f.write('"{0}: {1}\\n"\n'.format(key, value))
+                    value = time.strftime("%Y-%m-%d %H:%M+0000", time.gmtime())
+                f.write(f'"{key}: {value}\\n"\n')
             f.write("\n")
-            
-            # 写入翻译条目
+
+            # Write translation entries
             for (msgid, context), msgstr in sorted(self.translations.items()):
                 # Write translator comments if they exist
                 if (msgid, context) in self.comments:
                     for comment in self.comments[(msgid, context)]:
-                        f.write("#. {}\n".format(comment))
-                
+                        f.write(f"#. {comment}\n")
+
                 if context is not None:
-                    f.write('{0}{1}"\n'.format(MSGCTXT_PREFIX, context))
-                f.write('{0}{1}"\n'.format(MSGID_PREFIX, msgid))
-                f.write('{0}{1}"\n\n'.format(MSGSTR_PREFIX, msgstr))
+                    f.write(f'{MSGCTXT_PREFIX}{context}"\n')
+                f.write(f'{MSGID_PREFIX}{msgid}"\n')
+                f.write(f'{MSGSTR_PREFIX}{msgstr}"\n\n')
 
     def generate_language_files(self, languages, locales_dir):
         """Generate language files based on the current POT file.
-        
+
         Args:
             languages (list): List of language codes (e.g., ['en', 'zh_CN'])
             locales_dir (str): Path to the locales directory
         """
         for lang in languages:
             print(f"Updating existing translations for {lang}...")
-            
-            # 设置PO文件路径
+
+            # Set PO file path
             po_dir = os.path.join(locales_dir, lang, "LC_MESSAGES")
             os.makedirs(po_dir, exist_ok=True)
             po_file = os.path.join(po_dir, "messages.po")
 
-            # 如果PO文件已存在，先读取它
+            # If PO file already exists, read it first
             po = POFile(po_file, locale=lang)
             if os.path.exists(po_file):
                 po.load(po_file)
 
-            # 更新翻译
+            # Update translations
             for (msgid, context) in self.translations:
                 if (msgid, context) not in po.translations:
                     po.add_translation(msgid, "", context)
 
-            # 保存更新后的PO文件
+            # Save updated PO file
             po.save()
             print(f"Updated {po_file}")
 
     def translate_entries(self, translator=None):
         # type: (BaseTranslator) -> None
         """Translate all untranslated entries using the provided translator.
-        
+
         Args:
             translator (BaseTranslator, optional): Translator to use. If not provided,
                                                 uses DummyTranslator.
         """
         translator = translator or DummyTranslator()
         target_lang = self.metadata.get(METADATA_KEYS["LANGUAGE"], "en")
-        
+
         for (msgid, context), msgstr in self.translations.items():
             if not msgstr:  # Only translate empty entries
                 try:
@@ -287,6 +286,6 @@ class POFile:
                         target_lang=target_lang
                     )
                     self.translations[(msgid, context)] = translated
-                    print("Translated: {} -> {}".format(msgid, translated))
+                    print(f"Translated: {msgid} -> {translated}")
                 except Exception as e:
-                    print("Failed to translate '{}': {}".format(msgid, str(e)))
+                    print(f"Failed to translate '{msgid}': {e!s}")

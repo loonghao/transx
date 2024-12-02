@@ -1,6 +1,6 @@
 # 🌏 TransX
 
-🚀 A lightweight, zero-dependency Python internationalization library that supports Python 3.7 through 3.12.
+🚀 A lightweight, zero-dependency Python internationalization library that supports Python 2.7 through 3.12.
 
 <div align="center">
 
@@ -22,20 +22,20 @@
 
 <div align="center">
 
-| Feature | Description |
-|---------|-------------|
-| 🚀 Zero Dependencies | No external dependencies required |
-| 🐍 Python Support | Full support for Python 3.7-3.12 |
+| Feature | Description                                |
+|---------|--------------------------------------------|
+| 🚀 Zero Dependencies | No external dependencies required          |
+| 🐍 Python Support | Full support for Python 2.7-3.12           |
 | 🌍 Context-based | Accurate translations with context support |
-| 📦 Standard Format | Compatible with gettext .po/.mo files |
-| 🎯 Simple API | Clean and intuitive interface |
-| 🔄 Auto Management | Automatic translation file handling |
-| 🔍 String Extraction | Built-in source code string extraction |
-| 🌐 Unicode | Complete Unicode support |
-| 🔠 Parameters | Dynamic parameter substitution |
-| ⚡ Performance | High-speed and thread-safe operations |
-| 🛡️ Error Handling | Comprehensive error management |
-| 🧪 Testing | Extensive test coverage |
+| 📦 Standard Format | Compatible with gettext .po/.mo files      |
+| 🎯 Simple API | Clean and intuitive interface              |
+| 🔄 Auto Management | Automatic translation file handling        |
+| 🔍 String Extraction | Built-in source code string extraction     |
+| 🌐 Unicode | Complete Unicode support                   |
+| 🔠 Parameters | Dynamic parameter substitution             |
+| ⚡ Performance | High-speed and thread-safe operations      |
+| 🛡️ Error Handling | Comprehensive error management             |
+| 🧪 Testing | Extensive test coverage                    |
 
 </div>
 

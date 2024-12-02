@@ -1,12 +1,19 @@
 """Test configuration and fixtures."""
+# Import built-in modules
+from contextlib import suppress
 import os
-import sys
-import pytest
 import shutil
+import sys
+
+# Import third-party modules
+import pytest
+
+# Import local modules
 from transx import TransX
-from transx.formats.po import POFile
-from transx.formats.pot import PotExtractor
-from transx.formats.mo import compile_po_file
+from transx.api.mo import compile_po_file
+from transx.api.po import POFile
+from transx.api.pot import PotExtractor
+
 
 @pytest.fixture
 def test_data_dir():
@@ -27,26 +34,24 @@ def setup_translations(locales_dir, translations):
     locale = "zh_CN"
     locale_dir = os.path.join(locales_dir, locale, "LC_MESSAGES")
     os.makedirs(locale_dir, exist_ok=True)
-    
+
     po_file = os.path.join(locale_dir, "messages.po")
     po = POFile(po_file, locale=locale)
-    
+
     # Add translations
     for (msgid, context), msgstr in translations[locale].items():
         po.add_translation(msgid, msgstr=msgstr, context=context)
     po.save()
-    
+
     # Compile PO to MO
     mo_file = os.path.join(locale_dir, "messages.mo")
     compile_po_file(po_file, mo_file)
-    
-    yield
-    
+
+    yield locale_dir
+
     # Cleanup after tests
-    try:
+    with suppress(OSError):
         shutil.rmtree(locale_dir)
-    except OSError:
-        pass
 
 @pytest.fixture
 def transx_instance(locales_dir):
@@ -70,7 +75,7 @@ def translations():
             ("Hello", None): "你好",
             ("Goodbye", None): "再见",
             ("", None): "",  # Empty string test
-            
+
             # UI Context translations
             ("Open", "button"): "打开",
             ("Open", "menu"): "打开文件",
@@ -78,19 +83,19 @@ def translations():
             ("Save", "menu"): "保存文件",
             ("Save {filename}", "button"): "保存 {filename}",
             ("Save {filename}", "menu"): "保存文件 {filename}",
-            
+
             # Part of Speech Context translations
             ("Post", "verb"): "发布",
             ("Post", "noun"): "文章",
-            
+
             # Scene Context translations
             ("Welcome", "home"): "欢迎回来",
             ("Welcome", "login"): "欢迎登录",
-            
+
             # Parameter translations
             ("Hello {name}", None): "你好 {name}",
             ("File {filename} saved", None): "文件 {filename} 已保存",
-            
+
             # Special character translations
             ("Hello\nWorld", None): "你好\n世界",
             ("Tab\there", None): "制表符\t在这里",

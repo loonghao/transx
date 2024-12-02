@@ -7,19 +7,19 @@ import re
 import sys
 
 # Import local modules
-from transx.constants import (
-    METADATA_KEYS,
-    DEFAULT_CHARSET,
-    DEFAULT_KEYWORDS,
-    TR_FUNCTION_PATTERN,
-    normalize_language_code,
-)
+from transx.constants import DEFAULT_CHARSET
+from transx.constants import DEFAULT_KEYWORDS
+from transx.constants import METADATA_KEYS
+from transx.constants import TR_FUNCTION_PATTERN
+from transx.constants import normalize_language_code
+
 from .po import POFile
+
 
 # Python 2 and 3 compatibility
 PY2 = sys.version_info[0] == 2
 if PY2:
-    text_type = unicode  # noqa: F821
+    text_type = unicode
     binary_type = str
 else:
     text_type = str
@@ -52,7 +52,7 @@ class PotExtractor:
         for match in re.finditer(TR_FUNCTION_PATTERN, content):
             msgid = match.group(1).strip()  # Remove leading/trailing whitespace
             context = match.group(2).strip() if match.group(2) else None  # Remove leading/trailing whitespace
-            
+
             # Add message to catalog
             if context:
                 self.messages.add_translation(msgid, context=context)
@@ -69,36 +69,36 @@ class PotExtractor:
         self.messages.metadata[METADATA_KEYS["CONTENT_TYPE"]] = "text/plain; charset=utf-8"
         self.messages.metadata[METADATA_KEYS["CONTENT_TRANSFER_ENCODING"]] = "8bit"
         self.messages.metadata[METADATA_KEYS["GENERATED_BY"]] = "TransX"
-        
+
         self.messages.save()
 
     def generate_language_files(self, languages, locales_dir):
         """Generate language files based on the current POT file.
-        
+
         Args:
             languages (list): List of language codes (e.g., ['en', 'zh_CN'])
             locales_dir (str): Path to the locales directory
         """
         for lang in languages:
-            # 标准化语言代码
+            # Normalize language code
             normalized_lang = normalize_language_code(lang)
             print(f"Updating existing translations for {normalized_lang}...")
-            
-            # 设置PO文件路径
+
+            # Set up PO file path
             po_dir = os.path.join(locales_dir, normalized_lang, "LC_MESSAGES")
             os.makedirs(po_dir, exist_ok=True)
             po_file = os.path.join(po_dir, "messages.po")
 
-            # 如果PO文件已存在，先读取它
+            # If PO file exists, load it first
             po = POFile(po_file, locale=normalized_lang)
             if os.path.exists(po_file):
                 po.load(po_file)
 
-            # 更新翻译
+            # Update translations
             for (msgid, context) in self.messages.translations:
                 if (msgid, context) not in po.translations:
                     po.add_translation(msgid, "", context)
 
-            # 保存更新后的PO文件
+            # Save updated PO file
             po.save()
             print(f"Updated {po_file}")

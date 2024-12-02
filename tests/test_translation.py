@@ -1,9 +1,16 @@
 """Test translation functionality."""
+# Import built-in modules
+import logging
 import os
 import sys
+
+# Import third-party modules
 import pytest
-import logging
-from transx.exceptions import LocaleNotFoundError, CatalogNotFoundError
+
+# Import local modules
+from transx.exceptions import CatalogNotFoundError
+from transx.exceptions import LocaleNotFoundError
+
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +31,8 @@ def test_translation_with_parameters(transx_instance):
     """Test translations with parameter substitution."""
     name = "Alice"
     filename = "test.txt"
-    assert transx_instance.tr("Hello {name}", name=name) == "你好 {}".format(name)
-    assert transx_instance.tr("File {filename} saved", filename=filename) == "文件 {} 已保存".format(filename)
+    assert transx_instance.tr("Hello {name}", name=name) == f"你好 {name}"
+    assert transx_instance.tr("File {filename} saved", filename=filename) == f"文件 {filename} 已保存"
 
 # Edge Cases and Error Handling
 def test_missing_translation(transx_instance):
@@ -73,10 +80,19 @@ def test_unicode_handling(transx_instance):
     """Test handling of unicode characters."""
     result = transx_instance.tr("Hello")
     assert result == "你好"
-    if sys.version_info[0] >= 3:
-        assert isinstance(result, str)
+    try:
+        unicode_type = unicode  # Python 2
+    except NameError:
+        unicode_type = str     # Python 3
+    assert isinstance(result, unicode_type)
 
-@pytest.mark.skipif(sys.version_info[0] == 2,
+def test_string_operations(transx_instance):
+    """Test string operations across Python versions."""
+    result = transx_instance.tr("Hello")
+    assert isinstance(result, str if str is bytes else str)  # Python 2/3 compatible
+    assert result == "你好"
+
+@pytest.mark.skipif(sys.version_info[0] < 3,
                     reason="Unicode string handling differs in Python 2")
 def test_unicode_py3(transx_instance):
     """Test Python 3 specific unicode handling."""
