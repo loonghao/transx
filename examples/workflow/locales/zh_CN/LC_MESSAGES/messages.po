@@ -1,0 +1,36 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: TransX 1.0\n"
+"PO-Revision-Date: 2024-12-02 07:11+0000\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: TransX\n"
+"Language: en_US\n"
+
+msgid "Analyzing results"
+msgstr "分析结果"
+
+msgid "Error: File not found"
+msgstr "错误：未找到文件"
+
+msgid "Hello"
+msgstr "你好"
+
+msgid "Starting workflow"
+msgstr "启动工作流程"
+
+msgid "Task completed successfully"
+msgstr "任务已成功完成"
+
+msgid "Validating input data"
+msgstr "验证输入数据"
+
+msgid "Warning: Low disk space"
+msgstr "警告：磁盘空间不足"
+
+msgid "Workflow completed"
+msgstr "工作流程已完成"
+

@@ -116,7 +116,7 @@ LANGUAGE_CODES = {
     "zh_TW": ("Chinese (Traditional)", ["zh-TW", "zh_tw", "zh-tw", "zht", "tw"]),
     "ja_JP": ("Japanese", ["ja", "ja-JP", "jp", "jpn"]),
     "ko_KR": ("Korean", ["ko", "ko-KR", "kr", "kor"]),
-    
+
     # European Languages
     "en_US": ("English (US)", ["en", "en-US", "eng", "en_GB", "en-GB"]),
     "fr_FR": ("French", ["fr", "fr-FR", "fra"]),
@@ -125,7 +125,7 @@ LANGUAGE_CODES = {
     "it_IT": ("Italian", ["it", "it-IT", "ita"]),
     "pt_BR": ("Portuguese (Brazil)", ["pt", "pt-BR", "por", "pt_PT", "pt-PT"]),
     "ru_RU": ("Russian", ["ru", "ru-RU", "rus"]),
-    
+
     # Other Major Languages
     "ar_SA": ("Arabic", ["ar", "ar-SA", "ara"]),
     "hi_IN": ("Hindi", ["hi", "hi-IN", "hin"]),
@@ -154,35 +154,34 @@ For more information about language codes, visit:
 
 def normalize_language_code(code):
     """Normalize language code to standard format (e.g., 'zh_CN', 'en_US').
-    
+
     Args:
         code (str): Language code to normalize
-        
+
     Returns:
         str: Normalized language code
-        
+
     Raises:
         ValueError: If the language code is invalid
     """
     if not code:
         return DEFAULT_LOCALE
-        
+
     code = code.replace("-", "_")  # Convert zh-CN to zh_CN format
     code = code.strip().lower()
-    
+
     # If it's already a full code like zh_cn, just uppercase the country part
     if "_" in code:
         lang, country = code.split("_")
         return f"{lang}_{country.upper()}"
-    
+
     # Try to find in aliases
     if code in LANGUAGE_CODE_ALIASES:
         return LANGUAGE_CODE_ALIASES[code]
-    
+
     # If not found, raise error with valid codes
     valid_codes = "\n".join(f"- {code}: {name}" for code, (name, _) in LANGUAGE_CODES.items())
     raise ValueError(INVALID_LANGUAGE_CODE_ERROR.format(
         code=code,
         valid_codes=valid_codes
     ))
-

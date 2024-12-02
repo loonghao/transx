@@ -35,7 +35,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.black]
 line-length = 120
-target-version = ['py27', 'py37', 'py38', 'py39']
+target-version = ['py37', 'py38', 'py39']
 include = '\.pyi?$'
 exclude = '''
 
@@ -84,77 +84,64 @@ default_section = "THIRDPARTY"
 skip_glob = []
 
 
-# https://beta.ruff.rs/docs/configuration/
 [tool.ruff]
-exclude = [
-    ".bzr",
-    ".direnv",
-    ".eggs",
-    ".git",
-    ".git-rewrite",
-    ".hg",
-    ".ipynb_checkpoints",
-    ".mypy_cache",
-    ".nox",
-    ".pants.d",
-    ".pyenv",
-    ".pytest_cache",
-    ".pytype",
-    ".ruff_cache",
-    ".svn",
-    ".tox",
-    ".venv",
-    ".vscode",
-    "__pypackages__",
-    "_build",
-    "buck-out",
-    "build",
-    "dist",
-    "node_modules",
-    "site-packages",
-    "venv",
-    "dev",
-    "noxfile.py",
-]
+line-length = 120
+target-version = "py37"
 
 [tool.ruff.lint]
-fixable = ["ALL"]
-extend-select = [
-    "Q",
-    "RUF100",
-    "C90",
-    "UP",
-    "I",
-    "D",
-    "DTZ005", # https://docs.astral.sh/ruff/rules/call-datetime-now-without-tzinfo/
-] # add "T" to disallow prints
-flake8-quotes = { inline-quotes = "double", multiline-quotes = "double" }
-ignore = [
-    "I001",
-    "D107", # ignore missing docstring in __init__ methods
-    "D100", # ignore missing docstring in module
-    "D101",
-    "D102",
-    "D103", # ignore missing docstring in public class
-    "D104", # ignore missing docstring in public package
-    "D105", # ignore missing docstring in magic methods
-    "C901", # ignore too complex functions, doesn't seem to be worth it
-    "UP032",
-    "UP004",
-    "UP025",
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "B",   # flake8-bugbear
+    "C",   # flake8-comprehensions
+    "I",   # isort
+    "Q",   # flake8-quotes
+    "RUF", # Ruff-specific rules
+    "SIM", # flake8-simplify
 ]
 
-[tool.ruff.lint.mccabe]
-max-complexity = 45
-
-[tool.ruff.lint.pydocstyle]
-convention = "google"
+ignore = [
+    "B904",  # raise-without-from
+    "F821",  # undefined-name - 用于unicode类型
+    "F541",  # f-string
+    "SIM108", # if-else-block-instead-of-if-exp
+    "PTH",    # 所有pathlib相关规则
+    "UP",     # 所有升级建议
+    "ARG001", # 未使用的函数参数
+    "ARG002", # 未使用的方法参数
+    "D100",   # 缺少模块docstring
+    "D101",   # 缺少类docstring
+    "D102",   # 缺少方法docstring
+    "D103",   # 缺少函数docstring
+    "D104",   # 缺少包docstring
+    "D105",   # 缺少魔术方法docstring
+    "D107",   # 缺少__init__ docstring
+    "W293",   # 空行中的空格
+    "E501",   # 行太长
+    "C901",   # 函数太复杂
+    "E402",   # 模块导入不在顶部
+    "RUF005", # 考虑使用列表展开语法
+]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["D"]
-"docs/*.py" = ["D"]
-"dev/*.py" = ["D"]
+"tests/*" = ["D"]
+"examples/*" = ["D"]
+"noxfile.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["transx"]
+combine-as-imports = true
 
 [tool.ruff.format]
-docstring-code-format = true
 quote-style = "double"
+
+exclude = [
+    ".git",
+    ".nox",
+    ".tox",
+    ".venv",
+    "build",
+    "dist",
+    "venv",
+]

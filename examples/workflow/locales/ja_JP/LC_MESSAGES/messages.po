@@ -1,0 +1,36 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: TransX 1.0\n"
+"PO-Revision-Date: 2024-12-02 07:11+0000\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: TransX\n"
+"Language: en_US\n"
+
+msgid "Analyzing results"
+msgstr "結果の分析"
+
+msgid "Error: File not found"
+msgstr "エラー: ファイルが見つかりません"
+
+msgid "Hello"
+msgstr "こんにちは"
+
+msgid "Starting workflow"
+msgstr "ワークフローの開始"
+
+msgid "Task completed successfully"
+msgstr "タスクは正常に完了しました"
+
+msgid "Validating input data"
+msgstr "入力データの検証"
+
+msgid "Warning: Low disk space"
+msgstr "警告: ディスク容量不足"
+
+msgid "Workflow completed"
+msgstr "ワークフローが完了しました"
+
