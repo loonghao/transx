@@ -2,126 +2,132 @@
 """Core translation functionality."""
 
 # Import built-in modules
-import os
-import gettext
 import logging
-import sys
+import os
 
 # Import local modules
+from transx.api.mo import MOFile, compile_po_file
+from transx.api.po import POFile
+from transx.api.translation_catalog import TranslationCatalog
+from transx.compat import string_types
 from transx.constants import (
-    DEFAULT_LOCALES_DIR,
     DEFAULT_LOCALE,
+    DEFAULT_LOCALES_DIR,
     DEFAULT_MESSAGES_DOMAIN,
-    DEFAULT_CHARSET,
+    MO_FILE_EXTENSION,
     PO_FILE_EXTENSION,
-    MO_FILE_EXTENSION
 )
-from transx.translation_catalog import TranslationCatalog
-from transx.exceptions import LocaleNotFoundError, CatalogNotFoundError
-
-# Python 2 and 3 compatibility
-PY2 = sys.version_info[0] == 2
-if PY2:
-    text_type = unicode  # noqa: F821
-    binary_type = str
-else:
-    text_type = str
-    binary_type = bytes
-
-
-class MOFile(gettext.GNUTranslations):
-    """Custom MO file handler with proper encoding support."""
-    
-    def _parse(self, fp):
-        """Parse MO file with UTF-8 encoding."""
-        self._charset = DEFAULT_CHARSET
-        self._output_charset = DEFAULT_CHARSET
-        super(MOFile, self)._parse(fp)
+from transx.exceptions import CatalogNotFoundError, LocaleNotFoundError
+from transx.filesystem import read_file
 
 
 class TransX:
     """Main translation class for handling translations."""
-    
-    def __init__(self, locales_root=None, default_locale=DEFAULT_LOCALE, strict_mode=False):
+
+    def __init__(self, locales_root=None, default_locale=DEFAULT_LOCALE, strict_mode=False, auto_compile=True):
         """Initialize translator.
-        
+
         Args:
             locales_root: Root directory for translation files. Defaults to './locales'
-            default_locale: Default locale to use. Defaults to 'en_US'
-            strict_mode: If True, raise exceptions when translations or files are missing.
-                        If False, return original text and log warnings. Defaults to False.
+            default_locale: Default locale to use. Defaults to 'en'
+            strict_mode: If True, raise exceptions for missing translations. Defaults to False
         """
+        self.logger = logging.getLogger(__name__)
+        self.auto_compile = auto_compile
         self.locales_root = os.path.abspath(locales_root or DEFAULT_LOCALES_DIR)
         self.default_locale = default_locale
         self.strict_mode = strict_mode
         self._current_locale = default_locale
         self._translations = {}  # {locale: gettext.GNUTranslations}
         self._catalogs = {}  # {locale: TranslationCatalog}
-        
+
         # Create locales directory if it doesn't exist
         if not os.path.exists(self.locales_root):
             os.makedirs(self.locales_root)
-        
+
         # Log initialization details
-        logging.debug("Initialized TransX with locales_root: {}, default_locale: {}, strict_mode: {}".format(
+        self.logger.debug("Initialized TransX with locales_root: %s, default_locale: %s, strict_mode: %s" % (
             self.locales_root, self.default_locale, self.strict_mode))
+            
+        # Load catalog for default locale
+        if default_locale:
+            self.load_catalog(default_locale)
 
     def load_catalog(self, locale):
         """Load translation catalog for the specified locale.
-        
+
         Args:
             locale: Locale to load catalog for
-            
+
         Returns:
             bool: True if catalog was loaded successfully, False otherwise
-            
+
         Raises:
             LocaleNotFoundError: If locale directory not found (only in strict mode)
-            CatalogNotFoundError: If catalog file not found (only in strict mode)
+            ValueError: If locale is None
         """
-        if locale in self._translations or locale in self._catalogs:
-            return True
-            
+        if locale is None:
+            raise ValueError("Locale cannot be None")
+
+        # Get paths
         locale_dir = os.path.join(self.locales_root, locale, "LC_MESSAGES")
-        
         if not os.path.exists(locale_dir):
-            msg = "Locale directory not found: {}".format(locale_dir)
+            msg = "Locale directory not found: %s" % locale_dir
             if self.strict_mode:
                 raise LocaleNotFoundError(msg)
-            logging.debug(msg)
+            self.logger.debug(msg)
             return False
-            
+
         mo_file = os.path.join(locale_dir, DEFAULT_MESSAGES_DOMAIN + MO_FILE_EXTENSION)
         po_file = os.path.join(locale_dir, DEFAULT_MESSAGES_DOMAIN + PO_FILE_EXTENSION)
         
-        # Try loading MO file first
+        self.logger.debug("Checking MO file: %s" % mo_file)
+        self.logger.debug("Checking PO file: %s" % po_file)
+        
+        # First try loading .mo file
         if os.path.exists(mo_file):
             try:
-                with open(mo_file, "rb") as fp:
-                    self._translations[locale] = MOFile(fp)
+                content = read_file(mo_file, binary=True)
+                mo = MOFile()
+                mo._parse(content)
+                self._translations[locale] = mo
+                self._catalogs[locale] = TranslationCatalog(translations=mo.translations, locale=locale)
+                self.logger.debug("Loaded MO file: %s" % mo_file)
+                self.logger.debug("Translations loaded: %d" % len(mo.translations))
                 return True
             except Exception as e:
-                msg = "Failed to load MO file {}: {}".format(mo_file, str(e))
-                if self.strict_mode:
-                    raise CatalogNotFoundError(msg)
-                logging.debug(msg)
-        
-        # Fall back to PO file if MO file not found or failed to load
+                msg = "Failed to load MO file %s: %s" % (mo_file, str(e))
+                self.logger.debug(msg)
+                # Don't raise error here, try PO file next
+    
+        # If .mo file doesn't exist or failed to load, try .po file
         if os.path.exists(po_file):
             try:
-                catalog = TranslationCatalog(locale=locale)
-                catalog.load(po_file)
-                self._catalogs[locale] = catalog
+                catalog = POFile(path=po_file, locale=locale)
+                catalog.load()
+                self._translations[locale] = catalog
+                self._catalogs[locale] = TranslationCatalog(translations=catalog.translations, locale=locale)
+                self.logger.debug("Loaded PO file: %s" % po_file)
+                self.logger.debug("Translations loaded: %d" % len(catalog.translations))
+                if self.auto_compile:
+                    # Try to compile PO to MO for better performance next time
+                    try:
+                        compile_po_file(po_file, mo_file)
+                        self.logger.debug("Compiled PO file to MO: %s" % mo_file)
+                    except Exception as e:
+                        self.logger.warning("Failed to compile PO to MO: %s" % str(e))
                 return True
             except Exception as e:
-                msg = "Failed to load PO file {}: {}".format(po_file, str(e))
+                msg = "Failed to load PO file %s: %s" % (po_file, str(e))
                 if self.strict_mode:
                     raise CatalogNotFoundError(msg)
-                logging.debug(msg)
-        
+                self.logger.debug(msg)
+                return False
+
+        msg = "No translation files found for locale: %s" % locale
         if self.strict_mode:
-            raise CatalogNotFoundError("No translation catalog found for locale: {}".format(locale))
-        logging.debug("No translation catalog found for locale: {}".format(locale))
+            raise CatalogNotFoundError(msg)
+        self.logger.debug(msg)
         return False
 
     def _parse_po_file(self, fileobj, catalog):
@@ -129,12 +135,12 @@ class TransX:
         current_msgid = None
         current_msgstr = []
         current_context = None
-        
+
         for line in fileobj:
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
-                
+
             if line.startswith('msgctxt "'):
                 current_context = line[9:-1]
             elif line.startswith('msgid "'):
@@ -145,127 +151,114 @@ class TransX:
                 current_context = None
             elif line.startswith('msgstr "'):
                 current_msgstr = [line[8:-1]]
-            elif line.startswith('"'):
-                if current_msgstr is not None:
-                    current_msgstr.append(line[1:-1])
-        
+            elif line.startswith('"') and current_msgstr is not None:
+                current_msgstr.append(line[1:-1])
+
         if current_msgid is not None:
             catalog.add_message(current_msgid, "".join(current_msgstr), current_context)
-    
+
     def add_translation(self, msgid, msgstr, context=None):
         """Add a translation entry.
-        
+
         Args:
             msgid: The message ID
             msgstr: The translated string
-            context: The context for the message (optional)
+            context: Optional context for the translation
         """
         if context:
             msgid = context + "\x04" + msgid
         if self._current_locale not in self._catalogs:
             self._catalogs[self._current_locale] = TranslationCatalog(locale=self._current_locale)
         self._catalogs[self._current_locale].add_translation(msgid, msgstr)
-    
+
     @property
     def current_locale(self):
         """Get current locale."""
         return self._current_locale
-    
+
     @current_locale.setter
     def current_locale(self, locale):
         """Set current locale and load translations.
-        
+
         Args:
             locale: Locale code (e.g. 'en_US', 'zh_CN')
-            
+
         Raises:
             LocaleNotFoundError: If the locale directory doesn't exist
-            ValueError: If locale is None or empty
+            ValueError: If locale is None
         """
-        if not locale:
-            raise ValueError("Locale cannot be None or empty")
+        if locale is None:
+            raise ValueError("Locale cannot be None")
+
+        # Check if locale directory exists
+        locale_dir = os.path.join(self.locales_root, locale, "LC_MESSAGES")
+        if not os.path.exists(locale_dir) and self.strict_mode:
+            raise LocaleNotFoundError("Locale directory not found: %s" % locale_dir)
+
+        # Set the locale first
+        self._current_locale = locale
+        
+        # Load catalog if not already loaded
+        if locale not in self._catalogs:
+            self.logger.debug("Loading catalog for locale: %s" % locale)
+            success = self.load_catalog(locale)
+            self.logger.debug("Catalog load %s for locale: %s" % ("succeeded" if success else "failed", locale))
+            if not success and self.strict_mode:
+                raise LocaleNotFoundError("Failed to load catalog for locale: %s" % locale)
+
+    def translate(self, msgid, catalog=None, **kwargs):
+        """Translate a message.
+        
+        Args:
+            msgid: Message ID to translate
+            catalog: Optional catalog to use. If None, uses current locale's catalog
+            **kwargs: Format arguments
             
-        if locale != self._current_locale:
-            locale_dir = os.path.join(self.locales_root, locale, "LC_MESSAGES")
-            if not os.path.exists(locale_dir):
-                raise LocaleNotFoundError(f"Locale directory not found: {locale_dir}")
-                
-            self._current_locale = locale
-            if locale not in self._translations:
-                self.load_catalog(locale)
-    
-    def tr(self, text, context=None, **kwargs):
-        """Translate text.
+        Returns:
+            Translated string
+            
+        Raises:
+            CatalogNotFoundError: If no catalog is available
+        """
+        if catalog is None:
+            if not self._catalogs:
+                raise CatalogNotFoundError("No catalogs available")
+            catalog = self._catalogs.get(self._current_locale)
+            if not catalog:
+                raise CatalogNotFoundError("No catalog for locale: %s" % self._current_locale)
+
+        message = catalog.get_message(msgid)
+        if not message:
+            return msgid
+
+        # Handle both string and Message object returns
+        msgstr = message if isinstance(message, string_types) else message.msgstr
+        
+        try:
+            return msgstr.format(**kwargs) if kwargs else msgstr
+        except KeyError as e:
+            raise KeyError("Missing parameter in translation: %s" % str(e))
+        except Exception:
+            return msgstr
+
+    def tr(self, text, context=None, catalog=None, **kwargs):
+        """Translate text using the current locale.
         
         Args:
             text: Text to translate
-            context: Message context
-            **kwargs: Format parameters
+            context: Optional context for the text
+            catalog: Optional specific catalog to use
+            **kwargs: Format arguments for the translated text
             
         Returns:
-            Translated text with parameters filled in, or original text if translation not found
-            and strict_mode is False
-            
-        Raises:
-            ValueError: If text is None
-            KeyError: If required format parameters are missing
+            str: Translated text or original text if no translation found
         """
-        # Handle None input
-        if text is None:
-            raise ValueError("Translation text cannot be None")
-            
-        # Handle empty string
-        if text == "":
-            return ""
-            
-        # Ensure text is unicode in both Python 2 and 3
-        if isinstance(text, binary_type):
-            text = text.decode(DEFAULT_CHARSET)
-            
-        if context:
-            # Add context separator
-            msgid = context + "\x04" + text
-        else:
-            msgid = text
-            
-        # Log translation attempt
-        logging.debug("Translating text: '{}' with context: '{}' and kwargs: {}".format(
-            text, context, kwargs))
+        self.logger.debug("Translating text: %s", text)
+        self.logger.debug("Current locale: %s", self.current_locale)
+        self.logger.debug("Available catalogs: %s", list(self._catalogs.keys()))
         
-        translated = None
-        # Try to get translation
-        if self._current_locale in self._translations:
-            trans = self._translations[self._current_locale]
-            if context:
-                translated = trans.pgettext(context, text)
-            else:
-                translated = trans.gettext(text)
-        elif self._current_locale in self._catalogs:
-            catalog = self._catalogs[self._current_locale]
-            translated = catalog.get_message(msgid)
-        
-        # If no translation found and not in strict mode, use original text
-        if translated is None:
-            translated = text
-            logging.debug("No translation found for text: {} (context: {}), using original text".format(
-                text, context))
-        
-        # Log translation result
-        logging.debug("Translation result: '{}'".format(translated))
-        if kwargs:
-            try:
-                translated = translated.format(**kwargs)
-            except KeyError as e:
-                msg = "Missing format parameter in translation: {}".format(str(e))
-                if self.strict_mode:
-                    raise KeyError(msg)
-                logging.debug(msg)
-                return text
-            except Exception as e:
-                msg = "Error formatting translation: {}".format(str(e))
-                if self.strict_mode:
-                    raise
-                logging.debug(msg)
-                return text
-        
-        return translated
+        try:
+            return self.translate(text, catalog, **kwargs)
+        except (CatalogNotFoundError, KeyError) as e:
+            self.logger.warning("Translation failed: %s", str(e))
+            return text

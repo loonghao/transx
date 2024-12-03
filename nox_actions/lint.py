@@ -1,5 +1,6 @@
 # Import third-party modules
 import nox
+
 from nox_actions.utils import PACKAGE_NAME
 
 
@@ -14,4 +15,11 @@ def lint_fix(session: nox.Session) -> None:
     session.run("ruff", "check", "--fix")
     session.run("isort", ".")
     session.run("pre-commit", "run", "--all-files")
-    session.run("autoflake", "--in-place", "--remove-all-unused-imports", "--remove-unused-variables")
+    session.run(
+        "autoflake",
+        "--in-place",
+        "--remove-all-unused-imports",
+        "--remove-unused-variables",
+        "-r",
+        PACKAGE_NAME
+    )

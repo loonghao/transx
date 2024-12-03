@@ -1,6 +1,6 @@
 # 🌏 TransX
 
-🚀 A lightweight, zero-dependency Python internationalization library that supports Python 3.7 through 3.12.
+🚀 A lightweight, zero-dependency Python internationalization library that supports Python 2.7 through 3.12.
 
 <div align="center">
 
@@ -22,20 +22,21 @@
 
 <div align="center">
 
-| Feature | Description |
-|---------|-------------|
-| 🚀 Zero Dependencies | No external dependencies required |
-| 🐍 Python Support | Full support for Python 3.7-3.12 |
+| Feature | Description                                |
+|---------|--------------------------------------------|
+| 🚀 Zero Dependencies | No external dependencies required          |
+| 🐍 Python Support | Full support for Python 2.7-3.12           |
 | 🌍 Context-based | Accurate translations with context support |
-| 📦 Standard Format | Compatible with gettext .po/.mo files |
-| 🎯 Simple API | Clean and intuitive interface |
-| 🔄 Auto Management | Automatic translation file handling |
-| 🔍 String Extraction | Built-in source code string extraction |
-| 🌐 Unicode | Complete Unicode support |
-| 🔠 Parameters | Dynamic parameter substitution |
-| ⚡ Performance | High-speed and thread-safe operations |
-| 🛡️ Error Handling | Comprehensive error management |
-| 🧪 Testing | Extensive test coverage |
+| 📦 Standard Format | Compatible with gettext .po/.mo files      |
+| 🎯 Simple API | Clean and intuitive interface              |
+| 🔄 Auto Management | Automatic translation file handling        |
+| 🔍 String Extraction | Built-in source code string extraction     |
+| 🌐 Unicode | Complete Unicode support                   |
+| 🔠 Parameters | Dynamic parameter substitution             |
+| ⚡ Performance | High-speed and thread-safe operations      |
+| 🛡️ Error Handling | Comprehensive error management             |
+| 🧪 Testing | Extensive test coverage                    |
+| 🌐 Auto Translation | Built-in Google Translate support          |
 
 </div>
 
@@ -67,120 +68,98 @@ print(tx.tr('Open', context='menu'))    # Output: 打开文件
 print(tx.tr('Hello {name}!', name='张三'))  # Output: 你好 张三！
 ```
 
+## 🛠️ Advanced API Usage
+
+### Message Extraction and PO/MO File Management
+
+```python
+from transx.api.pot import PotExtractor
+from transx.api.po import POFile
+from transx.api.mo import compile_po_file
+
+# Extract messages from source code
+extractor = PotExtractor(project="MyProject", version="1.0")
+extractor.scan_file("app.py")
+extractor.save("messages.pot")
+
+# Create/Update PO file
+po = POFile("zh_CN/LC_MESSAGES/messages.po")
+po.add_translation("Hello", "你好")
+po.add_translation("Welcome", "欢迎", context="greeting")
+po.save()
+
+# Compile PO to MO
+compile_po_file("zh_CN/LC_MESSAGES/messages.po", "zh_CN/LC_MESSAGES/messages.mo")
+```
+
+### Automatic Translation with Google Translate
+
+```python
+from transx.api.translate import GoogleTranslator, create_po_files
+
+# Initialize Google Translator
+translator = GoogleTranslator()
+
+# Create and auto-translate PO files for multiple languages
+create_po_files(
+    pot_file_path="messages.pot",
+    languages=["zh_CN", "ja_JP", "ko_KR"],
+    output_dir="locales",
+    translator=translator
+)
+
+# Or translate a single PO file
+from transx.api.translate import translate_po_file
+translate_po_file("locales/zh_CN/LC_MESSAGES/messages.po", translator)
+```
+
 ## 🛠️ Command Line Interface
 
-TransX comes with powerful CLI tools for translation management:
+TransX provides a powerful CLI for translation management:
 
-### 📤 Extract Messages
-
+### Extract Messages
 ```bash
 # Extract from a single file
-transx extract app.py
+transx extract app.py -o messages.pot
 
-# Extract from a directory with custom options
-transx extract ./src \
-    --output locales/custom.pot \
-    --project "My Project" \
-    --version "1.0"
+# Extract from a directory
+transx extract ./src -o messages.pot -p "MyProject" -v "1.0"
 ```
 
-### 🔄 Update Translations
-
+### Update PO Files
 ```bash
-# Update multiple languages
-transx update locales/messages.pot en zh_CN ja_JP
+# Update or create PO files for specific languages
+transx update messages.pot -l zh_CN ja_JP ko_KR
 
-# Custom output directory
-transx update messages.pot en zh_CN --output-dir ./translations
+# Auto-translate during update
+transx update messages.pot -l zh_CN ja_JP ko_KR --translate
 ```
 
-### ⚙️ Compile Translations
-
+### Compile MO Files
 ```bash
-# Compile translations
-transx compile locales/*/LC_MESSAGES/messages.po
+# Compile a single PO file
+transx compile locales/zh_CN/LC_MESSAGES/messages.po
+
+# Compile all PO files in a directory
+transx compile locales
 ```
 
-## 📁 Project Structure
+## 🌐 Supported Languages
 
-```
-your_project/
-├── 📂 locales/
-│   ├── 📂 zh_CN/
-│   │   └── 📂 LC_MESSAGES/
-│   │       ├── 📝 messages.po    # Source translations
-│   │       └── 📦 messages.mo    # Compiled translations
-│   └── 📂 ja_JP/
-│       └── 📂 LC_MESSAGES/
-│           ├── 📝 messages.po
-│           └── 📦 messages.mo
-└── 📜 your_code.py
-```
+The Google Translator supports a wide range of languages. Here are some commonly used language codes:
 
-## 🎯 Advanced Features
+- Chinese (Simplified): `zh_CN`
+- Japanese: `ja_JP`
+- Korean: `ko_KR`
+- French: `fr_FR`
+- Spanish: `es_ES`
 
-### 🌍 Context-Based Translations
-
-```python
-# UI Context
-print(tx.tr('Open', context='button'))  # 打开
-print(tx.tr('Open', context='menu'))    # 打开文件
-
-# Part of Speech
-print(tx.tr('Post', context='verb'))    # 发布
-print(tx.tr('Post', context='noun'))    # 文章
-
-# Scene Context
-print(tx.tr('Welcome', context='login')) # 欢迎登录
-print(tx.tr('Welcome', context='home'))  # 欢迎回来
-```
-
-### 🛡️ Error Handling
-
-```python
-from transx.exceptions import LocaleNotFoundError, CatalogNotFoundError
-
-try:
-    tx.current_locale = 'invalid_locale'
-except LocaleNotFoundError:
-    print("❌ Locale not found")
-
-try:
-    tx.load_catalog('missing_catalog.mo')
-except CatalogNotFoundError:
-    print("❌ Catalog not found")
-```
-
-### 📚 Multiple Catalogs
-
-```python
-tx = TransX()
-tx.load_catalog('path/to/main.mo')     # Main catalog
-tx.load_catalog('path/to/extra.mo')    # Extra translations
-```
-
-## ⚡ Performance Tips
-
-- 🚀 Uses compiled MO files for optimal speed
-- 💾 Automatic translation caching
-- 🔒 Thread-safe for concurrent access
-- 📉 Minimal memory footprint
+For a complete list of supported languages, refer to the [language code documentation](https://cloud.google.com/translate/docs/languages).
 
 ## 🤝 Contributing
 
-Contributions are welcome! Here's how you can help:
-
-- 🐛 Report bugs
-- 💡 Suggest features
-- 📝 Improve documentation
-- 🔧 Submit pull requests
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-<div align="center">
-Made with ❤️ by the LongHao
-</div>

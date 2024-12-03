@@ -37,7 +37,9 @@ METADATA_KEYS = {
     "CONTENT_TRANSFER_ENCODING": "Content-Transfer-Encoding",
     "GENERATED_BY": "Generated-By",
     "REPORT_MSGID_BUGS_TO": "Report-Msgid-Bugs-To",
+    "COPYRIGHT_HOLDER": "Copyright-Holder",
     "COPYRIGHT": "Copyright",
+    "PLURAL_FORMS": "Plural-Forms",
 }
 
 # Default metadata values
@@ -53,7 +55,8 @@ DEFAULT_METADATA = {
 }
 
 # Translation function pattern
-TR_FUNCTION_PATTERN = r'tr\(["\']([^"\']+)["\'](?:\s*,\s*context=["\']([^"\']+)["\'])?[\s,)]*\)'
+# https://regex101.com/r/aAs6bz/1
+TR_FUNCTION_PATTERN = r"""tr\((['"])((?:(?!\1|\\).|\\.)*?)\1(?:\s*,\s*context=(['"])((?:(?!\3|\\).|\\.)*?)\3)?[\s,)]*\)"""
 
 # Default keywords for message extraction
 DEFAULT_KEYWORDS = {
@@ -116,7 +119,7 @@ LANGUAGE_CODES = {
     "zh_TW": ("Chinese (Traditional)", ["zh-TW", "zh_tw", "zh-tw", "zht", "tw"]),
     "ja_JP": ("Japanese", ["ja", "ja-JP", "jp", "jpn"]),
     "ko_KR": ("Korean", ["ko", "ko-KR", "kr", "kor"]),
-    
+
     # European Languages
     "en_US": ("English (US)", ["en", "en-US", "eng", "en_GB", "en-GB"]),
     "fr_FR": ("French", ["fr", "fr-FR", "fra"]),
@@ -125,7 +128,7 @@ LANGUAGE_CODES = {
     "it_IT": ("Italian", ["it", "it-IT", "ita"]),
     "pt_BR": ("Portuguese (Brazil)", ["pt", "pt-BR", "por", "pt_PT", "pt-PT"]),
     "ru_RU": ("Russian", ["ru", "ru-RU", "rus"]),
-    
+
     # Other Major Languages
     "ar_SA": ("Arabic", ["ar", "ar-SA", "ara"]),
     "hi_IN": ("Hindi", ["hi", "hi-IN", "hin"]),
@@ -151,38 +154,3 @@ For more information about language codes, visit:
 - ISO 639-1: https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
 - ISO 3166-1: https://en.wikipedia.org/wiki/ISO_3166-1
 """
-
-def normalize_language_code(code):
-    """Normalize language code to standard format (e.g., 'zh_CN', 'en_US').
-    
-    Args:
-        code (str): Language code to normalize
-        
-    Returns:
-        str: Normalized language code
-        
-    Raises:
-        ValueError: If the language code is invalid
-    """
-    if not code:
-        return DEFAULT_LOCALE
-        
-    code = code.replace("-", "_")  # Convert zh-CN to zh_CN format
-    code = code.strip().lower()
-    
-    # If it's already a full code like zh_cn, just uppercase the country part
-    if "_" in code:
-        lang, country = code.split("_")
-        return f"{lang}_{country.upper()}"
-    
-    # Try to find in aliases
-    if code in LANGUAGE_CODE_ALIASES:
-        return LANGUAGE_CODE_ALIASES[code]
-    
-    # If not found, raise error with valid codes
-    valid_codes = "\n".join(f"- {code}: {name}" for code, (name, _) in LANGUAGE_CODES.items())
-    raise ValueError(INVALID_LANGUAGE_CODE_ERROR.format(
-        code=code,
-        valid_codes=valid_codes
-    ))
-
