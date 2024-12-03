@@ -2,15 +2,21 @@
 """MO file format handler for TransX."""
 from __future__ import unicode_literals
 
-import struct
-from collections import OrderedDict
 import re
+import struct
 
-from transx.api.po import POFile, Message
-from transx.constants import DEFAULT_CHARSET
-from transx.compat import ensure_unicode, is_string
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
 
-class MOFile:
+from transx.api.message import Message
+from transx.api.po import POFile
+from transx.compat import PY2, binary_type, ensure_binary, ensure_unicode, text_type
+from transx.constants import DEFAULT_ENCODING
+
+
+class MOFile(object):
     """Class representing a MO file."""
 
     def __init__(self, fileobj=None):
@@ -38,216 +44,229 @@ class MOFile:
         See: https://www.gnu.org/software/gettext/manual/html_node/MO-Files.html
         """
         # Read header
-        magic = struct.unpack('<I', fileobj.read(4))[0]
+        magic = struct.unpack("<I", fileobj.read(4))[0]
         if magic == 0xde120495:  # Big endian
-            byte_order = '>'
+            byte_order = ">"
         elif magic == 0x950412de:  # Little endian
-            byte_order = '<'
+            byte_order = "<"
         else:
-            raise ValueError('Bad magic number')
+            raise ValueError("Bad magic number")
 
         # Read version and number of strings
-        version = struct.unpack(byte_order + 'I', fileobj.read(4))[0]
+        version = struct.unpack(byte_order + "I", fileobj.read(4))[0]
         if version not in (0, 1):
-            raise ValueError('Bad version number')
+            raise ValueError("Bad version number")
 
-        num_strings = struct.unpack(byte_order + 'I', fileobj.read(4))[0]
-        orig_table_offset = struct.unpack(byte_order + 'I', fileobj.read(4))[0]
-        trans_table_offset = struct.unpack(byte_order + 'I', fileobj.read(4))[0]
-        hash_table_size = struct.unpack(byte_order + 'I', fileobj.read(4))[0]
-        hash_table_offset = struct.unpack(byte_order + 'I', fileobj.read(4))[0]
-
-        # Store header values
-        self.magic = magic
         self.version = version
-        self.num_strings = num_strings
-        self.orig_table_offset = orig_table_offset
-        self.trans_table_offset = trans_table_offset
-        self.hash_table_size = hash_table_size
-        self.hash_table_offset = hash_table_offset
+        self.num_strings = struct.unpack(byte_order + "I", fileobj.read(4))[0]
+        self.orig_table_offset = struct.unpack(byte_order + "I", fileobj.read(4))[0]
+        self.trans_table_offset = struct.unpack(byte_order + "I", fileobj.read(4))[0]
+        self.hash_table_size = struct.unpack(byte_order + "I", fileobj.read(4))[0]
+        self.hash_table_offset = struct.unpack(byte_order + "I", fileobj.read(4))[0]
 
-        # Read string tables
-        orig_strings = []
-        trans_strings = []
-
-        # Read original strings
-        fileobj.seek(orig_table_offset)
-        for i in range(num_strings):
-            length = struct.unpack(byte_order + 'I', fileobj.read(4))[0]
-            offset = struct.unpack(byte_order + 'I', fileobj.read(4))[0]
-            orig_strings.append((length, offset))
-
-        # Read translated strings
-        fileobj.seek(trans_table_offset)
-        for i in range(num_strings):
-            length = struct.unpack(byte_order + 'I', fileobj.read(4))[0]
-            offset = struct.unpack(byte_order + 'I', fileobj.read(4))[0]
-            trans_strings.append((length, offset))
-
-        # Read actual strings
-        for i in range(num_strings):
+        # Read strings
+        for i in range(self.num_strings):
             # Read original string
-            fileobj.seek(orig_strings[i][1])
-            orig = fileobj.read(orig_strings[i][0]).decode('utf-8')
+            fileobj.seek(self.orig_table_offset + i * 8)
+            length = struct.unpack(byte_order + "I", fileobj.read(4))[0]
+            offset = struct.unpack(byte_order + "I", fileobj.read(4))[0]
+            fileobj.seek(offset)
+            msgid = fileobj.read(length)
 
-            # Read translated string
-            fileobj.seek(trans_strings[i][1])
-            trans = fileobj.read(trans_strings[i][0]).decode('utf-8')
+            # Read translation
+            fileobj.seek(self.trans_table_offset + i * 8)
+            length = struct.unpack(byte_order + "I", fileobj.read(4))[0]
+            offset = struct.unpack(byte_order + "I", fileobj.read(4))[0]
+            fileobj.seek(offset)
+            msgstr = fileobj.read(length)
 
-            # Handle context
-            if '\x04' in orig:
-                context, msgid = orig.split('\x04', 1)
-            else:
-                context, msgid = None, orig
+            # Convert to unicode
+            msgid = ensure_unicode(msgid)
+            msgstr = ensure_unicode(msgstr)
 
-            # Store in translations
-            key = (msgid, context)
-            self.translations[key] = Message(msgid=msgid, msgstr=trans, context=context)
+            # Add to translations
+            message = Message(msgid=msgid, msgstr=msgstr)
+            self.translations[msgid] = message
 
-            # Parse header if this is the header message
-            if msgid == "":
-                self.metadata.update(self._parse_header(trans))
+            # Parse metadata from empty msgid
+            if not msgid and msgstr:
+                self._parse_metadata(msgstr)
 
-    def _parse_header(self, header):
-        """Parse the header into a dictionary."""
-        headers = {}
-        for line in header.split('\\n'):
+    def _parse_metadata(self, msgstr):
+        """Parse metadata from msgstr."""
+        if isinstance(msgstr, binary_type):
+            msgstr = msgstr.decode(DEFAULT_ENCODING)
+        for line in msgstr.split("\n"):
+            line = line.strip()
             if not line:
                 continue
             try:
-                key, value = line.split(':', 1)
-                headers[key.strip()] = value.strip()
+                key, value = line.split(":", 1)
+                self.metadata[key.strip()] = value.strip()
             except ValueError:
                 continue
-        return headers
 
     def _normalize_string(self, s):
-        """Normalize string by handling escape sequences consistently.
+        """Normalize string for writing to MO file.
         
         Args:
-            s: Input string to normalize
+            s: String to normalize
             
         Returns:
             Normalized string with consistent escape sequences
         """
-        if is_string(s):
-            # 将所有单个反斜杠后跟特殊字符的情况替换为双反斜杠
-            return re.sub(r'\\([ntr\\])', r'\\\\\\1', s)
+        if isinstance(s, text_type):
+            s = s.encode(DEFAULT_ENCODING)
         return s
+
+    def save(self, fileobj):
+        """Save MO file.
+        
+        Args:
+            fileobj: File object to write to
+        """
+        # Sort messages by msgid
+        messages = sorted(self.translations.values(), key=lambda m: m.msgid)
+
+        # Prepare data
+        output_data = []
+        ids_data = []
+        strs_data = []
+
+        # Add metadata if present
+        if self.metadata:
+            metadata_str = "\n".join("%s: %s" % (k, v) for k, v in self.metadata.items())
+            messages.insert(0, Message(msgid="", msgstr=metadata_str))
+
+        # Collect strings data
+        for message in messages:
+            msgid = self._normalize_string(message.msgid)
+            msgstr = self._normalize_string(message.msgstr or "")  # Handle None msgstr
+            
+            # Add to data sections
+            ids_data.append(msgid)
+            strs_data.append(msgstr)
+
+        # Calculate sizes and offsets
+        keystart = 7 * 4 + 8 * len(messages) * 2
+        valuestart = keystart + sum(len(s) + 1 for s in ids_data)  # +1 for NUL
+        koffsets = []
+        voffsets = []
+        offset = keystart
+        for msgid in ids_data:
+            koffsets.append((len(msgid), offset))
+            offset += len(msgid) + 1
+        offset = valuestart
+        for msgstr in strs_data:
+            voffsets.append((len(msgstr), offset))
+            offset += len(msgstr) + 1
+
+        # Write header
+        output_data.append(struct.pack("<I", self.magic))  # Magic
+        output_data.append(struct.pack("<I", 0))  # Version
+        output_data.append(struct.pack("<I", len(messages)))  # Number of strings
+        output_data.append(struct.pack("<I", 7 * 4))  # Offset of table with original strings
+        output_data.append(struct.pack("<I", 7 * 4 + 8 * len(messages)))  # Offset of table with translation strings
+        output_data.append(struct.pack("<I", 0))  # Size of hashing table
+        output_data.append(struct.pack("<I", 0))  # Offset of hashing table
+
+        # Write offsets for msgid
+        for length, offset in koffsets:
+            output_data.append(struct.pack("<II", length, offset))
+
+        # Write offsets for msgstr
+        for length, offset in voffsets:
+            output_data.append(struct.pack("<II", length, offset))
+
+        # Write messages
+        for msgid in ids_data:
+            output_data.append(msgid + b"\0")
+        for msgstr in strs_data:
+            output_data.append(msgstr + b"\0")
+
+        # Write to file
+        for data in output_data:
+            fileobj.write(data)
 
     def gettext(self, msgid):
         """Get the translated string for a given msgid.
         
         Args:
-            msgid: The message ID to translate
+            msgid: Message ID to translate
             
         Returns:
-            The translated string if found, otherwise the original msgid
+            Translated string or original string if not found
         """
-        # Ensure msgid is unicode
+        if not isinstance(msgid, (text_type, binary_type)):
+            return msgid
+
         msgid = ensure_unicode(msgid)
-            
-        # Normalize the input msgid
-        normalized_msgid = self._normalize_string(msgid)
-        
-        # Try with normalized msgid first
-        key = (normalized_msgid, None)
-        if key in self.translations:
-            return self.translations[key].msgstr
-            
-        # Try with original msgid as fallback
-        key = (msgid, None)
-        if key in self.translations:
-            return self.translations[key].msgstr
-            
-        # Return original string if no translation found
-        return msgid
+        message = self.translations.get(msgid)
+        return message.msgstr if message and message.msgstr else msgid
 
     def ngettext(self, msgid1, msgid2, n):
-        """Get the pluralized translated string.
+        """Get the plural form for a given msgid and count.
         
         Args:
-            msgid1: The singular form
-            msgid2: The plural form 
-            n: The number determining plural form
+            msgid1: Singular form
+            msgid2: Plural form
+            n: Count
             
         Returns:
-            The translated string in appropriate plural form if found,
-            otherwise the original msgid1/msgid2 based on n
+            Appropriate plural form
         """
-        # For now just handle basic singular/plural
-        if n == 1:
-            return self.gettext(msgid1)
-        return self.gettext(msgid2)
-
+        if not isinstance(msgid1, (text_type, binary_type)) or not isinstance(msgid2, (text_type, binary_type)):
+            return msgid1 if n == 1 else msgid2
+            
+        msgid1 = ensure_unicode(msgid1)
+        msgid2 = ensure_unicode(msgid2)
+        
+        message = self.translations.get(msgid1)
+        if message and message.msgstr:
+            try:
+                plural_forms = message.msgstr.split("\0")
+                if len(plural_forms) > 1:
+                    # Get plural form index from plural_forms metadata
+                    plural_form = 0  # Default to first form
+                    if "Plural-Forms" in self.metadata:
+                        match = re.search(r"plural=(.+?);", self.metadata["Plural-Forms"])
+                        if match:
+                            # Evaluate plural form expression
+                            try:
+                                plural_form = int(eval(match.group(1).replace("n", str(n))))
+                                plural_form = min(plural_form, len(plural_forms) - 1)
+                            except (SyntaxError, ValueError):
+                                pass
+                    return plural_forms[plural_form]
+            except (IndexError, AttributeError):
+                pass
+        return msgid1 if n == 1 else msgid2
 
 def compile_po_file(po_file_path, mo_file_path):
-    """Compile a PO file to MO format."""
-    # Load PO file
-    po = POFile(po_file_path)
-    po.load()
+    """Compile a PO file to MO format.
+    
+    Args:
+        po_file_path: Path to input PO file
+        mo_file_path: Path to output MO file
+        
+    Raises:
+        IOError: If the input file cannot be read or the output file cannot be written
+        ValueError: If the input file is not a valid PO file
+    """
+    try:
+        # Load PO file
+        po = POFile(po_file_path)
+        po.load()
 
-    # Write MO file
-    with open(mo_file_path, 'wb') as mo_file:
-        write_mo(mo_file, po.translations)
+        # Create MO file
+        mo = MOFile()
+        mo.translations = po.translations
+        mo.metadata = po.metadata
 
-
-def write_mo(fileobj, messages):
-    """Write MO file format."""
-    # Prepare data
-    raw_messages = []
-    for key, message in messages.items():
-        msgid = key[0]  # Extract msgid from (msgid, context) tuple
-        if msgid == "":  # Header
-            # If no metadata, use msgstr directly
-            if not message.metadata:
-                msgstr = message.msgstr
-            else:
-                # Convert metadata to string format
-                header_lines = []
-                for meta_key, value in message.metadata.items():
-                    header_lines.append(f"{meta_key}: {value}")
-                msgstr = "\\n".join(header_lines) + "\\n"
-        else:
-            msgstr = message.msgstr
-            if message.context:  # Add context prefix if present
-                msgid = f"{message.context}\x04{msgid}"
-        raw_messages.append((msgid, msgstr))
-
-    # Sort by msgid
-    raw_messages.sort()
-
-    # Write header
-    fileobj.write(struct.pack('<I', 0x950412de))  # Magic
-    fileobj.write(struct.pack('<I', 0))  # Version
-    fileobj.write(struct.pack('<I', len(raw_messages)))  # Number of strings
-    fileobj.write(struct.pack('<I', 28))  # Start of original strings
-    fileobj.write(struct.pack('<I', 28 + len(raw_messages) * 8))  # Start of translation strings
-    fileobj.write(struct.pack('<I', 0))  # Size of hashing table
-    fileobj.write(struct.pack('<I', 28 + len(raw_messages) * 16))  # Offset of hashing table
-
-    # Write offset tables
-    offset = 28 + len(raw_messages) * 16  # Skip headers and offset tables
-
-    # Original strings
-    for msgid, msgstr in raw_messages:
-        encoded_msgid = msgid.encode('utf-8')
-        length = len(encoded_msgid)
-        fileobj.write(struct.pack('<II', length, offset))
-        offset += length + 1  # Add null terminator
-
-    # Translation strings
-    for msgid, msgstr in raw_messages:
-        encoded_msgstr = msgstr.encode('utf-8')
-        length = len(encoded_msgstr)
-        fileobj.write(struct.pack('<II', length, offset))
-        offset += length + 1  # Add null terminator
-
-    # Write strings
-    for msgid, msgstr in raw_messages:
-        encoded_msgid = msgid.encode('utf-8')
-        fileobj.write(encoded_msgid + b'\0')
-
-    for msgid, msgstr in raw_messages:
-        encoded_msgstr = msgstr.encode('utf-8')
-        fileobj.write(encoded_msgstr + b'\0')
+        # Save MO file
+        with open(mo_file_path, "wb") as f:
+            mo.save(f)
+    except (IOError, OSError) as e:
+        raise IOError("Failed to compile PO file: %s" % str(e))
+    except Exception as e:
+        raise ValueError("Invalid PO file: %s" % str(e))

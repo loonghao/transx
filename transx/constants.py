@@ -56,7 +56,7 @@ DEFAULT_METADATA = {
 
 # Translation function pattern
 # https://regex101.com/r/aAs6bz/1
-TR_FUNCTION_PATTERN = r'''tr\((['"])((?:(?!\1|\\).|\\.)*?)\1(?:\s*,\s*context=(['"])((?:(?!\3|\\).|\\.)*?)\3)?[\s,)]*\)'''
+TR_FUNCTION_PATTERN = r"""tr\((['"])((?:(?!\1|\\).|\\.)*?)\1(?:\s*,\s*context=(['"])((?:(?!\3|\\).|\\.)*?)\3)?[\s,)]*\)"""
 
 # Default keywords for message extraction
 DEFAULT_KEYWORDS = {
@@ -154,37 +154,3 @@ For more information about language codes, visit:
 - ISO 639-1: https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
 - ISO 3166-1: https://en.wikipedia.org/wiki/ISO_3166-1
 """
-
-def normalize_language_code(code):
-    """Normalize language code to standard format (e.g., 'zh_CN', 'en_US').
-
-    Args:
-        code (str): Language code to normalize
-
-    Returns:
-        str: Normalized language code
-
-    Raises:
-        ValueError: If the language code is invalid
-    """
-    if not code:
-        return DEFAULT_LOCALE
-
-    code = code.replace("-", "_")  # Convert zh-CN to zh_CN format
-    code = code.strip().lower()
-
-    # If it's already a full code like zh_cn, just uppercase the country part
-    if "_" in code:
-        lang, country = code.split("_")
-        return f"{lang}_{country.upper()}"
-
-    # Try to find in aliases
-    if code in LANGUAGE_CODE_ALIASES:
-        return LANGUAGE_CODE_ALIASES[code]
-
-    # If not found, raise error with valid codes
-    valid_codes = "\n".join(f"- {code}: {name}" for code, (name, _) in LANGUAGE_CODES.items())
-    raise ValueError(INVALID_LANGUAGE_CODE_ERROR.format(
-        code=code,
-        valid_codes=valid_codes
-    ))
