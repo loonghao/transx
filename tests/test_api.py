@@ -6,6 +6,7 @@ from transx.api.po import POFile
 from transx.api.pot import PotExtractor
 from transx.api.translate import GoogleTranslator
 from transx.constants import DEFAULT_CHARSET
+from transx.filesystem import read_file, write_file
 
 
 def test_pot_extractor(tmp_path):
@@ -16,7 +17,7 @@ def test_pot_extractor(tmp_path):
     
     # Python file
     py_file = test_dir / "test.py"
-    py_file.write_text("""
+    write_file(str(py_file), """
 def greet():
     print(tr("Hello"))
     print(tr("Welcome", context="greeting"))
@@ -24,7 +25,7 @@ def greet():
     
     # HTML file
     html_file = test_dir / "test.html"
-    html_file.write_text("""
+    write_file(str(html_file), """
 <div>{{ tr("Hello") }}</div>
 <div>{{ tr("Welcome", context="greeting") }}</div>
 """, encoding=DEFAULT_CHARSET)
@@ -44,7 +45,7 @@ def greet():
     
     # Verify POT file exists and contains correct content
     assert pot_file.exists()
-    content = pot_file.read_text(encoding=DEFAULT_CHARSET)
+    content = read_file(str(pot_file), encoding=DEFAULT_CHARSET)
     assert "Hello" in content
     assert "Welcome" in content
     assert 'msgctxt "greeting"' in content

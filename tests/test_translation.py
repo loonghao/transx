@@ -3,7 +3,6 @@
 """Test translation functionality."""
 # Import built-in modules
 import logging
-import os
 import sys
 
 # Import third-party modules

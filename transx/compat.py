@@ -10,8 +10,8 @@ from io import BytesIO
 
 try:
     from urllib import urlencode # noqa
-    from urllib2 import Request, urlopen, HTTPError, URLError # noqa
-    from StringIO import StringIO as BytesIO # noqa
+    from urllib2 import Request, urlopen, HTTPError, URLError
+    from StringIO import StringIO as BytesIO
 except ImportError:
     from urllib.parse import urlencode  # noqa
     from urllib.request import Request, urlopen # noqa

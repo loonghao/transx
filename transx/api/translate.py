@@ -137,10 +137,17 @@ def create_po_files(pot_file_path, languages, output_dir=None, translator=None):
         # Update PO from POT
         po.update(pot)
 
+        # Set language-specific metadata
+        po.metadata.update({
+            "Language": lang,
+            "Language-Team": "%s <LL@li.org>" % lang,
+            "Plural-Forms": "nplurals=1; plural=0;" if lang.startswith("zh") else "nplurals=2; plural=(n != 1);"
+        })
+
         # Optionally translate untranslated entries
         if translator:
             logger.info("Auto-translating untranslated strings for %s..." % lang)
-            po.translate_messages(translator)
+            po.translate_messages(translator, target_lang=lang)
 
         # Save PO file
         po.save()
@@ -338,16 +345,27 @@ class GoogleTranslator(Translator):
                 
                 # Extract translation from response
                 try:
-                    start = response_data.find('class="result-container">')
-                    if start == -1:
+                    # Try different possible result container patterns
+                    patterns = [
+                        ('class="result-container">', "</div>"),
+                        ('class="translation">', "</div>"),
+                        ('class="t0">', "</div>"),
+                        ("<div dir='ltr'>", "</div>"),
+                    ]
+                    
+                    translated_text = None
+                    for start_pattern, end_pattern in patterns:
+                        start = response_data.find(start_pattern)
+                        if start != -1:
+                            start += len(start_pattern)
+                            end = response_data.find(end_pattern, start)
+                            if end != -1:
+                                translated_text = response_data[start:end].strip()
+                                break
+                    
+                    if translated_text is None:
                         raise TranslationError("Could not find translation in response")
                     
-                    start += len('class="result-container">')
-                    end = response_data.find("</div>", start)
-                    if end == -1:
-                        raise TranslationError("Could not find end of translation in response")
-                    
-                    translated_text = response_data[start:end].strip()
                     self.logger.debug("Extracted translation: %s", translated_text)
                     
                     # Restore special characters

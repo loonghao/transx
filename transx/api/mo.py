@@ -12,7 +12,7 @@ except ImportError:
 
 from transx.api.message import Message
 from transx.api.po import POFile
-from transx.compat import PY2, binary_type, ensure_binary, ensure_unicode, text_type
+from transx.compat import binary_type, ensure_unicode, text_type
 from transx.constants import DEFAULT_ENCODING
 
 

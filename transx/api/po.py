@@ -1,8 +1,10 @@
+# -*- coding: utf-8 -*-
 #!/usr/bin/env python
 """PO file format handler for TransX."""
 from __future__ import unicode_literals
 
 import codecs
+import datetime
 import errno
 import logging
 import os
@@ -17,7 +19,6 @@ except ImportError:
     from ordereddict import OrderedDict
 
 from transx.api.message import Message
-from transx.constants import DEFAULT_ENCODING, DEFAULT_METADATA, METADATA_KEYS
 
 
 class POFile(object):
@@ -52,10 +53,33 @@ class POFile(object):
 
     def _init_metadata(self):
         """Initialize default metadata."""
-        self.metadata = OrderedDict()
-        self.metadata.update(DEFAULT_METADATA)
-        if self.locale:
-            self.metadata["Language"] = self.locale
+        now = datetime.datetime.now()
+        year = now.year
+
+        # Set default header comment
+        self.header_comment = (
+            "# Translations template for PROJECT.\n"
+            "# Copyright (C) {} ORGANIZATION\n"
+            "# This file is distributed under the same license as the PROJECT project.\n"
+            "# FIRST AUTHOR <EMAIL@ADDRESS>, {}.\n"
+            "#\n"
+            "#, fuzzy"
+        ).format(year, year)
+
+        # Set default metadata
+        self.metadata.update({
+            "Project-Id-Version": "TransX Demo 1.0",
+            "Report-Msgid-Bugs-To": "transx@example.com",
+            "POT-Creation-Date": now.strftime("%Y-%m-%d %H:%M"),
+            "PO-Revision-Date": "YEAR-MO-DA HO:MI+ZONE",
+            "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+            "Language-Team": "LANGUAGE <LL@li.org>",
+            "MIME-Version": "1.0",
+            "Content-Type": "text/plain; charset=utf-8",
+            "Content-Transfer-Encoding": "8bit",
+            "Generated-By": "TransX",
+            "Copyright-Holder": "TransX Team"
+        })
 
     def update_metadata(self, new_metadata):
         """Update metadata without duplicating entries.
@@ -63,13 +87,20 @@ class POFile(object):
         Args:
             new_metadata: New metadata to merge
         """
-        # Clear any existing metadata first to prevent duplication
-        self.metadata.clear()
-        self._init_metadata()
+        # Update metadata dictionary
+        self.metadata.update(new_metadata)
+
+        # Update header message
+        header_key = self._get_key("", None)
+        if header_key not in self.translations:
+            self.translations[header_key] = Message(msgid="", msgstr="")
         
-        # Update with new metadata
-        if new_metadata:
-            self.metadata.update(new_metadata)
+        # Generate header content with quotes
+        header_lines = []
+        for key, value in self.metadata.items():
+            if value:  # Only write non-empty values
+                header_lines.append('"%s: %s\\n"' % (key, value))
+        self.translations[header_key].msgstr = "\n".join(header_lines)
 
     def parse_header(self, header):
         """Parse the header into a dictionary.
@@ -81,142 +112,169 @@ class POFile(object):
             OrderedDict: Parsed metadata
         """
         headers = OrderedDict()
-        for line in header.split("\n"):
-            line = line.rstrip("\\n")  # Remove trailing \n
+        
+        # First unescape the entire header
+        header = self._unescape_string(header)
+        
+        # Split into lines and process each line
+        lines = header.split("\\n")
+        current_key = None
+        current_value = []
+        
+        for line in lines:
+            line = line.strip()
             if not line:
                 continue
+            
+            # Try to parse as a header entry
             try:
                 key, value = line.split(":", 1)
-                headers[key.strip()] = value.strip()
+                if current_key:
+                    # Save previous entry
+                    headers[current_key] = "".join(current_value).strip()
+                current_key = key.strip()
+                current_value = [value.strip()]
             except ValueError:
-                continue
+                # If we can't split on ':', this might be a continuation of the previous value
+                if current_key:
+                    current_value.append(line)
+        
+        # Save last entry
+        if current_key:
+            headers[current_key] = "".join(current_value).strip()
+        
         return headers
 
     def load(self, file=None):
-        """Load messages from a PO file."""
+        """Load messages from a PO file.
+
+        Args:
+            file: Optional file path to load from. If not provided, uses self.path
+        """
         if file is None:
             file = self.path
+        if file is None:
+            raise ValueError("No file path specified")
 
-        if isinstance(file, (str, str)):
-            file = codecs.open(file, "r", encoding=DEFAULT_ENCODING)
+        if not os.path.exists(file):
+            return
 
-        try:
-            current_message = None
-            header_comment = []
-            in_msgstr = False
-            in_header = False
+        current_message = None
+        current_locations = []
+        current_flags = set()
+        current_auto_comments = []
+        current_user_comments = []
+        current_msgid = []
+        current_msgstr = []
+        current_msgctxt = []
+        reading_msgid = False
+        reading_msgstr = False
+        reading_msgctxt = False
 
-            for line in file:
+        with codecs.open(file, "r", encoding="utf-8") as f:
+            for line in f:
                 line = line.strip()
-
+                
                 # Skip empty lines
                 if not line:
-                    if current_message:
-                        self._add_current_message(current_message, in_header)
+                    if current_message is not None:
+                        self._add_current_message(current_message)
                         current_message = None
-                        in_header = False
+                        current_locations = []
+                        current_flags = set()
+                        current_auto_comments = []
+                        current_user_comments = []
+                        current_msgid = []
+                        current_msgstr = []
+                        current_msgctxt = []
+                        reading_msgid = False
+                        reading_msgstr = False
+                        reading_msgctxt = False
                     continue
 
-                # Parse header comments
-                if line.startswith("#") and current_message is None:
-                    header_comment.append(line)
-                    continue
-
-                # Parse message
-                if line.startswith("msgid "):
-                    if current_message:
-                        self._add_current_message(current_message, in_header)
-                    # Remove msgid prefix but keep quotes
-                    msgid = line[6:].strip()
-                    current_message = Message(msgid=self._parse_string(msgid))
-                    in_msgstr = False
-                    # Check if this is the header
-                    if not current_message.msgid:
-                        in_header = True
-                    continue
-
-                if line.startswith("msgstr "):
-                    if current_message:
-                        # Remove msgstr prefix but keep quotes
-                        msgstr = line[7:].strip()
-                        current_message.msgstr = self._parse_string(msgstr)
-                        in_msgstr = True
-                    continue
-
-                # Parse string continuation
-                if line.startswith('"') and line.endswith('"'):
-                    if current_message:
-                        if in_msgstr:
-                            current_message.msgstr += self._parse_string(line)
-                        else:
-                            current_message.msgid += self._parse_string(line)
-                    continue
-
-                # Parse locations
-                if line.startswith("#: "):
-                    if current_message is None:
-                        current_message = Message("")
-                    for location in line[3:].strip().split():
+                # Parse source references
+                if line.startswith("#:"):
+                    locations = line[2:].strip().split()
+                    for location in locations:
                         if ":" in location:
                             filename, lineno = location.rsplit(":", 1)
                             try:
-                                current_message.locations.append((filename, int(lineno)))
+                                current_locations.append((filename.strip(), int(lineno.strip())))
                             except ValueError:
                                 self.logger.warning("Invalid line number in location: %s", location)
                     continue
 
                 # Parse flags
-                if line.startswith("#, "):
-                    if current_message is None:
-                        current_message = Message("")
-                    flags = line[3:].strip().split(", ")
-                    current_message.flags.update(flags)
+                if line.startswith("#,"):
+                    flags = line[2:].strip().split(",")
+                    current_flags.update(flag.strip() for flag in flags)
                     continue
 
-                # Parse auto comments
-                if line.startswith("#. "):
-                    if current_message is None:
-                        current_message = Message("")
-                    current_message.auto_comments.append(line[3:].strip())
+                # Parse automatic comments
+                if line.startswith("#."):
+                    current_auto_comments.append(line[2:].strip())
                     continue
 
                 # Parse user comments
-                if line.startswith("# "):
-                    if current_message is None:
-                        current_message = Message("")
-                    current_message.user_comments.append(line[2:].strip())
+                if line.startswith("#") and not line.startswith("#:") and not line.startswith("#,") and not line.startswith("#."):
+                    current_user_comments.append(line[1:].strip())
                     continue
 
-                # Parse context
+                # Parse msgctxt
                 if line.startswith("msgctxt "):
-                    if current_message is None:
-                        current_message = Message("")
-                    current_message.context = self._parse_string(line[8:])
+                    reading_msgctxt = True
+                    reading_msgid = False
+                    reading_msgstr = False
+                    current_msgctxt = [self._unescape_string(line[8:])]
                     continue
 
-            # Add the last message
-            if current_message:
-                self._add_current_message(current_message, in_header)
+                # Parse msgid
+                if line.startswith("msgid "):
+                    reading_msgctxt = False
+                    reading_msgid = True
+                    reading_msgstr = False
+                    current_msgid = [self._unescape_string(line[6:])]
+                    continue
 
-            # Store header comment
-            if header_comment:
-                self.header_comment = "\n".join(header_comment) + "\n"
+                # Parse msgstr
+                if line.startswith("msgstr "):
+                    reading_msgctxt = False
+                    reading_msgid = False
+                    reading_msgstr = True
+                    current_msgstr = [self._unescape_string(line[7:])]
+                    current_message = Message(
+                        msgid="".join(current_msgid),
+                        msgstr="".join(current_msgstr),
+                        context="".join(current_msgctxt),
+                        locations=current_locations,
+                        flags=current_flags,
+                        auto_comments=current_auto_comments,
+                        user_comments=current_user_comments
+                    )
+                    continue
 
-        finally:
-            if hasattr(file, "close"):
-                file.close()
+                # Continue reading msgid/msgstr/msgctxt
+                if reading_msgid:
+                    current_msgid.append(self._unescape_string(line))
+                elif reading_msgstr:
+                    current_msgstr.append(self._unescape_string(line))
+                elif reading_msgctxt:
+                    current_msgctxt.append(self._unescape_string(line))
 
-    def _add_current_message(self, message, in_header):
+            # Add the last message if any
+            if current_message is not None:
+                self._add_current_message(current_message)
+
+    def _add_current_message(self, message):
         """Helper method to add the current message to translations.
         
         Args:
             message: Message object to add
-            in_header: Whether this is a header message
         """
         if not message:
             return
             
-        if in_header and not message.msgid and message.msgstr:
+        if not message.msgid and message.msgstr:
             # Parse header metadata
             metadata = self.parse_header(message.msgstr)
             self.update_metadata(metadata)
@@ -250,40 +308,17 @@ class POFile(object):
         if text.startswith('"') and text.endswith('"'):
             text = text[1:-1]  # Remove outer quotes
             
-        # Handle escape sequences
-        result = []
-        i = 0
-        while i < len(text):
-            if text[i] == "\\" and i + 1 < len(text):
-                if text[i + 1] == "n":
-                    result.append("\n")
-                    i += 2
-                elif text[i + 1] == "t":
-                    result.append("\t")
-                    i += 2
-                elif text[i + 1] == "r":
-                    result.append("\r")
-                    i += 2
-                elif text[i + 1] == "b":
-                    result.append("\b")
-                    i += 2
-                elif text[i + 1] == "f":
-                    result.append("\f")
-                    i += 2
-                elif text[i + 1] == '"':
-                    result.append('"')
-                    i += 2
-                elif text[i + 1] == "\\":
-                    result.append("\\")
-                    i += 2
-                else:
-                    result.append(text[i])
-                    i += 1
-            else:
-                result.append(text[i])
-                i += 1
-                
-        return "".join(result)
+        # Unescape special characters
+        return self._unescape_string(text)
+
+    def _unescape_string(self, string):
+        """Unescape a quoted string."""
+        if not string:
+            return ""
+        if string.startswith('"') and string.endswith('"'):
+            string = string[1:-1]  # Remove surrounding quotes
+        # Unescape special characters
+        return string.encode("raw_unicode_escape").decode("unicode_escape")
 
     def _escape_string(self, text):
         """Escape a string value for writing to a PO file.
@@ -296,72 +331,20 @@ class POFile(object):
         """
         if not text:
             return '""'
-            
+
+        # If the string is already properly quoted, return it as is
+        if text.startswith('"') and text.endswith('"'):
+            return text
+
         # Escape special characters
         text = text.replace("\\", "\\\\")  # Must be first
-        text = text.replace('"', '\\"')
         text = text.replace("\n", "\\n")
-        text = text.replace("\t", "\\t")
         text = text.replace("\r", "\\r")
-        text = text.replace("\b", "\\b")
-        text = text.replace("\f", "\\f")
-        
-        # Only add quotes if not already quoted
-        if not (text.startswith('"') and text.endswith('"')):
-            text = '"{}"'.format(text)
-            
-        return text
+        text = text.replace("\t", "\\t")
+        text = text.replace('"', '\\"')
 
-    def _unescape_string(self, text):
-        """Convert a string from PO format.
-        
-        Args:
-            text: String to unescape
-            
-        Returns:
-            Unescaped string
-        """
-        if not text:
-            return ""
-            
-        # Handle quoted strings
-        if text.startswith('"') and text.endswith('"'):
-            text = text[1:-1]
-            
-        # Handle escape sequences
-        result = []
-        i = 0
-        while i < len(text):
-            if text[i] == "\\" and i + 1 < len(text):
-                if text[i + 1] == "n":
-                    result.append("\n")
-                    i += 2
-                elif text[i + 1] == "t":
-                    result.append("\t")
-                    i += 2
-                elif text[i + 1] == "r":
-                    result.append("\r")
-                    i += 2
-                elif text[i + 1] == "b":
-                    result.append("\b")
-                    i += 2
-                elif text[i + 1] == "f":
-                    result.append("\f")
-                    i += 2
-                elif text[i + 1] == '"':
-                    result.append('"')
-                    i += 2
-                elif text[i + 1] == "\\":
-                    result.append("\\")
-                    i += 2
-                else:
-                    result.append(text[i])
-                    i += 1
-            else:
-                result.append(text[i])
-                i += 1
-                
-        return "".join(result)
+        # Add quotes
+        return '"%s"' % text
 
     def get(self, msgid, context=None):
         """Get a message from the catalog."""
@@ -411,7 +394,7 @@ class POFile(object):
         # Update header message with current metadata
         header_lines = []
         for key, value in self.metadata.items():
-            header_lines.append("%s: %s\\n" % (key, value))  # Add explicit \n
+            header_lines.append("%s: %s\n" % (key, value))  # Use \n instead of \\n
         self.translations[header_key].msgstr = "".join(header_lines)  # Don't add extra \n
 
         return obsolete
@@ -433,10 +416,8 @@ class POFile(object):
         Returns:
             Message: The added message
         """
-        # Create new message
-        message = Message(msgid=msgid)
-        message.msgstr = msgstr
-        message.context = context
+        # Create a new message
+        message = Message(msgid=msgid, msgstr=msgstr, context=context)
 
         # Add locations
         if locations:
@@ -456,9 +437,18 @@ class POFile(object):
         if metadata:
             self.update_metadata(metadata)
 
-        # Add to translations
+        # Add to translations using msgid and context as key
         key = self._get_key(msgid, context)
-        self.translations[key] = message
+        if key in self.translations:
+            # If message already exists, merge locations and comments
+            existing = self.translations[key]
+            existing.locations.extend(message.locations)
+            existing.flags.update(message.flags)
+            existing.auto_comments.extend(message.auto_comments)
+            existing.user_comments.extend(message.user_comments)
+            message = existing
+        else:
+            self.translations[key] = message
 
         return message
 
@@ -483,88 +473,130 @@ class POFile(object):
                     raise
 
         # Open file in text mode with utf-8 encoding
-        with codecs.open(file, 'w', encoding='utf-8') as f:
+        with codecs.open(file, "w", encoding="utf-8") as f:
+            # Write header comments first
             if self.header_comment:
-                f.write(self.header_comment)
+                # Remove any trailing newlines to avoid extra blank lines
+                header_comment = self.header_comment.rstrip()
+                f.write(header_comment)
+                f.write("\n\n")  # Add exactly two newlines after header comments
 
-            # Write header message
-            header_msg = Message(
-                msgid="",
-                msgstr=self._generate_header(),
-                auto_comments=["Translation file."]
-            )
-            self._write_message(f, header_msg)
-            f.write("\n")
+            # Write empty msgid/msgstr for metadata
+            f.write('msgid ""\n')
+            f.write('msgstr ""\n')
+
+            # Write metadata in a specific order
+            metadata_lines = []
+            ordered_metadata = [
+                "Project-Id-Version",
+                "Report-Msgid-Bugs-To",
+                "POT-Creation-Date",
+                "PO-Revision-Date",
+                "Last-Translator",
+                "Language-Team",
+                "Language",
+                "MIME-Version",
+                "Content-Type",
+                "Content-Transfer-Encoding",
+                "Generated-By",
+                "Copyright-Holder",
+            ]
+            
+            # First write ordered metadata
+            for key in ordered_metadata:
+                if self.metadata.get(key):
+                    metadata_lines.append('"%s: %s\\n"' % (key, self.metadata[key]))
+            
+            # Then write any remaining metadata
+            for key, value in self.metadata.items():
+                if key not in ordered_metadata and value:
+                    metadata_lines.append('"%s: %s\\n"' % (key, value))
+            
+            f.write("\n".join(metadata_lines))
+            f.write("\n\n")
 
             # Write all other messages
             for message in self.translations.values():
                 if message.msgid:  # Skip header message
-                    self._write_message(f, message)
-                    f.write("\n")
+                    self._write_message(message, f)
+                    f.write("\n")  # Add a newline after each message
 
-    def _write_message(self, f, message):
+    def _normalize_path(self, path):
+        """Normalize a file path for writing to PO file.
+        
+        Args:
+            path: The file path to normalize
+            
+        Returns:
+            str: The normalized path
+        """
+        # Convert to forward slashes for consistency
+        path = path.replace("\\", "/")
+        # Remove any '..' path components
+        parts = path.split("/")
+        normalized_parts = []
+        for part in parts:
+            if part == "..":
+                if normalized_parts:
+                    normalized_parts.pop()
+            elif part and part != ".":
+                normalized_parts.append(part)
+        return "/".join(normalized_parts)
+
+    def _write_message(self, message, file):
         """Write a single message to the file."""
         # Write auto comments
         for comment in message.auto_comments:
-            f.write("#. %s\n" % comment)
-
-        # Write user comments
-        for comment in message.user_comments:
-            f.write("# %s\n" % comment)
+            file.write("#. %s\n" % comment)
 
         # Write locations
         if message.locations:
-            for filename, lineno in sorted(message.locations):
-                f.write("#: %s:%d\n" % (filename, lineno))
+            # Sort locations by filename and line number
+            sorted_locations = sorted(message.locations, key=lambda x: (x[0], x[1]))
+            # Write each location on a separate line
+            for filename, lineno in sorted_locations:
+                normalized_path = self._normalize_path(filename)
+                file.write("#: %s:%s\n" % (normalized_path, lineno))
 
         # Write flags
         if message.flags:
-            f.write("#, %s\n" % ", ".join(sorted(message.flags)))
+            file.write("#, %s\n" % ", ".join(sorted(message.flags)))
 
-        # Write context
+        # Write user comments
+        for comment in message.user_comments:
+            file.write("# %s\n" % comment)
+
+        # Write msgctxt if present
         if message.context is not None:
-            f.write("msgctxt %s\n" % self._escape_string(message.context))
+            file.write("msgctxt %s\n" % self._escape_string(message.context))
 
-        # Write msgid and msgstr
-        if message.msgid or message.msgstr:  # Skip empty messages
-            f.write("msgid %s\n" % self._escape_string(message.msgid))
-            f.write("msgstr %s\n" % self._escape_string(message.msgstr))
+        # Write msgid
+        file.write("msgid %s\n" % self._escape_string(message.msgid))
+
+        # Write msgstr
+        file.write("msgstr %s\n\n" % self._escape_string(message.msgstr))
 
     def _generate_header(self):
         """Generate the header string with metadata."""
-        lines = []
+        # First generate an empty msgid
+        header = 'msgid ""\n'
         
-        # Write metadata in a specific order
-        metadata_order = [
-            "Project-Id-Version",
-            "Report-Msgid-Bugs-To",
-            "POT-Creation-Date",
-            "PO-Revision-Date",
-            "Last-Translator",
-            "Language",
-            "Language-Team",
-            "Plural-Forms",
-            "MIME-Version",
-            "Content-Type",
-            "Content-Transfer-Encoding",
-            "Generated-By",
-            "COPYRIGHT",
-            "COPYRIGHT_HOLDER",
-        ]
-        
-        # Write metadata following the order
-        for key in metadata_order:
-            if key in self.metadata:
-                value = self.metadata[key]
-                if value:  # Only write non-empty values
-                    lines.append('"{}: {}\\n"'.format(key, value))
-        
-        # Write any remaining metadata not in the order
+        # Then add metadata
+        metadata_lines = []
+        # 使用OrderedDict去重并保持顺序
+        unique_metadata = OrderedDict()
         for key, value in self.metadata.items():
-            if key not in metadata_order and value:
-                lines.append('"{}: {}\\n"'.format(key, value))
+            if value and key not in unique_metadata:  # Only write non-empty values and skip duplicates
+                unique_metadata[key] = value
+        for key, value in unique_metadata.items():
+            metadata_lines.append("%s: %s\\n" % (key, value))
         
-        return "\n".join(lines)
+        # Join metadata lines and wrap in quotes
+        header += 'msgstr ""\n'
+        if metadata_lines:
+            header += '"%s"' % "".join(metadata_lines)
+        
+        return header
 
     def get_message(self, msgid, context=None):
         """Get a message by its ID and optional context.
@@ -699,7 +731,7 @@ class POFile(object):
         placeholders = {}
         
         # Handle both {name} and ${name} style placeholders
-        pattern = r'(\$?\{[^}]+\})'
+        pattern = r"(\$?\{[^}]+\})"
         
         def replace(match):
             placeholder = match.group(1)
@@ -740,15 +772,15 @@ class POFile(object):
         
         # Define patterns for special characters and sequences
         patterns = [
-            (r'\\[\\"]', 'ESCAPED'),      # Escaped backslash and quotes: \\ \"
-            (r'\\[nrt]', 'ESCAPED'),      # Common escape sequences: \n \r \t
-            (r'\\[0-7]{1,3}', 'ESCAPED'), # Octal escapes: \123
-            (r'\\x[0-9a-fA-F]{2}', 'ESCAPED'),  # Hex escapes: \xFF
-            (r'\\u[0-9a-fA-F]{4}', 'ESCAPED'),  # Unicode escapes: \u00FF
-            (r'\\U[0-9a-fA-F]{8}', 'ESCAPED'),  # Long Unicode escapes: \U0001F600
-            (r'"[^"]*"', 'QUOTED'),       # Quoted strings: "hello"
-            (r'&quot;.*?&quot;', 'QUOTED'),  # HTML quotes: &quot;hello&quot;
-            (r'\$?\{[^}]+\}', 'PLACEHOLDER'),  # Format placeholders: {name} or ${name}
+            (r'\\[\\"]', "ESCAPED"),      # Escaped backslash and quotes: \\ \"
+            (r"\\[nrt]", "ESCAPED"),      # Common escape sequences: \n \r \t
+            (r"\\[0-7]{1,3}", "ESCAPED"), # Octal escapes: \123
+            (r"\\x[0-9a-fA-F]{2}", "ESCAPED"),  # Hex escapes: \xFF
+            (r"\\u[0-9a-fA-F]{4}", "ESCAPED"),  # Unicode escapes: \u00FF
+            (r"\\U[0-9a-fA-F]{8}", "ESCAPED"),  # Long Unicode escapes: \U0001F600
+            (r'"[^"]*"', "QUOTED"),       # Quoted strings: "hello"
+            (r"&quot;.*?&quot;", "QUOTED"),  # HTML quotes: &quot;hello&quot;
+            (r"\$?\{[^}]+\}", "PLACEHOLDER"),  # Format placeholders: {name} or ${name}
         ]
         
         for pattern, type_ in patterns:

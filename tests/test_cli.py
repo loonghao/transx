@@ -9,7 +9,7 @@ import pytest
 # Import local modules
 from transx.cli import main
 from transx.constants import DEFAULT_CHARSET, DEFAULT_MESSAGES_DOMAIN, MO_FILE_EXTENSION, PO_FILE_EXTENSION
-from transx.compat import text_type
+from transx.filesystem import read_file, write_file
 
 
 @pytest.fixture
@@ -21,8 +21,7 @@ def sample_source_dir(tmpdir):
 
     # Create main application file
     app_py = os.path.join(source_dir, "app.py")
-    with open(app_py, "wb") as f:
-        f.write(b"""
+    write_file(app_py, """
 from transx import tr
 
 def main():
@@ -33,8 +32,7 @@ def main():
 
     # Create another module file
     utils_py = os.path.join(source_dir, "utils.py")
-    with open(utils_py, "wb") as f:
-        f.write(b"""
+    write_file(utils_py, """
 from transx import tr
 
 def show_messages():
@@ -76,12 +74,12 @@ def test_extract_command(tmpdir, sample_source_dir):
     assert os.path.exists(output_pot)
 
     # Verify POT file content
-    with open(output_pot, "rb") as f:
-        pot_content = f.read().decode(DEFAULT_CHARSET)
-
-    # Verify metadata
-    assert "Project-Id-Version: Test Project 1.0" in pot_content
-    assert "Content-Type: text/plain; charset={}".format(DEFAULT_CHARSET) in pot_content
+    content = read_file(output_pot)
+    assert "Hello" in content
+    assert "Welcome" in content
+    assert 'msgctxt "greeting"' in content
+    assert "Project-Id-Version: Test Project 1.0" in content
+    assert "Content-Type: text/plain; charset={}".format(DEFAULT_CHARSET) in content
 
     # Verify language files were created
     assert os.path.exists(os.path.join(output_dir, "en_US", "LC_MESSAGES", "messages.po"))
@@ -105,8 +103,7 @@ msgid "Welcome"
 msgstr ""
 """.format(DEFAULT_CHARSET)
 
-    with open(messages_pot, "wb") as f:
-        f.write(pot_content.encode(DEFAULT_CHARSET))
+    write_file(messages_pot, pot_content)
 
     # Run update command
     exit_code = run_cli(
@@ -126,17 +123,16 @@ msgstr ""
     assert os.path.exists(zh_po_path)
 
     # Verify PO file content
-    with open(en_po_path, "rb") as f:
-        po_content = f.read().decode(DEFAULT_CHARSET)
+    content = read_file(en_po_path)
 
     # Verify metadata
-    assert "Language: en" in po_content
-    assert "Content-Type: text/plain; charset={}".format(DEFAULT_CHARSET) in po_content
+    assert "Language: en" in content
+    assert "Content-Type: text/plain; charset={}".format(DEFAULT_CHARSET) in content
 
     # Verify message entries
-    assert 'msgid "Hello"' in po_content
-    assert 'msgctxt "greeting"' in po_content
-    assert 'msgid "Welcome"' in po_content
+    assert 'msgid "Hello"' in content
+    assert 'msgctxt "greeting"' in content
+    assert 'msgid "Welcome"' in content
 
 
 def test_compile_command(tmpdir):
@@ -159,8 +155,7 @@ msgid "Welcome"
 msgstr "Welcome"
 """.format(DEFAULT_CHARSET)
 
-    with open(po_file, "wb") as f:
-        f.write(po_content.encode(DEFAULT_CHARSET))
+    write_file(po_file, po_content)
 
     # Run compile command
     exit_code = run_cli("compile", po_file)

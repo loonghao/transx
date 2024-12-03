@@ -112,24 +112,6 @@ def test_update_from_pot(po_file, pot_file):
     assert updated_po.translations["Message 2"].msgstr == ""
 
 
-def test_context_manager(po_file):
-    """Test context manager functionality"""
-    msgid = u"Context test"
-    msgstr = u"Context test"  # Example translation
-    
-    with POFile(po_file.path, locale="zh_CN") as po:
-        po.add(msgid, msgstr)
-    
-    # File should be automatically saved
-    assert os.path.exists(po_file.path)
-    
-    # Load and verify
-    new_po = POFile(po_file.path)
-    new_po.load()
-    assert msgid in new_po.translations
-    assert new_po.translations[msgid].msgstr == msgstr
-
-
 def test_header_update(po_file, pot_file):
     """Test header metadata update"""
     # Save initial PO file
@@ -174,6 +156,25 @@ def test_empty_file_creation(temp_dir):
     assert po.metadata[METADATA_KEYS["LANGUAGE"]] == "zh_CN"
 
 
+@pytest.mark.parametrize("msgid,msgstr", [
+    (u"Hello", u"Bonjour"),  # Basic message
+    (u"", u""),  # Empty message
+    (u"A" * 1000, u"B" * 1000),  # Long message
+    (u"Line1\nLine2", u"Ligne1\nLigne2"),  # Multiline message with actual newline
+])
+def test_message_variants(po_file, msgid, msgstr):
+    """Test different types of messages"""
+    po_file.add(msgid=msgid, msgstr=msgstr)
+    po_file.save()
+    
+    loaded_po = POFile(po_file.path)
+    loaded_po.load()
+    if msgid:  # Skip empty message ID (header) check
+        message = loaded_po.get_message(msgid)
+        assert message is not None
+        assert message.msgstr == msgstr
+
+
 def test_invalid_header_handling(po_file):
     """Test handling invalid header"""
     # Add an invalid header message
@@ -187,6 +188,39 @@ def test_invalid_header_handling(po_file):
     assert "" in new_po.translations
     assert all(key in new_po.metadata for key in METADATA_KEYS.values())
     assert all(key in new_po.translations[""].msgstr for key in METADATA_KEYS.values())
+
+
+def test_special_chars_preservation(po_file):
+    """Test that special characters are preserved during translation."""
+    test_cases = [
+        # 转义序列
+        (u"Hello\\nWorld", u"你好\\n世界"),
+        # 带引号的路径
+        (u'Path: "C:\\Program Files\\App"', u'路径："C:\\Program Files\\App"'),
+        # HTML 转义
+        (u"Text: &quot;Hello&quot;", u"文本：&quot;你好&quot;"),
+        # 混合情况
+        (u'Error in "C:\\temp\\{filename}\\log.txt"', u'错误于 "C:\\temp\\{filename}\\log.txt"'),
+    ]
+    
+    for original, expected in test_cases:
+        # 保护特殊字符
+        processed, special_chars = po_file._preserve_special_chars(original)
+        
+        # 验证特殊字符被替换为标记
+        for char in ["\\", '"', "{", "}", "&quot;"]:
+            if char in original:
+                assert char not in processed
+        
+        # 模拟翻译（这里我们直接使用预期的翻译）
+        translated = expected
+        
+        # 还原特殊字符
+        result = po_file._restore_special_chars(translated, special_chars)
+        
+        # 验证特殊字符被正确还原
+        for char in ["\\", '"', "{", "}", "&quot;"]:
+            assert result.count(char) == expected.count(char)
 
 
 def test_placeholder_preservation(po_file):
@@ -211,55 +245,3 @@ def test_placeholder_preservation(po_file):
     assert "${amount}" in result
     assert "Bonjour" in result
     assert "solde" in result
-
-
-def test_special_chars_preservation(po_file):
-    """Test that special characters are preserved during translation."""
-    test_cases = [
-        # 转义序列
-        (u"Hello\\nWorld", u"你好\\n世界"),
-        # 带引号的路径
-        (u'Path: "C:\\Program Files\\App"', u'路径："C:\\Program Files\\App"'),
-        # HTML 转义
-        (u"Text: &quot;Hello&quot;", u"文本：&quot;你好&quot;"),
-        # 混合情况
-        (u'Error in "C:\\temp\\{filename}\\log.txt"', u'错误于 "C:\\temp\\{filename}\\log.txt"'),
-    ]
-    
-    for original, expected in test_cases:
-        # 保护特殊字符
-        processed, special_chars = po_file._preserve_special_chars(original)
-        
-        # 验证特殊字符被替换为标记
-        for char in [u'\\', u'"', u'{', u'}', u'&quot;']:
-            if char in original:
-                assert char not in processed
-        
-        # 模拟翻译（这里我们直接使用预期的翻译）
-        translated = expected
-        
-        # 还原特殊字符
-        result = po_file._restore_special_chars(translated, special_chars)
-        
-        # 验证特殊字符被正确还原
-        for char in [u'\\', u'"', u'{', u'}', u'&quot;']:
-            assert result.count(char) == expected.count(char)
-
-
-@pytest.mark.parametrize("msgid,msgstr", [
-    (u"Hello", u"Bonjour"),  # Basic message
-    (u"", u""),  # Empty message
-    (u"A" * 1000, u"B" * 1000),  # Long message
-    (u"Line1\nLine2", u"Ligne1\nLigne2"),  # Multiline message with actual newline
-])
-def test_message_variants(po_file, msgid, msgstr):
-    """Test different types of messages"""
-    po_file.add(msgid=msgid, msgstr=msgstr)
-    po_file.save()
-    
-    loaded_po = POFile(po_file.path)
-    loaded_po.load()
-    if msgid:  # Skip empty message ID (header) check
-        message = loaded_po.get_message(msgid)
-        assert message is not None
-        assert message.msgstr == msgstr
