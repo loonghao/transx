@@ -118,6 +118,7 @@ class PotExtractor(object):
             
             # Look for translation function calls
             if token_type == tokenize.NAME and token_string in DEFAULT_KEYWORDS:
+                self.current_line = start[0]  # Update current line number
                 func_name = token_string
                 # Skip the function name token
                 i += 1
@@ -166,25 +167,34 @@ class PotExtractor(object):
                         i += 1
                         
                     # Process arguments based on function type
-                    if func_name in ("tr", "pgettext"):
-                        # Handle tr(msgid, context=context) and pgettext(context, msgid)
-                        msgid = kwargs.get("msgid") or (args[0] if args else None)
-                        if msgid and not self._should_skip_string(msgid):
-                            self._add_message(msgid, start[0])
-                            
+                    if func_name == "pgettext":
+                        # pgettext(context, msgid)
+                        if len(args) >= 2:
+                            context, msgid = args[0], args[1]
+                            if not self._should_skip_string(msgid):
+                                msg = Message(msgid=msgid, context=context)
+                                self._add_message(msg, start[0])
+                    elif func_name == "tr":
+                        # tr(msgid, context=context)
+                        if args:
+                            msgid = args[0]
+                            context = kwargs.get("context")  # Get context from kwargs
+                            if not self._should_skip_string(msgid):
+                                msg = Message(msgid=msgid, context=context)
+                                self._add_message(msg, start[0])
                     elif func_name in ("ngettext", "ungettext", "dngettext", "npgettext"):
                         # Handle plural forms
-                        singular = args[0] if args else None
-                        plural = args[1] if len(args) > 1 else None
-                        if singular and plural and not self._should_skip_string(singular):
-                            # Add both singular and plural forms
-                            msg = Message(msgid=singular, msgid_plural=plural)
-                            self._add_message(msg, start[0])
-                            
+                        if len(args) >= 2:
+                            singular, plural = args[0], args[1]
+                            context = args[2] if len(args) > 2 and func_name == "npgettext" else None
+                            if not self._should_skip_string(singular):
+                                msg = Message(msgid=singular, msgid_plural=plural, context=context)
+                                self._add_message(msg, start[0])
                     else:
                         # Handle simple gettext functions
                         if args and not self._should_skip_string(args[0]):
-                            self._add_message(args[0], start[0])
+                            msg = Message(msgid=args[0])
+                            self._add_message(msg, start[0])
             i += 1
 
     def _should_skip_string(self, string):
@@ -234,27 +244,30 @@ class PotExtractor(object):
             message: Message to add
             line: Line number where message was found
         """
-        # Get relative path from project root
-        rel_path = os.path.relpath(
-            self.current_file,
-            os.path.dirname(os.path.dirname(self.pot_file))
-        )
+        # Add location information
+        location = (self.current_file, line)
         
-        # Add location using relative path
-        location = (rel_path, line)
-        
-        # Only add location to locations list, not as auto_comments
-        if message in self.catalog.translations:
-            # Update existing message
-            existing_msg = self.catalog.translations[message]
-            if location not in existing_msg.locations:
-                existing_msg.locations.append(location)
+        # Check if this message already exists
+        key = self.catalog._get_key(message.msgid, message.context)
+        if key in self.catalog.translations:
+            # Get existing message
+            existing = self.catalog.translations[key]
+            # Add new location if not already present
+            if location not in existing.locations:
+                existing.locations.append(location)
+                existing.locations.sort()  # Sort locations for consistent output
+            # Update comments and flags
+            existing.flags.update(message.flags)
+            for comment in message.auto_comments:
+                if comment not in existing.auto_comments:
+                    existing.auto_comments.append(comment)
+            for comment in message.user_comments:
+                if comment not in existing.user_comments:
+                    existing.user_comments.append(comment)
         else:
-            # Add new message
-            self.catalog.add(
-                msgid=message,
-                locations=[location]
-            )
+            # Add new message with location
+            message.locations = [location]
+            self.catalog.translations[key] = message
 
     def save_pot(self, project=None, version=None, copyright_holder=None, bugs_address=None):
         """Save POT file with project information.
@@ -289,6 +302,13 @@ class PotUpdater(object):
         """
         self.pot_file = pot_file
         self.locales_dir = locales_dir
+        
+        # Load the POT file
+        self.pot_catalog = POFile(pot_file)
+        if os.path.exists(pot_file):
+            self.pot_catalog.load()
+        else:
+            raise ValueError("POT file not found: {}".format(pot_file))
 
     def create_language_catalogs(self, languages):
         """Create or update PO catalogs for specified languages.
@@ -296,54 +316,70 @@ class PotUpdater(object):
         Args:
             languages: List of language codes to generate catalogs for
         """
-        if not os.path.exists(self.pot_file):
-            raise ValueError("POT file not found")
-
-        # Create a new POFile instance to read the POT file
-        # This ensures we don't modify the original POT file
-        pot = POFile(self.pot_file)
-        pot.load()
-
         for lang in languages:
             # Create language directory
             lang = normalize_language_code(lang)
-            lang_dir = os.path.join(self.locales_dir, lang, "LC_MESSAGES")
-            if not os.path.exists(lang_dir):
-                os.makedirs(lang_dir)
+            if lang not in LANGUAGE_CODES:
+                print("Warning: Unknown language code %r" % lang)
+                continue
+
+            locale_dir = os.path.join(self.locales_dir, lang, "LC_MESSAGES")
+            if not os.path.exists(locale_dir):
+                os.makedirs(locale_dir)
 
             # Create or update PO file
-            po_file = os.path.join(lang_dir, "messages.po")
+            po_file = os.path.join(locale_dir, "messages.po")
             po = POFile(po_file)
-            
-            # If PO file exists, load it to preserve translations
+
+            # Load existing translations if any
             existing_translations = {}
             if os.path.exists(po_file):
                 po.load()
-                # Save existing translations
                 for key, message in po.translations.items():
-                    if message.msgstr:  # Only save non-empty translations
-                        existing_translations[key] = message.msgstr
+                    if message.msgid:  # Skip header
+                        existing_translations[key] = message
 
-            # Start fresh with POT metadata
-            po.metadata = pot.metadata.copy()
-            # Only update the language field
-            po.metadata["Language"] = lang
-            
-            # Update messages from POT
+            # Start with a fresh catalog
             po.translations.clear()
-            for key, message in pot.translations.items():
-                # Create new message with POT data
-                new_message = Message(
-                    msgid=message.msgid,
-                    msgstr=existing_translations.get(key, ""),  # Restore existing translation if available
-                    locations=message.locations[:],  # Make a copy of locations
-                    auto_comments=message.auto_comments[:],
-                    user_comments=message.user_comments[:],
-                    context=message.context,
-                    flags=message.flags.copy()
+
+            # Copy POT header comments and metadata
+            po.header_comment = self.pot_catalog.header_comment
+            po.metadata = self.pot_catalog.metadata.copy()
+            po.metadata["Language"] = lang
+
+            # First add the header message (empty msgid)
+            header_key = po._get_key("", None)
+            if header_key in self.pot_catalog.translations:
+                header_message = self.pot_catalog.translations[header_key]
+                po.translations[header_key] = Message(
+                    msgid=header_message.msgid,
+                    msgstr="",
+                    flags=header_message.flags,
+                    auto_comments=header_message.auto_comments,
+                    user_comments=header_message.user_comments
                 )
-                po.translations[key] = new_message
-            
+
+            # Then add all other messages
+            for key, message in self.pot_catalog.translations.items():
+                if message.msgid:  # Skip header message
+                    existing_message = existing_translations.get(key)
+                    # Create a new message with all attributes from POT
+                    new_message = Message(
+                        msgid=message.msgid,
+                        msgstr=existing_message.msgstr if existing_message else "",
+                        flags=message.flags.copy(),
+                        auto_comments=message.auto_comments[:],
+                        user_comments=message.user_comments[:],
+                        context=message.context
+                    )
+                    
+                    # Copy locations exactly as they are in POT
+                    if message.locations:
+                        new_message.locations = message.locations[:]
+                    
+                    # Add to PO file using the same key as POT
+                    po.translations[key] = new_message
+
             # Save the updated PO file
             po.save()
 
@@ -363,18 +399,21 @@ class PotUpdater(object):
         self._update_po_metadata(po, language)
 
         # Clear existing translations but keep the previous ones for reference
-        previous = {msg.msgid: msg.msgstr for msg in po.translations.values()}
+        previous = {}
+        for msg in po.translations.values():
+            key = (msg.msgid, msg.context)  # Use both msgid and context as key
+            previous[key] = msg.msgstr
         po.translations.clear()
 
         # Copy messages from POT file
-        for msgid, message in self.pot_catalog.translations.items():
-            if not msgid:  # Skip header
+        for key, message in self.pot_catalog.translations.items():
+            if not key[0]:  # Skip header (empty msgid)
                 continue
 
             # Create a new message in the PO file
             po_message = po.add(
-                msgid,
-                msgstr=previous.get(msgid, ""),  # Restore previous translation if available
+                msgid=message.msgid,
+                msgstr=previous.get((message.msgid, message.context), ""),  # Restore previous translation if available
                 flags=message.flags,
                 auto_comments=message.auto_comments,
                 user_comments=message.user_comments,
@@ -386,7 +425,7 @@ class PotUpdater(object):
                 # Sort locations by filename and line number
                 sorted_locations = sorted(message.locations, key=lambda x: (x[0], x[1]))
                 po_message.locations = sorted_locations
-            
+        
         # Save the updated PO file
         po.save()
 
@@ -412,10 +451,8 @@ class PotUpdater(object):
             "#\n"
         ).format(language_name, year, year)
 
-        # Start with a fresh metadata dictionary
+        # Start with metadata from POT file
         metadata = OrderedDict()
-
-        # Copy metadata from POT file
         for key, value in self.pot_catalog.metadata.items():
             if key not in ["Language", "Language-Team", "Plural-Forms", "PO-Revision-Date"]:
                 metadata[key] = value
@@ -428,5 +465,5 @@ class PotUpdater(object):
             "Plural-Forms": "nplurals=1; plural=0;" if language.startswith("zh") else "nplurals=2; plural=(n != 1);",
         })
 
-        # Update the catalog's metadata
-        po_catalog.metadata = metadata
+        # Update the catalog's metadata using update_metadata
+        po_catalog.update_metadata(metadata)

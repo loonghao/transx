@@ -2,17 +2,17 @@
 # -*- coding: utf-8 -*-
 """Multilingual support demo program."""
 # Import built-in modules
+import logging
 import os
 import sys
-import logging
 
 # For Python 2/3 compatibility
 if sys.version_info[0] < 3:
     reload(sys)
-    sys.setdefaultencoding('utf-8')
+    sys.setdefaultencoding("utf-8")
 
 # Configure logging
-# logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
 
 # Add project root to Python path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -25,6 +25,7 @@ from transx import TransX
 def test_basic_translations(tx):
     """Test basic translations."""
     print(tx.tr("Hello"))
+    print(tx.tr("Hello", context="login"))
     print(tx.tr("Welcome {name}", name="Alice"))
     print(tx.tr("Current language is {lang}", lang=tx.current_locale))
 

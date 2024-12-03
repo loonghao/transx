@@ -5,6 +5,7 @@
 import os
 import shutil
 import sys
+
 import pytest
 
 # Import local modules
@@ -29,38 +30,6 @@ def locales_dir(test_data_dir):
         if not os.path.isdir(locales_dir):
             raise
     return locales_dir
-
-@pytest.fixture(autouse=True)
-def setup_translations(locales_dir, translations):
-    """Set up translation files before each test."""
-    # Create PO file for zh_CN
-    locale = "zh_CN"
-    locale_dir = os.path.join(locales_dir, locale, "LC_MESSAGES")
-    try:
-        os.makedirs(locale_dir)
-    except OSError:
-        if not os.path.isdir(locale_dir):
-            raise
-
-    po_file = os.path.join(locale_dir, "messages.po")
-    po = POFile(po_file, locale=locale)
-
-    # Add translations
-    for (msgid, context), msgstr in translations[locale].items():
-        po.add(msgid, msgstr=msgstr, context=context)
-    po.save()
-
-    # Compile PO to MO
-    mo_file = os.path.join(locale_dir, "messages.mo")
-    compile_po_file(po_file, mo_file)
-
-    yield locale_dir
-
-    # Cleanup after tests
-    try:
-        shutil.rmtree(locale_dir)
-    except OSError:
-        pass
 
 @pytest.fixture
 def transx_instance(locales_dir):
@@ -113,6 +82,38 @@ def translations():
             (u"Tab\there", None): u"制表符\t在这里",
         }
     }
+
+@pytest.fixture(autouse=True)
+def setup_translations(locales_dir, translations):
+    """Set up translation files before each test."""
+    # Create PO file for zh_CN
+    locale = "zh_CN"
+    locale_dir = os.path.join(locales_dir, locale, "LC_MESSAGES")
+    try:
+        os.makedirs(locale_dir)
+    except OSError:
+        if not os.path.isdir(locale_dir):
+            raise
+
+    po_file = os.path.join(locale_dir, "messages.po")
+    po = POFile(po_file, locale=locale)
+
+    # Add translations
+    for (msgid, context), msgstr in translations[locale].items():
+        po.add(msgid, msgstr=msgstr, context=context)
+    po.save()  # POFile.save() 直接写入文件
+
+    # Compile PO to MO
+    mo_file = os.path.join(locale_dir, "messages.mo")
+    compile_po_file(po_file, mo_file)
+
+    yield locale_dir
+
+    # Cleanup after tests
+    try:
+        shutil.rmtree(locale_dir)
+    except OSError:
+        pass
 
 @pytest.fixture
 def python_version():

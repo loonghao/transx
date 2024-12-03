@@ -4,13 +4,12 @@
 # Import built-in modules
 import logging
 import os
-from string import Template
 
 # Import local modules
 from transx.api.mo import MOFile, compile_po_file
 from transx.api.po import POFile
 from transx.api.translation_catalog import TranslationCatalog
-from transx.compat import ensure_unicode, string_types
+from transx.compat import string_types
 from transx.constants import (
     DEFAULT_LOCALE,
     DEFAULT_LOCALES_DIR,
@@ -19,6 +18,7 @@ from transx.constants import (
     PO_FILE_EXTENSION,
 )
 from transx.exceptions import CatalogNotFoundError, LocaleNotFoundError
+from transx.filesystem import read_file
 
 
 class TransX:
@@ -87,13 +87,14 @@ class TransX:
         # First try loading .mo file
         if os.path.exists(mo_file):
             try:
-                with open(mo_file, "rb") as fp:
-                    mo = MOFile(fp)
-                    self._translations[locale] = mo
-                    self._catalogs[locale] = TranslationCatalog(translations=mo.translations, locale=locale)
-                    self.logger.debug("Loaded MO file: %s" % mo_file)
-                    self.logger.debug("Translations loaded: %d" % len(mo.translations))
-                    return True
+                content = read_file(mo_file, binary=True)
+                mo = MOFile()
+                mo._parse(content)
+                self._translations[locale] = mo
+                self._catalogs[locale] = TranslationCatalog(translations=mo.translations, locale=locale)
+                self.logger.debug("Loaded MO file: %s" % mo_file)
+                self.logger.debug("Translations loaded: %d" % len(mo.translations))
+                return True
             except Exception as e:
                 msg = "Failed to load MO file %s: %s" % (mo_file, str(e))
                 self.logger.debug(msg)
@@ -175,7 +176,7 @@ class TransX:
         """Get current locale."""
         return self._current_locale
 
-    @current_locale.setter 
+    @current_locale.setter
     def current_locale(self, locale):
         """Set current locale and load translations.
 
