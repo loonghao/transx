@@ -1,9 +1,7 @@
-from transx.constants import DEFAULT_LOCALE
-from transx.constants import INVALID_LANGUAGE_CODE_ERROR
-from transx.constants import LANGUAGE_CODES
-from transx.constants import LANGUAGE_CODE_ALIASES
+from transx.constants import DEFAULT_LOCALE, INVALID_LANGUAGE_CODE_ERROR, LANGUAGE_CODE_ALIASES, LANGUAGE_CODES
 
-def normalize_locale(locale):
+
+def normalize_language_code(locale):
     """Normalize language code format.
 
     Convert various language code formats to standard format (e.g., 'zh-CN' -> 'zh_CN').
@@ -42,7 +40,7 @@ def normalize_locale(locale):
         if len(parts) == 2:
             lang, region = parts
             # Build a possible standard code
-            possible_code = f"{lang}_{region.upper()}"
+            possible_code = "{lang}_{region}".format(lang=lang, region=region.upper())
             if possible_code in LANGUAGE_CODES:
                 return possible_code
 

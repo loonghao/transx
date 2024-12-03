@@ -3,30 +3,20 @@
 
 # Import built-in modules
 import re
-import sys
 
 # Import local modules
-from transx.constants import DEFAULT_CHARSET
-from transx.constants import DEFAULT_MESSAGES_DOMAIN
-
-
-# Python 2 and 3 compatibility
-PY2 = sys.version_info[0] == 2
-if PY2:
-    text_type = unicode
-    binary_type = str
-else:
-    text_type = str
-    binary_type = bytes
+from transx.constants import DEFAULT_CHARSET, DEFAULT_MESSAGES_DOMAIN
+from transx.compat import text_type, binary_type
 
 
 class TranslationCatalog:
     """Represents a collection of translation messages."""
 
-    def __init__(self, locale=None, domain=DEFAULT_MESSAGES_DOMAIN, charset=DEFAULT_CHARSET):
+    def __init__(self, translations=None, locale=None, domain=DEFAULT_MESSAGES_DOMAIN, charset=DEFAULT_CHARSET):
         """Initialize a new translation catalog.
 
         Args:
+            translations: Optional dictionary of existing translations
             locale: The locale this catalog is for
             domain: The message domain
             charset: Character encoding for the catalog
@@ -36,6 +26,14 @@ class TranslationCatalog:
         self.charset = charset
         self._messages = {}  # {msgid: (msgstr, context, is_plural)}
         self._variants = {}  # {normalized_key: [msgid1, msgid2, ...]}
+
+        # Initialize from existing translations if provided
+        if translations:
+            for key, message in translations.items():
+                if isinstance(message, (str, text_type)):
+                    self.add_message(key[0], message, key[1])  # key is (msgid, context)
+                else:
+                    self.add_message(key[0], message.msgstr, key[1])  # message is Message object
 
     def _normalize_key(self, text):
         """Normalize text for variant matching."""

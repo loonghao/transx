@@ -1,26 +1,25 @@
-"""Update translation files."""
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""Update PO files from POT file."""
+
 # Import built-in modules
-import os
 
 # Import local modules
-from transx.api.pot import PotExtractor
+from common import LOCALES_DIR, POT_FILE
+
+from transx.api.pot import PotUpdater
 
 
 def update_translations():
-    """Update translation files for all languages."""
-    # Set file paths
-    pot_file = os.path.join(os.path.abspath("locales"), "messages.pot")
-    if not os.path.exists(pot_file):
-        print("Error: POT file not found: {0}".format(pot_file))
-        return
+    """Update translation catalogs."""
+    # Create PO updater
+    updater = PotUpdater(pot_file=POT_FILE, locales_dir=LOCALES_DIR)
 
-    # Update language catalogs
-    languages = ["zh_CN", "ja", "ko", "fr", "es_ES"]
-    locales_dir = os.path.abspath("locales")
-    
-    with PotExtractor(pot_file=pot_file) as extractor:
-        extractor.create_language_catalogs(languages, locales_dir)
-        print("Language catalogs updated.")
+    # Update PO files for all languages
+    languages = ["zh_CN", "ja_JP", "ko_KR", "fr_FR", "es_ES"]
+    updater.create_language_catalogs(languages)
+
+    print("Language catalogs updated.")
 
 
 if __name__ == "__main__":

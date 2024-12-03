@@ -8,18 +8,8 @@ import pytest
 
 # Import local modules
 from transx.cli import main
-from transx.constants import DEFAULT_CHARSET
-from transx.constants import DEFAULT_MESSAGES_DOMAIN
-from transx.constants import MO_FILE_EXTENSION
-from transx.constants import PO_FILE_EXTENSION
-
-
-# Python 2 and 3 compatibility
-PY2 = sys.version_info[0] == 2
-if PY2:
-    text_type = unicode
-else:
-    text_type = str
+from transx.constants import DEFAULT_CHARSET, DEFAULT_MESSAGES_DOMAIN, MO_FILE_EXTENSION, PO_FILE_EXTENSION
+from transx.compat import text_type
 
 
 @pytest.fixture

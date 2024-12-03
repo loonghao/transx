@@ -8,10 +8,7 @@ import sys
 # Import local modules
 from transx.api.mo import compile_po_file
 from transx.api.pot import PotExtractor
-from transx.constants import DEFAULT_LOCALES_DIR
-from transx.constants import DEFAULT_MESSAGES_DOMAIN
-from transx.constants import MO_FILE_EXTENSION
-from transx.constants import POT_FILE_EXTENSION
+from transx.constants import DEFAULT_LOCALES_DIR, DEFAULT_MESSAGES_DOMAIN, MO_FILE_EXTENSION, POT_FILE_EXTENSION
 
 
 def create_parser():
@@ -34,7 +31,7 @@ def create_parser():
     extract_parser.add_argument(
         "-o", "--output",
         default=os.path.join(DEFAULT_LOCALES_DIR, DEFAULT_MESSAGES_DOMAIN + POT_FILE_EXTENSION),
-        help=f"Output path for POT file (default: {DEFAULT_LOCALES_DIR}/{DEFAULT_MESSAGES_DOMAIN + POT_FILE_EXTENSION})"
+        help="Output path for POT file (default: %s/%s)" % (DEFAULT_LOCALES_DIR, DEFAULT_MESSAGES_DOMAIN + POT_FILE_EXTENSION)
     )
     extract_parser.add_argument(
         "-p", "--project",
@@ -63,7 +60,7 @@ def create_parser():
     extract_parser.add_argument(
         "-d", "--output-dir",
         default=DEFAULT_LOCALES_DIR,
-        help=f"Output directory for language files (default: {DEFAULT_LOCALES_DIR})"
+        help="Output directory for language files (default: %s)" % DEFAULT_LOCALES_DIR
     )
 
     # update command
@@ -82,7 +79,7 @@ def create_parser():
     update_parser.add_argument(
         "-o", "--output-dir",
         default=DEFAULT_LOCALES_DIR,
-        help=f"Output directory for PO files (default: {DEFAULT_LOCALES_DIR})"
+        help="Output directory for PO files (default: %s)" % DEFAULT_LOCALES_DIR
     )
 
     # compile command
@@ -101,7 +98,7 @@ def create_parser():
 def extract_command(args):
     """Execute extract command."""
     if not os.path.exists(args.source_path):
-        print("Error: Path does not exist: {}".format(args.source_path), file=sys.stderr)
+        print("Error: Path does not exist: %s" % args.source_path, file=sys.stderr)
         return 1
 
     # Ensure output directory exists
@@ -120,10 +117,10 @@ def extract_command(args):
             for file in files:
                 if file.endswith(".py"):
                     file_path = os.path.join(root, file)
-                    print("Scanning {} for translatable messages...".format(file_path))
+                    print("Scanning %s for translatable messages..." % file_path)
                     extractor.scan_file(file_path)
     else:
-        print("Scanning {} for translatable messages...".format(args.source_path))
+        print("Scanning %s for translatable messages..." % args.source_path)
         extractor.scan_file(args.source_path)
 
     # Save POT file
@@ -139,17 +136,17 @@ def extract_command(args):
     locales_dir = os.path.abspath(args.output_dir)
     try:
         extractor.generate_language_files(languages, locales_dir)
-        print("POT file created and language files updated: {}".format(args.output))
+        print("POT file created and language files updated: %s" % args.output)
         return 0
     except Exception as e:
-        print("Error generating language files: {}".format(e), file=sys.stderr)
+        print("Error generating language files: %s" % e, file=sys.stderr)
         return 1
 
 
 def update_command(args):
     """Execute update command."""
     if not os.path.exists(args.pot_file):
-        print("Error: POT file not found: {}".format(args.pot_file), file=sys.stderr)
+        print("Error: POT file not found: %s" % args.pot_file, file=sys.stderr)
         return 1
 
     # Create POT extractor and load
@@ -157,7 +154,7 @@ def update_command(args):
     try:
         extractor.messages.load(args.pot_file)
     except Exception as e:
-        print("Error loading POT file: {}".format(e), file=sys.stderr)
+        print("Error loading POT file: %s" % e, file=sys.stderr)
         return 1
 
     # Generate language files
@@ -168,7 +165,7 @@ def update_command(args):
         print("Language files updated.")
         return 0
     except Exception as e:
-        print("Error updating language files: {}".format(e), file=sys.stderr)
+        print("Error updating language files: %s" % e, file=sys.stderr)
         return 1
 
 def compile_command(args):
@@ -176,18 +173,18 @@ def compile_command(args):
     success = True
     for po_file in args.po_files:
         if not os.path.exists(po_file):
-            print(f"Error: PO file not found: {po_file}", file=sys.stderr)
+            print("Error: PO file not found: %s" % po_file, file=sys.stderr)
             success = False
             continue
 
         # Build MO file path (in the same directory as PO file)
         mo_file = os.path.splitext(po_file)[0] + MO_FILE_EXTENSION
-        print(f"Compiling {po_file} to {mo_file}")
+        print("Compiling %s to %s" % (po_file, mo_file))
 
         try:
             compile_po_file(po_file, mo_file)
         except Exception as e:
-            print(f"Error compiling {po_file}: {e}", file=sys.stderr)
+            print("Error compiling %s: %s" % (po_file, e), file=sys.stderr)
             success = False
 
     return 0 if success else 1

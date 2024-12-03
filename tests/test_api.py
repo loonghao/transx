@@ -2,7 +2,9 @@
 """Test cases for API module."""
 
 # Import local modules
+from transx.api.po import POFile
 from transx.api.pot import PotExtractor
+from transx.api.translate import GoogleTranslator
 from transx.constants import DEFAULT_CHARSET
 
 
@@ -27,11 +29,18 @@ def greet():
 <div>{{ tr("Welcome", context="greeting") }}</div>
 """, encoding=DEFAULT_CHARSET)
     
-    # Extract messages
+    # Create POT file path
     pot_file = tmp_path / "messages.pot"
-    extractor = PotExtractor(str(pot_file))
-    extractor.scan_directory(str(test_dir))
-    extractor.save_pot(project="Test", version="1.0")
+    
+    # Create extractor with source files
+    source_files = [str(py_file), str(html_file)]
+    extractor = PotExtractor(source_files=source_files, pot_file=str(pot_file))
+    
+    # Extract messages from files
+    extractor.extract_messages()
+    
+    # Save POT file
+    extractor.save()
     
     # Verify POT file exists and contains correct content
     assert pot_file.exists()
@@ -39,3 +48,54 @@ def greet():
     assert "Hello" in content
     assert "Welcome" in content
     assert 'msgctxt "greeting"' in content
+    assert "Project-Id-Version: " in content
+
+
+def test_po_file_operations(tmp_path):
+    """Test PO file operations."""
+    po_file = tmp_path / "messages.po"
+    
+    # Create PO file
+    po = POFile(str(po_file))
+    
+    # Add translations
+    po.add(msgid="Hello", msgstr="Hello")  # Basic greeting
+    po.add(msgid="Welcome", msgstr="Welcome", context="greeting")  # Contextual greeting
+    po.save()
+    
+    # Read PO file back
+    po2 = POFile(str(po_file))
+    po2.load()
+    assert po2.translations["Hello"].msgstr == "Hello"
+    assert po2.translations["greeting\x04Welcome"].msgstr == "Welcome"
+
+
+def test_auto_translation(tmp_path):
+    """Test automatic translation using Google Translator."""
+    # Create PO file
+    po_file = tmp_path / "messages.po"
+    po = POFile(str(po_file))
+    
+    # Add untranslated messages
+    po.add(msgid="Hello", msgstr="")  # Basic greeting
+    po.add(msgid="Welcome", msgstr="", context="greeting")  # Contextual greeting
+    po.save()
+    
+    # Create translator
+    translator = GoogleTranslator()
+    
+    # Translate messages
+    po.translate_messages(translator=translator, target_lang="fr")  # Translate to French
+    
+    # Verify translations are not empty
+    assert po.translations["Hello"].msgstr != ""
+    assert po.translations["greeting\x04Welcome"].msgstr != ""
+    
+    # Save translated file
+    po.save()
+    
+    # Verify translations persist
+    po2 = POFile(str(po_file))
+    po2.load()
+    assert po2.translations["Hello"].msgstr == po.translations["Hello"].msgstr
+    assert po2.translations["greeting\x04Welcome"].msgstr == po.translations["greeting\x04Welcome"].msgstr

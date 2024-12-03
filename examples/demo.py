@@ -1,4 +1,23 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """Multilingual support demo program."""
+# Import built-in modules
+import os
+import sys
+import logging
+
+# For Python 2/3 compatibility
+if sys.version_info[0] < 3:
+    reload(sys)
+    sys.setdefaultencoding('utf-8')
+
+# Configure logging
+# logging.basicConfig(level=logging.DEBUG)
+
+# Add project root to Python path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, project_root)
+
 # Import local modules
 from transx import TransX
 
@@ -11,7 +30,7 @@ def test_basic_translations(tx):
 
 def test_workflow_messages(tx):
     """Test workflow related messages."""
-    print("\n=== Workflow Messages ===")
+    print("\n=== Workflow Messages ===\n")
     print(tx.tr("Starting workflow"))
     print(tx.tr("Processing file {filename}", filename="data.txt"))
     print(tx.tr("Workflow completed"))
@@ -21,7 +40,7 @@ def test_workflow_messages(tx):
 
 def test_error_messages(tx):
     """Test error messages."""
-    print("\n=== Error Messages ===")
+    print("\n=== Error Messages ===\n")
     print(tx.tr("Error: File not found"))
     print(tx.tr("Warning: Low disk space"))
     print(tx.tr("Invalid input: {input}", input="abc123"))
@@ -30,29 +49,27 @@ def test_error_messages(tx):
 def test_unicode_handling(tx):
     """Test unicode handling."""
     print("\n=== Unicode Handling ===")
-    # 使用原始字符串(raw string)来处理特殊字符
     print(tx.tr("Hello"))
     print(tx.tr(r"Hello\nWorld"))  # 显式展示换行符
     print(tx.tr(r"Tab\there"))     # 显式展示制表符
     print(tx.tr("Tab\\there!"))     # 显式展示制表符
     print(tx.tr(r'Path to the file: "C:\Program Files\MyApp"'))  # 使用原始字符串处理路径
 
-
 def main():
     # Initialize TransX instance with language pack directory
-    tx = TransX(locales_root="locales", strict_mode=True)
+    locale_dir = os.path.join(os.path.dirname(__file__), "locales")
+    tx = TransX(locales_root=locale_dir, default_locale="fr_FR", strict_mode=True)
 
     # Test translations for different languages
-    languages = ["en_US", "zh_CN", "ja_JP", "ko_KR", "fr_FR"]
+    languages = ["fr_FR", "zh_CN", "ja_JP", "ko_KR", "es_ES"]
 
     for lang in languages:
+        print("\n==================================================")
+        print("Testing language: {}".format(lang))
+        print("==================================================")
+
         # Switch language
         tx.current_locale = lang
-
-        # Print separator
-        print("\n" + "="*50)
-        print(f"Testing language: {lang}")
-        print("="*50)
 
         # Run all tests
         test_basic_translations(tx)

@@ -1,11 +1,10 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """Test configuration and fixtures."""
 # Import built-in modules
-from contextlib import suppress
 import os
 import shutil
 import sys
-
-# Import third-party modules
 import pytest
 
 # Import local modules
@@ -24,7 +23,11 @@ def test_data_dir():
 def locales_dir(test_data_dir):
     """Return the path to test locales directory."""
     locales_dir = os.path.join(test_data_dir, "locales")
-    os.makedirs(locales_dir, exist_ok=True)
+    try:
+        os.makedirs(locales_dir)
+    except OSError:
+        if not os.path.isdir(locales_dir):
+            raise
     return locales_dir
 
 @pytest.fixture(autouse=True)
@@ -33,7 +36,11 @@ def setup_translations(locales_dir, translations):
     # Create PO file for zh_CN
     locale = "zh_CN"
     locale_dir = os.path.join(locales_dir, locale, "LC_MESSAGES")
-    os.makedirs(locale_dir, exist_ok=True)
+    try:
+        os.makedirs(locale_dir)
+    except OSError:
+        if not os.path.isdir(locale_dir):
+            raise
 
     po_file = os.path.join(locale_dir, "messages.po")
     po = POFile(po_file, locale=locale)
@@ -50,8 +57,10 @@ def setup_translations(locales_dir, translations):
     yield locale_dir
 
     # Cleanup after tests
-    with suppress(OSError):
+    try:
         shutil.rmtree(locale_dir)
+    except OSError:
+        pass
 
 @pytest.fixture
 def transx_instance(locales_dir):
@@ -72,33 +81,36 @@ def translations():
     return {
         "zh_CN": {
             # Basic translations
-            ("Hello", None): "你好",
-            ("Goodbye", None): "再见",
-            ("", None): "",  # Empty string test
-
-            # UI Context translations
-            ("Open", "button"): "打开",
-            ("Open", "menu"): "打开文件",
-            ("Save", "button"): "保存",
-            ("Save", "menu"): "保存文件",
-            ("Save {filename}", "button"): "保存 {filename}",
-            ("Save {filename}", "menu"): "保存文件 {filename}",
-
-            # Part of Speech Context translations
-            ("Post", "verb"): "发布",
-            ("Post", "noun"): "文章",
-
-            # Scene Context translations
-            ("Welcome", "home"): "欢迎回来",
-            ("Welcome", "login"): "欢迎登录",
+            (u"Hello", None): u"你好",
+            (u"Goodbye", None): u"再见",
+            (u"", None): u"",  # Empty string test
 
             # Parameter translations
-            ("Hello {name}", None): "你好 {name}",
-            ("File {filename} saved", None): "文件 {filename} 已保存",
+            (u"Hello, $name!", None): u"你好，$name！",
+            (u"File ${filename} saved", None): u"文件 ${filename} 已保存",
+            (u"Price: $${price}", None): u"价格：$${price}",
+            (u"Hello {name}", None): u"你好 {name}",
+            (u"File {filename} saved", None): u"文件 {filename} 已保存",
+
+            # UI Context translations
+            (u"Open", u"button"): u"打开",
+            (u"Open", u"menu"): u"打开文件",
+            (u"Save", u"button"): u"保存",
+            (u"Save", u"menu"): u"保存文件",
+            (u"Save {filename}", u"button"): u"保存 {filename}",
+            (u"Save {filename}", u"menu"): u"保存文件 {filename}",
+
+            # Part of Speech Context translations
+            (u"Post", u"verb"): u"发布",
+            (u"Post", u"noun"): u"文章",
+
+            # Scene Context translations
+            (u"Welcome", u"home"): u"欢迎回来",
+            (u"Welcome", u"login"): u"欢迎登录",
 
             # Special character translations
-            ("Hello\nWorld", None): "你好\n世界",
-            ("Tab\there", None): "制表符\t在这里",
+            (u"Hello\nWorld", None): u"你好\n世界",
+            (u"Tab\there", None): u"制表符\t在这里",
         }
     }
 
