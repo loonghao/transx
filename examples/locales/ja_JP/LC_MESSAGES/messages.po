@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: TransX Demo 1.0\n"
 "Report-Msgid-Bugs-To: transx@example.com\n"
-"POT-Creation-Date: 2024-12-04 17:15\n"
+"POT-Creation-Date: 2024-12-05 00:55\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: ja_JP <LL@li.org>\n"
@@ -121,3 +121,10 @@ msgstr "Tab\\t をここへ!"
 #: G:/PycharmProjects/github/transx/examples/demo.py:60
 msgid "Path to the file: \"C:\\Program Files\\MyApp\""
 msgstr "ファイルへのパス: \"C:\\Program Files\\MyApp\""
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:69
+msgid "如果出现错误，显示找不到 DCF_updateViewportList,或者找不到 CgAbBlastPanelOptChangeCallback，说明你的文件存在病毒，请运行一下打开优化工具，执行 remove unknown node and plugin 和 remove callback 两个按钮，然后保存一下文件"
+msgstr "エラーが発生し、DCF_updateViewportList が見つからない、または CgAbBlastPanelOptChangeCallback が見つからないことが示された場合は、ファイルにウイルスが感染していることを意味します。それを実行して最適化ツールを開き、不明なノードとプラグインの削除とコールバック ボタンを実行してください。ファイルを保存します。"
+
+
