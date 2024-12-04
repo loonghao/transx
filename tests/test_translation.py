@@ -11,6 +11,7 @@ import pytest
 # Import local modules
 from transx.constants import DEFAULT_CHARSET
 
+
 logger = logging.getLogger(__name__)
 
 # Python 2 and 3 compatibility
@@ -77,16 +78,16 @@ def env_vars(monkeypatch):
 def test_environment_variable_expansion(transx_instance, env_vars):
     """Test environment variable expansion in translations."""
     filename = text_type("test.txt")
-    
+
     # Test environment variable expansion with translation
     assert transx_instance.tr("File $TEST_FILE saved") == text_type(u"文件 data.txt 已保存")
-    
+
     # Test environment variable with parameter substitution
     assert transx_instance.tr("User $TEST_USER saved ${filename}", filename=filename) == text_type(u"用户 john 保存了 {0}".format(filename))
-    
+
     # Test environment variable that doesn't exist (should keep the placeholder)
     assert transx_instance.tr("Welcome $NONEXISTENT_USER") == text_type("Welcome $NONEXISTENT_USER")
-    
+
     # Test escaping dollar sign with environment variable
     assert transx_instance.tr("Price: $$TEST_FILE") == text_type("Price: $$TEST_FILE")
 

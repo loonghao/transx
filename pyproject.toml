@@ -53,6 +53,7 @@ exclude = '''
     | build
     | transx/_vendor
     | dist
+    | examples/locales
   )/
   | foo.py           # also separately exclude a file named foo.py in
                      # the root of the project
@@ -102,6 +103,7 @@ select = [
 ]
 
 ignore = [
+    "I001",  # isort
     "B904",  # raise-without-from
     "F821",  # undefined-name - for unicode type
     "F541",  # f-string

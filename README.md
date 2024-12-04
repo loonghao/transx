@@ -149,7 +149,7 @@ from transx import TextInterpreter, InterpreterExecutor
 class MyCustomInterpreter(TextInterpreter):
     name = "custom"
     description = "My custom text processor"
-    
+
     def interpret(self, text, context=None):
         # Add your custom text processing logic here
         return text.replace("old", "new")
@@ -180,7 +180,7 @@ result = executor.execute("Hello ${USER}", {"name": "world"})
 
 # Safe execution with fallback
 result = executor.execute_safe(
-    "Hello ${USER}", 
+    "Hello ${USER}",
     fallback_interpreters=[tx.get_interpreter("parameter")]
 )
 ```

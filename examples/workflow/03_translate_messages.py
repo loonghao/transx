@@ -6,7 +6,8 @@
 from common import POT_FILE
 
 # Import local modules
-from transx.api.translate import GoogleTranslator, translate_po_files
+from transx.api.translate import GoogleTranslator
+from transx.api.translate import translate_po_files
 
 
 def translate_messages():

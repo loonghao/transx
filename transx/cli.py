@@ -8,8 +8,12 @@ import sys
 
 # Import local modules
 from transx.api.mo import compile_po_file
-from transx.api.pot import PotExtractor, PotUpdater
-from transx.constants import DEFAULT_LOCALES_DIR, DEFAULT_MESSAGES_DOMAIN, MO_FILE_EXTENSION, POT_FILE_EXTENSION
+from transx.api.pot import PotExtractor
+from transx.api.pot import PotUpdater
+from transx.constants import DEFAULT_LOCALES_DIR
+from transx.constants import DEFAULT_MESSAGES_DOMAIN
+from transx.constants import MO_FILE_EXTENSION
+from transx.constants import POT_FILE_EXTENSION
 
 
 def setup_logging():

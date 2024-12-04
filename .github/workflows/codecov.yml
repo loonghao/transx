@@ -25,10 +25,7 @@ jobs:
       - name: Run tests and collect coverage
         run: |
           nox -s pytest
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v4
+      - name: Upload results to Codecov
+        uses: codecov/codecov-action@v5
         with:
-          slug: loonghao/${{ steps.repo-name.outputs.repository-name }}
-          files: 'coverage.xml'
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          token: ${{ secrets.CODECOV_TOKEN }}

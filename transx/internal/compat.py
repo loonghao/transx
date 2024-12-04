@@ -2,37 +2,24 @@
 # ruff: noqa: I001, F401
 
 # Import future modules
-# fmt: off
-# isort: skip
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
 # Import built-in modules
-# fmt: on
 import abc
 import gzip
-from io import BytesIO
 import sys
 import tokenize
 
 
 try:
-    # Import built-in modules
-    from urllib2 import HTTPError
-    from urllib2 import URLError
-    from urllib2 import Request
-    from urllib2 import urlopen
-    from urllib import urlencode
-
     # Import third-party modules
     from StringIO import StringIO as BytesIO
 except ImportError:
-    from urllib.error import HTTPError, URLError
-    from urllib.request import Request, urlopen
-    from urllib.parse import urlencode
     from io import BytesIO
+
 
 # Import local modules
 from transx.constants import DEFAULT_CHARSET

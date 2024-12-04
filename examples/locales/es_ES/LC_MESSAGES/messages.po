@@ -121,5 +121,3 @@ msgstr "¡Tab\\taquí!"
 #: G:/PycharmProjects/github/transx/examples/demo.py:60
 msgid "Path to the file: \"C:\\Program Files\\MyApp\""
 msgstr "Ruta al archivo: \"C:\\Program Files\\MyApp\""
-
-
