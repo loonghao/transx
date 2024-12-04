@@ -16,37 +16,45 @@ from transx.constants import LANGUAGE_MAP
 
 
 def normalize_language_code(lang_code):
-    """Normalize language code to standard format.
+    """Normalize a language code to a standard format.
 
     Args:
-        lang_code (str): Language code in various formats
-            Examples: 'zh-CN', 'zh_CN', 'zh-Hans', 'zh', 'Chinese'
+        lang_code: Language code to normalize (e.g., 'en', 'zh-CN', 'zh_cn')
 
     Returns:
-        str: Normalized language code in format like 'zh_CN'
+        str: Normalized language code (e.g., 'en_US', 'zh_CN', 'ja_JP')
+            or None if the code is not recognized
     """
     if not lang_code:
         return None
 
-    # Convert to lowercase and replace hyphens
-    lang_code = lang_code.lower().replace("-", "_")
+    # Replace hyphens with underscores
+    normalized = lang_code.replace("-", "_")
 
-    # Check if it's in LANGUAGE_CODES
+    # First try exact match in LANGUAGE_CODES
+    if normalized in LANGUAGE_CODES:
+        return normalized
+
+    # Then try exact match in aliases
     for code, (_, aliases) in LANGUAGE_CODES.items():
-        if lang_code in [a.lower() for a in aliases]:
+        if normalized in aliases:
+            return code
+
+    # Try case-insensitive match
+    normalized_lower = normalized.lower()
+    for code, (_, aliases) in LANGUAGE_CODES.items():
+        if normalized_lower == code.lower():
+            return code
+        if normalized_lower in [a.lower() for a in aliases]:
             return code
 
     # Check common language mappings
-    if lang_code in LANGUAGE_MAP:
-        return LANGUAGE_MAP[lang_code]
+    if normalized_lower in LANGUAGE_MAP:
+        return LANGUAGE_MAP[normalized_lower]
 
-    # Handle codes like 'zh', 'ja', 'ko'
-    if len(lang_code) == 2 and lang_code in DEFAULT_COUNTRY_MAP:
-        return "{0}_{1}".format(lang_code, DEFAULT_COUNTRY_MAP[lang_code])
-
-    # If already in correct format (e.g. zh_CN), return as is
-    if len(lang_code.split("_")) == 2:
-        return lang_code
+    # Handle simple language codes (e.g., 'en' -> 'en_US')
+    if "_" not in normalized_lower and normalized_lower in DEFAULT_COUNTRY_MAP:
+            return "{0}_{1}".format(normalized_lower, DEFAULT_COUNTRY_MAP[normalized_lower])
 
     return None
 
