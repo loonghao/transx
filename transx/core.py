@@ -6,23 +6,20 @@
 import os
 from string import Template
 
-from transx.api.interpreter import (
-    InterpreterFactory,
-)
-
 # Import local modules
+from transx.api.interpreter import InterpreterFactory
 from transx.api.locale import get_system_locale
-from transx.api.mo import MOFile, compile_po_file
+from transx.api.mo import MOFile
+from transx.api.mo import compile_po_file
 from transx.api.po import POFile
 from transx.api.translation_catalog import TranslationCatalog
-from transx.constants import (
-    DEFAULT_LOCALE,
-    DEFAULT_LOCALES_DIR,
-    DEFAULT_MESSAGES_DOMAIN,
-    MO_FILE_EXTENSION,
-    PO_FILE_EXTENSION,
-)
-from transx.exceptions import CatalogNotFoundError, LocaleNotFoundError
+from transx.constants import DEFAULT_LOCALE
+from transx.constants import DEFAULT_LOCALES_DIR
+from transx.constants import DEFAULT_MESSAGES_DOMAIN
+from transx.constants import MO_FILE_EXTENSION
+from transx.constants import PO_FILE_EXTENSION
+from transx.exceptions import CatalogNotFoundError
+from transx.exceptions import LocaleNotFoundError
 from transx.internal.compat import string_types
 from transx.internal.filesystem import read_file
 from transx.internal.logging import get_logger
@@ -259,5 +256,5 @@ class TransX:
         # Create interpreter chain
         executor = InterpreterFactory.create_translation_chain(self)
         fallback_chain = InterpreterFactory.create_parameter_only_chain()
-        
+
         return executor.execute_safe(text, kwargs, fallback_chain.interpreters)

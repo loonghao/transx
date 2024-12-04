@@ -6,12 +6,15 @@ import sys
 # Import third-party modules
 import pytest
 
-from transx.api.locale import normalize_language_code
-
 # Import local modules
+from transx.api.locale import normalize_language_code
 from transx.cli import main
-from transx.constants import DEFAULT_CHARSET, DEFAULT_MESSAGES_DOMAIN, MO_FILE_EXTENSION, PO_FILE_EXTENSION
-from transx.internal.filesystem import read_file, write_file
+from transx.constants import DEFAULT_CHARSET
+from transx.constants import DEFAULT_MESSAGES_DOMAIN
+from transx.constants import MO_FILE_EXTENSION
+from transx.constants import PO_FILE_EXTENSION
+from transx.internal.filesystem import read_file
+from transx.internal.filesystem import write_file
 
 
 @pytest.fixture

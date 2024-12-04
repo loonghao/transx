@@ -1,10 +1,6 @@
 """Custom exceptions for TransX."""
-# fmt: off
-# isort: skip
 # Import future modules
 from __future__ import unicode_literals
-
-# fmt: on
 
 
 class TransXError(Exception):

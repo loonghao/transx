@@ -121,5 +121,3 @@ msgstr "Tab\\t这里！"
 #: G:/PycharmProjects/github/transx/examples/demo.py:60
 msgid "Path to the file: \"C:\\Program Files\\MyApp\""
 msgstr "文件路径：\"C:\\Program Files\\MyApp\""
-
-

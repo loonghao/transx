@@ -5,7 +5,8 @@
 # Import built-in modules
 
 # Import third-party modules
-from common import DEMO_FILE, POT_FILE
+from common import DEMO_FILE
+from common import POT_FILE
 
 # Import local modules
 from transx.api.pot import PotExtractor

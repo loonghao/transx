@@ -7,29 +7,40 @@
 from __future__ import unicode_literals
 
 # Import built-in modules
-# fmt: on
 import abc
 import logging
 import os
 import time
 
+
+try:
+    # Import built-in modules
+    from urllib import urlencode
+
+    # Import third-party modules
+    from urllib2 import HTTPError
+    from urllib2 import Request
+    from urllib2 import URLError
+    from urllib2 import urlopen
+except ImportError:
+    from urllib.error import HTTPError, URLError
+    from urllib.request import Request, urlopen
+    from urllib.parse import urlencode
+
 # Import local modules
 from transx.api.locale import normalize_language_code
 from transx.api.po import POFile
 from transx.exceptions import TranslationError
-from transx.internal.compat import (
-    PY2,
-    HTTPError,
-    Request,
-    URLError,
-    binary_type,
-    decompress_gzip,
-    ensure_unicode,
-    string_types,
-    text_type,
-    urlencode,
-    urlopen,
-)
+from transx.internal.compat import PY2
+from transx.internal.compat import binary_type
+from transx.internal.compat import decompress_gzip
+from transx.internal.compat import ensure_unicode
+from transx.internal.compat import string_types
+from transx.internal.compat import text_type
+
+
+# fmt: on
+
 
 
 class Translator(object):

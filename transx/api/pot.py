@@ -6,19 +6,26 @@
 from __future__ import unicode_literals
 
 # Import built-in modules
+from collections import OrderedDict
 import datetime
 import logging
 import os
 import tokenize
-from collections import OrderedDict
 
 # Import local modules
 from transx.api.locale import normalize_language_code
 from transx.api.message import Message
 from transx.api.translate import POFile
-from transx.constants import DEFAULT_CHARSET, DEFAULT_KEYWORDS, LANGUAGE_CODES, METADATA_KEYS
-from transx.internal.compat import PY2, safe_eval_string, tokenize_source
-from transx.internal.filesystem import normalize_path, read_file, write_file
+from transx.constants import DEFAULT_CHARSET
+from transx.constants import DEFAULT_KEYWORDS
+from transx.constants import LANGUAGE_CODES
+from transx.constants import METADATA_KEYS
+from transx.internal.compat import PY2
+from transx.internal.compat import safe_eval_string
+from transx.internal.compat import tokenize_source
+from transx.internal.filesystem import normalize_path
+from transx.internal.filesystem import read_file
+from transx.internal.filesystem import write_file
 
 
 class POTFile(object):

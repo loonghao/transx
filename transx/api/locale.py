@@ -10,7 +10,9 @@ import locale
 import sys
 
 # Import local modules
-from transx.constants import DEFAULT_COUNTRY_MAP, LANGUAGE_CODES, LANGUAGE_MAP
+from transx.constants import DEFAULT_COUNTRY_MAP
+from transx.constants import LANGUAGE_CODES
+from transx.constants import LANGUAGE_MAP
 
 
 def normalize_language_code(lang_code):

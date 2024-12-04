@@ -5,7 +5,8 @@
 # Import built-in modules
 
 # Import third-party modules
-from common import LOCALES_DIR, POT_FILE
+from common import LOCALES_DIR
+from common import POT_FILE
 
 # Import local modules
 from transx.api.pot import PotUpdater

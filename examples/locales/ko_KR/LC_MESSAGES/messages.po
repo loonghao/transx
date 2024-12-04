@@ -121,5 +121,3 @@ msgstr "Tab\\t이 여기에 있습니다!"
 #: G:/PycharmProjects/github/transx/examples/demo.py:60
 msgid "Path to the file: \"C:\\Program Files\\MyApp\""
 msgstr "파일 경로: \"C:\\Program Files\\MyApp\""
-
-

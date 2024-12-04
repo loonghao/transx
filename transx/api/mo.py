@@ -11,6 +11,7 @@ from __future__ import unicode_literals
 import re
 import struct
 
+
 try:
     # Import built-in modules
     from collections import OrderedDict
@@ -21,7 +22,9 @@ except ImportError:
 from transx.api.message import Message
 from transx.api.po import POFile
 from transx.constants import DEFAULT_ENCODING
-from transx.internal.compat import binary_type, ensure_unicode, text_type
+from transx.internal.compat import binary_type
+from transx.internal.compat import ensure_unicode
+from transx.internal.compat import text_type
 
 
 class MOFile(object):
