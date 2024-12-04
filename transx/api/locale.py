@@ -42,7 +42,7 @@ def normalize_language_code(lang_code):
 
     # Handle codes like 'zh', 'ja', 'ko'
     if len(lang_code) == 2 and lang_code in DEFAULT_COUNTRY_MAP:
-        return f"{lang_code}_{DEFAULT_COUNTRY_MAP[lang_code]}"
+        return "{0}_{1}".format(lang_code, DEFAULT_COUNTRY_MAP[lang_code])
 
     # If already in correct format (e.g. zh_CN), return as is
     if len(lang_code.split("_")) == 2:
