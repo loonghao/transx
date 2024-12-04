@@ -1,3 +1,10 @@
+## v0.2.2 (2024-12-04)
+
+### Refactor
+
+- **interpreter**: Refactor import statements for clarity and consistency
+- **interpreter**: Improve text type handling and error handling in TextTypeInterpreter
+
 ## v0.2.1 (2024-12-04)
 
 ### Fix
