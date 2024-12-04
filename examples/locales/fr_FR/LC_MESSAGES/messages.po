@@ -1,0 +1,125 @@
+# Translations template for PROJECT.
+# Copyright (C) 2024 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+
+msgid ""
+msgstr ""
+"Project-Id-Version: TransX Demo 1.0\n"
+"Report-Msgid-Bugs-To: transx@example.com\n"
+"POT-Creation-Date: 2024-12-04 17:16\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: fr_FR <LL@li.org>\n"
+"Language: fr_FR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: TransX\n"
+"Copyright-Holder: TransX Team\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:28
+msgctxt "login"
+msgid "Hello"
+msgstr "Bonjour"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:29
+msgid "Welcome {name}"
+msgstr "Bienvenue {name}"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:30
+#: G:/PycharmProjects/github/transx/examples/demo.py:37
+msgid "Hello~"
+msgstr "Bonjour~"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:31
+msgid "Current username: $username"
+msgstr "Nom d&#39;utilisateur actuel : $username"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:32
+msgid "Current language is {lang}"
+msgstr "La langue actuelle est {lang}"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:38
+msgid "Starting workflow"
+msgstr "Démarrage du flux de travail"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:39
+msgid "Processing file {filename}"
+msgstr "Traitement du fichier {filename}"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:40
+msgid "Workflow completed"
+msgstr "Flux de travail terminé"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:41
+msgid "Validating input data"
+msgstr "Validation des données d&#39;entrée"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:42
+msgid "Analyzing results"
+msgstr "Analyse des résultats"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:43
+msgid "Task completed successfully"
+msgstr "Tâche accomplie avec succès"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:48
+msgid "Error: File not found"
+msgstr "Erreur : fichier non trouvé"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:49
+msgid "Warning: Low disk space"
+msgstr "Attention : espace disque faible"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:50
+msgid "Invalid input: {input}"
+msgstr "Entrée non valide : {input}"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:51
+msgid "Operation failed: {reason}"
+msgstr "Opération échouée : {reason}"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:56
+msgid "Hello"
+msgstr "Bonjour"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:57
+msgid "Hello\\nWorld"
+msgstr "Bonjour\\nMonde"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:58
+msgid "Tab\\there"
+msgstr "Tab\\tici"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:59
+msgid "Tab\\there!"
+msgstr "Tab\\tici !"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:60
+msgid "Path to the file: \"C:\\Program Files\\MyApp\""
+msgstr "Chemin d&#39;accès au fichier : \"C:\\Program Files\\MyApp\""
+
+

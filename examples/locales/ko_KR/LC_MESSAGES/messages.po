@@ -1,0 +1,125 @@
+# Translations template for PROJECT.
+# Copyright (C) 2024 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+
+msgid ""
+msgstr ""
+"Project-Id-Version: TransX Demo 1.0\n"
+"Report-Msgid-Bugs-To: transx@example.com\n"
+"POT-Creation-Date: 2024-12-04 17:15\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ko_KR <LL@li.org>\n"
+"Language: ko_KR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: TransX\n"
+"Copyright-Holder: TransX Team\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:28
+msgctxt "login"
+msgid "Hello"
+msgstr "안녕하세요"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:29
+msgid "Welcome {name}"
+msgstr "환영합니다 {name}"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:30
+#: G:/PycharmProjects/github/transx/examples/demo.py:37
+msgid "Hello~"
+msgstr "안녕하세요~"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:31
+msgid "Current username: $username"
+msgstr "현재 사용자 이름: $username"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:32
+msgid "Current language is {lang}"
+msgstr "현재 언어는 {lang}입니다."
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:38
+msgid "Starting workflow"
+msgstr "워크플로 시작"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:39
+msgid "Processing file {filename}"
+msgstr "파일 {filename} 처리 중"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:40
+msgid "Workflow completed"
+msgstr "워크플로 완료"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:41
+msgid "Validating input data"
+msgstr "입력 데이터 검증"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:42
+msgid "Analyzing results"
+msgstr "결과 분석"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:43
+msgid "Task completed successfully"
+msgstr "작업이 성공적으로 완료되었습니다"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:48
+msgid "Error: File not found"
+msgstr "오류: 파일을 찾을 수 없습니다"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:49
+msgid "Warning: Low disk space"
+msgstr "경고: 디스크 공간이 부족합니다"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:50
+msgid "Invalid input: {input}"
+msgstr "잘못된 입력: {input}"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:51
+msgid "Operation failed: {reason}"
+msgstr "작업 실패: {reason}"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:56
+msgid "Hello"
+msgstr "안녕하세요"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:57
+msgid "Hello\\nWorld"
+msgstr "안녕하세요\\n세상"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:58
+msgid "Tab\\there"
+msgstr "Tab\\t여기"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:59
+msgid "Tab\\there!"
+msgstr "Tab\\t이 여기에 있습니다!"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:60
+msgid "Path to the file: \"C:\\Program Files\\MyApp\""
+msgstr "파일 경로: \"C:\\Program Files\\MyApp\""
+
+
