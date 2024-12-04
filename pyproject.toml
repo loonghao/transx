@@ -18,7 +18,7 @@ classifiers = [
 python = ">=2.7,<4.0"
 
 [tool.poetry.scripts]
-transx = "transx.cli:cli"
+transx = "transx.cli:main"
 
 [tool.commitizen]
 name = "cz_conventional_commits"
