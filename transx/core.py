@@ -4,6 +4,7 @@
 
 # Import built-in modules
 import os
+from string import Template
 
 # Import local modules
 from transx.api.locale import get_system_locale
@@ -18,6 +19,7 @@ from transx.constants import MO_FILE_EXTENSION
 from transx.constants import PO_FILE_EXTENSION
 from transx.exceptions import CatalogNotFoundError
 from transx.exceptions import LocaleNotFoundError
+from transx.internal.compat import text_type
 from transx.internal.compat import string_types
 from transx.internal.filesystem import read_file
 from transx.internal.logging import get_logger
@@ -231,47 +233,102 @@ class TransX:
         Raises:
             CatalogNotFoundError: If no catalog is available
         """
-        if catalog is None:
-            if not self._catalogs:
-                raise CatalogNotFoundError("No catalogs available")
-            catalog = self._catalogs.get(self._current_locale)
-            if not catalog:
-                raise CatalogNotFoundError("No catalog for locale: %s" % self._current_locale)
+        # Use a unique marker that's unlikely to appear in normal text
+        DOLLAR_MARKER = "__DOUBLE_DOLLAR_SIGN_8A7B6C5D__"
 
-        message = catalog.get_message(msgid)
-        if not message:
+        try:
+            if catalog is None:
+                if not self._catalogs:
+                    raise CatalogNotFoundError("No catalogs available")
+                catalog = self._catalogs.get(self.current_locale)
+                if catalog is None:
+                    raise CatalogNotFoundError(
+                        "No catalog found for locale: %s" % self.current_locale)
+
+            # Get translation
+            message = catalog.get_message(msgid)
+            if not message:
+                return msgid
+
+            # Handle both string and Message object returns
+            msgstr = message if isinstance(message, string_types) else message.msgstr
+            if not msgstr:
+                return msgid
+
+            # First handle parameter substitution using Template
+            # Temporarily replace $$ with the marker
+            msgstr = msgstr.replace(u"$$", DOLLAR_MARKER)
+            template = Template(msgstr)
+            result = template.safe_substitute(kwargs) if kwargs else msgstr
+            # Handle environment variables
+            result = os.path.expandvars(result)
+            # Restore $$ last
+            result = result.replace(DOLLAR_MARKER, u"$")
+            return result
+
+        except Exception as e:
+            self.logger.warning("Translation substitution failed: %s", str(e))
             return msgid
 
-        # Handle both string and Message object returns
-        msgstr = message if isinstance(message, string_types) else message.msgstr
-
-        try:
-            return msgstr.format(**kwargs) if kwargs else msgstr
-        except KeyError as e:
-            raise KeyError("Missing parameter in translation: %s" % str(e))
-        except Exception:
-            return msgstr
-
-    def tr(self, text, context=None, catalog=None, **kwargs):
-        """Translate text using the current locale.
+    def tr(self, text, **kwargs):
+        """Translate a text with optional parameter substitution.
 
         Args:
-            text: Text to translate
-            context: Optional context for the text
-            catalog: Optional specific catalog to use
-            **kwargs: Format arguments for the translated text
+            text (str): Text to translate.
+            **kwargs: Parameters for string formatting.
 
         Returns:
-            str: Translated text or original text if no translation found
+            str: Translated text with parameters substituted.
         """
-        self.logger.debug("Translating text: %s", text)
-        self.logger.debug("Current locale: %s", self.current_locale)
-        self.logger.debug("Available catalogs: %s", list(self._catalogs.keys()))
-
+        # Use a unique marker that's unlikely to appear in normal text
+        DOLLAR_MARKER = "__DOUBLE_DOLLAR_SIGN_8A7B6C5D__"
+        
         try:
-            # Add context to msgid if provided
-            msgid = context + "\x04" + text if context else text
-            return self.translate(msgid, catalog, **kwargs)
-        except (CatalogNotFoundError, KeyError) as e:
+            # Ensure text is unicode
+            if not isinstance(text, text_type):
+                text = text_type(text)
+            
+            # Get translation
+            translated = self.translate(text)
+            
+            # If no translation found, use original text
+            if translated == text:
+                # First handle parameter substitution
+                template = Template(text)
+                result = template.safe_substitute(kwargs) if kwargs else text
+                # Then replace $$ with marker
+                result = result.replace(u"$$", DOLLAR_MARKER)
+                # Handle environment variables
+                result = os.path.expandvars(result)
+                # Restore $$ last
+                result = result.replace(DOLLAR_MARKER, u"$")
+                return text_type(result)
+            
+            # For translated text
+            # First handle parameter substitution
+            template = Template(translated)
+            result = template.safe_substitute(kwargs) if kwargs else translated
+            # Then replace $$ with marker
+            result = result.replace(u"$$", DOLLAR_MARKER)
+            # Handle environment variables
+            result = os.path.expandvars(result)
+            # Restore $$ last
+            result = result.replace(DOLLAR_MARKER, u"$")
+            return text_type(result)
+            
+        except Exception as e:
             self.logger.warning("Translation failed: %s", str(e))
-            return text
+            # Handle parameter substitution and environment variables in the original text
+            try:
+                # First handle parameter substitution
+                template = Template(text)
+                result = template.safe_substitute(kwargs) if kwargs else text
+                # Then replace $$ with marker
+                result = result.replace(u"$$", DOLLAR_MARKER)
+                # Handle environment variables
+                result = os.path.expandvars(result)
+                # Restore $$ last
+                result = result.replace(DOLLAR_MARKER, u"$")
+                return text_type(result)
+            except Exception:
+                return text_type(text)
