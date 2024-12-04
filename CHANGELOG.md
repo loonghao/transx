@@ -1,3 +1,9 @@
+## v0.2.1 (2024-12-04)
+
+### Fix
+
+- fix entry point for transx CLI to main function.
+
 ## v0.2.0 (2024-12-04)
 
 ### Feat
