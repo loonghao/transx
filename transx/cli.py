@@ -8,12 +8,8 @@ import sys
 
 # Import local modules
 from transx.api.mo import compile_po_file
-from transx.api.pot import PotExtractor
-from transx.api.pot import PotUpdater
-from transx.constants import DEFAULT_LOCALES_DIR
-from transx.constants import DEFAULT_MESSAGES_DOMAIN
-from transx.constants import MO_FILE_EXTENSION
-from transx.constants import POT_FILE_EXTENSION
+from transx.api.pot import PotExtractor, PotUpdater
+from transx.constants import DEFAULT_LOCALES_DIR, DEFAULT_MESSAGES_DOMAIN, MO_FILE_EXTENSION, POT_FILE_EXTENSION
 
 
 def setup_logging():
@@ -172,19 +168,11 @@ def update_command(args):
         logger.error("POT file not found: %s", args.pot_file)
         return 1
 
-    # Create POT extractor and load
-    extractor = PotExtractor(args.pot_file)
+    # Create POT updater
     try:
-        extractor.messages.load(args.pot_file)
-    except Exception as e:
-        logger.error("Error loading POT file: %s", e)
-        return 1
-
-    # Generate language files
-    languages = args.languages.split(",") if args.languages else ["en", "zh_CN", "ja_JP", "ko_KR"]
-    locales_dir = os.path.abspath(args.output_dir)
-    try:
-        extractor.generate_language_files(languages, locales_dir)
+        updater = PotUpdater(args.pot_file, args.output_dir)
+        languages = args.languages.split(",") if args.languages else ["en", "zh_CN", "ja_JP", "ko_KR"]
+        updater.create_language_catalogs(languages)
         logger.info("Language files updated.")
         return 0
     except Exception as e:

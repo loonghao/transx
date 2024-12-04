@@ -6,8 +6,7 @@
 from common import POT_FILE
 
 # Import local modules
-from transx.api.translate import GoogleTranslator
-from transx.api.translate import create_po_files
+from transx.api.translate import GoogleTranslator, translate_po_files
 
 
 def translate_messages():
@@ -17,7 +16,7 @@ def translate_messages():
 
     languages = ["zh_CN", "ja_JP", "ko_KR", "fr_FR", "es_ES"]
     print("\nTranslating PO files for languages:", languages)
-    create_po_files(POT_FILE, languages, translator=translator)
+    translate_po_files(POT_FILE, languages, translator=translator)
 
 if __name__ == "__main__":
     translate_messages()

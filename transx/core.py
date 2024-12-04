@@ -6,20 +6,23 @@
 import os
 from string import Template
 
+from transx.api.interpreter import (
+    InterpreterFactory,
+)
+
 # Import local modules
 from transx.api.locale import get_system_locale
-from transx.api.mo import MOFile
-from transx.api.mo import compile_po_file
+from transx.api.mo import MOFile, compile_po_file
 from transx.api.po import POFile
 from transx.api.translation_catalog import TranslationCatalog
-from transx.constants import DEFAULT_LOCALE
-from transx.constants import DEFAULT_LOCALES_DIR
-from transx.constants import DEFAULT_MESSAGES_DOMAIN
-from transx.constants import MO_FILE_EXTENSION
-from transx.constants import PO_FILE_EXTENSION
-from transx.exceptions import CatalogNotFoundError
-from transx.exceptions import LocaleNotFoundError
-from transx.internal.compat import text_type
+from transx.constants import (
+    DEFAULT_LOCALE,
+    DEFAULT_LOCALES_DIR,
+    DEFAULT_MESSAGES_DOMAIN,
+    MO_FILE_EXTENSION,
+    PO_FILE_EXTENSION,
+)
+from transx.exceptions import CatalogNotFoundError, LocaleNotFoundError
 from transx.internal.compat import string_types
 from transx.internal.filesystem import read_file
 from transx.internal.logging import get_logger
@@ -143,33 +146,6 @@ class TransX:
         self.logger.debug(msg)
         return False
 
-    def _parse_po_file(self, fileobj, catalog):
-        """Parse a PO file and add messages to the catalog."""
-        current_msgid = None
-        current_msgstr = []
-        current_context = None
-
-        for line in fileobj:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-
-            if line.startswith('msgctxt "'):
-                current_context = line[9:-1]
-            elif line.startswith('msgid "'):
-                if current_msgid is not None:
-                    catalog.add_message(current_msgid, "".join(current_msgstr), current_context)
-                current_msgid = line[7:-1]
-                current_msgstr = []
-                current_context = None
-            elif line.startswith('msgstr "'):
-                current_msgstr = [line[8:-1]]
-            elif line.startswith('"') and current_msgstr is not None:
-                current_msgstr.append(line[1:-1])
-
-        if current_msgid is not None:
-            catalog.add_message(current_msgid, "".join(current_msgstr), current_context)
-
     def add_translation(self, msgid, msgstr, context=None):
         """Add a translation entry.
 
@@ -263,7 +239,7 @@ class TransX:
             # Handle environment variables
             result = os.path.expandvars(result)
             # Restore $$ last
-            result = result.replace(DOLLAR_MARKER, u"$")
+            result = result.replace(DOLLAR_MARKER, u"$$")
             return result
 
         except Exception as e:
@@ -280,55 +256,8 @@ class TransX:
         Returns:
             str: Translated text with parameters substituted.
         """
-        # Use a unique marker that's unlikely to appear in normal text
-        DOLLAR_MARKER = "__DOUBLE_DOLLAR_SIGN_8A7B6C5D__"
+        # Create interpreter chain
+        executor = InterpreterFactory.create_translation_chain(self)
+        fallback_chain = InterpreterFactory.create_parameter_only_chain()
         
-        try:
-            # Ensure text is unicode
-            if not isinstance(text, text_type):
-                text = text_type(text)
-            
-            # Get translation
-            translated = self.translate(text)
-            
-            # If no translation found, use original text
-            if translated == text:
-                # First handle parameter substitution
-                template = Template(text)
-                result = template.safe_substitute(kwargs) if kwargs else text
-                # Then replace $$ with marker
-                result = result.replace(u"$$", DOLLAR_MARKER)
-                # Handle environment variables
-                result = os.path.expandvars(result)
-                # Restore $$ last
-                result = result.replace(DOLLAR_MARKER, u"$")
-                return text_type(result)
-            
-            # For translated text
-            # First handle parameter substitution
-            template = Template(translated)
-            result = template.safe_substitute(kwargs) if kwargs else translated
-            # Then replace $$ with marker
-            result = result.replace(u"$$", DOLLAR_MARKER)
-            # Handle environment variables
-            result = os.path.expandvars(result)
-            # Restore $$ last
-            result = result.replace(DOLLAR_MARKER, u"$")
-            return text_type(result)
-            
-        except Exception as e:
-            self.logger.warning("Translation failed: %s", str(e))
-            # Handle parameter substitution and environment variables in the original text
-            try:
-                # First handle parameter substitution
-                template = Template(text)
-                result = template.safe_substitute(kwargs) if kwargs else text
-                # Then replace $$ with marker
-                result = result.replace(u"$$", DOLLAR_MARKER)
-                # Handle environment variables
-                result = os.path.expandvars(result)
-                # Restore $$ last
-                result = result.replace(DOLLAR_MARKER, u"$")
-                return text_type(result)
-            except Exception:
-                return text_type(text)
+        return executor.execute_safe(text, kwargs, fallback_chain.interpreters)

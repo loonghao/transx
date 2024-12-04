@@ -38,6 +38,7 @@ def read_file(file_path, encoding=DEFAULT_ENCODING, binary=False):
         with codecs.open(file_path, "r", encoding=encoding) as f:
             return f.read()
 
+
 def write_file(file_path, content, encoding=DEFAULT_ENCODING):
     """Write content to file with proper encoding handling.
 
@@ -54,6 +55,7 @@ def write_file(file_path, content, encoding=DEFAULT_ENCODING):
     with codecs.open(file_path, "w", encoding=encoding) as f:
         f.write(content)
 
+
 def write_binary_file(file_path, content):
     """Write binary content to file.
 
@@ -68,3 +70,39 @@ def write_binary_file(file_path, content):
 
     with open(file_path, "wb") as f:
         f.write(content)
+
+
+def normalize_path(path):
+    """Normalize a file path for writing to PO/POT file.
+
+    Args:
+        path: The file path to normalize
+
+    Returns:
+        str: The normalized path
+    """
+    if not path:
+        return path
+
+    # Convert to absolute path if not already
+    if not os.path.isabs(path):
+        path = os.path.abspath(path)
+
+    # Convert backslashes to forward slashes
+    path = path.replace("\\", "/")
+
+    # Try to make path relative to current directory
+    try:
+        rel_path = os.path.relpath(path)
+        if not rel_path.startswith(".."):
+            return rel_path.replace("\\", "/")
+    except ValueError:
+        pass
+
+    return path
+
+
+def ensure_dir(path):
+    """Ensure directory exists, create it if it doesn't exist."""
+    if not os.path.exists(path):
+        os.makedirs(path)

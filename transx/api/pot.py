@@ -7,27 +7,19 @@ from __future__ import unicode_literals
 
 # Import built-in modules
 import datetime
-import errno
 import logging
-import re
+import os
 import tokenize
 from collections import OrderedDict
-import os
-import codecs
 
 # Import local modules
 from transx.api.locale import normalize_language_code
 from transx.api.message import Message
-from transx.constants import DEFAULT_KEYWORDS
-from transx.constants import LANGUAGE_CODES
-from transx.constants import METADATA_KEYS
-from transx.constants import DEFAULT_CHARSET
-from transx.internal.compat import PY2
-from transx.internal.compat import safe_eval_string
-from transx.internal.compat import tokenize_source
-from transx.internal.filesystem import normalize_path
-from transx.internal.filesystem import read_file
-from transx.internal.filesystem import write_file
+from transx.api.translate import POFile
+from transx.constants import DEFAULT_CHARSET, DEFAULT_KEYWORDS, LANGUAGE_CODES, METADATA_KEYS
+from transx.internal.compat import PY2, safe_eval_string, tokenize_source
+from transx.internal.filesystem import normalize_path, read_file, write_file
+
 
 class POTFile(object):
     """Base class for PO/POT file format handling."""
@@ -83,7 +75,7 @@ class POTFile(object):
         # Create metadata message
         metadata_str = []
         for key in METADATA_KEYS:
-            if key in self.metadata and self.metadata[key]:
+            if self.metadata.get(key):
                 metadata_str.append("{}: {}".format(key, self.metadata[key]))
 
         metadata_msg = Message(
@@ -147,19 +139,19 @@ class POTFile(object):
         header = self._unescape_string(header)
 
         # Split into lines and process each line
-        for line in header.split('\\n'):
+        for line in header.split("\\n"):
             line = line.strip()
             if not line:
                 continue
 
             # Check for continuation of previous value
-            if line.startswith(' ') and 'current_key' in locals():
-                headers[current_key] += ' ' + line.strip()
+            if line.startswith(" ") and "current_key" in locals():
+                headers[current_key] += " " + line.strip()
                 continue
 
             # Look for "key: value" format
-            if ': ' in line:
-                key, value = line.split(': ', 1)
+            if ": " in line:
+                key, value = line.split(": ", 1)
                 key = key.strip()
                 value = value.strip()
                 if key in METADATA_KEYS:  # Only accept known metadata keys
@@ -192,7 +184,7 @@ class POTFile(object):
                     unique_locs.add("{}:{}".format(filename, lineno))
                 else:
                     unique_locs.add(loc)
-            
+
             for loc in sorted(unique_locs):
                 file.write("#: {}\n".format(loc))
 
@@ -210,7 +202,7 @@ class POTFile(object):
             file.write('msgstr ""\n')
             if message.msgstr:
                 # Split metadata into lines and write each line
-                for line in message.msgstr.strip().split('\n'):
+                for line in message.msgstr.strip().split("\n"):
                     if line:
                         file.write('"{0}\\n"\n'.format(line))
             return
@@ -242,10 +234,10 @@ class POTFile(object):
         """
         if not text:
             return text
-        text = text.replace('\\', '\\\\')  # Must be first
-        text = text.replace('\n', '\\n')
-        text = text.replace('\r', '\\r')
-        text = text.replace('\t', '\\t')
+        text = text.replace("\\", "\\\\")  # Must be first
+        text = text.replace("\n", "\\n")
+        text = text.replace("\r", "\\r")
+        text = text.replace("\t", "\\t")
         text = text.replace('"', '\\"')
         return text
 
@@ -296,7 +288,7 @@ class POTFile(object):
         content = []
         # Write header comment if exists
         if self.header_comment:
-            content.append(self.header_comment.strip() + '\n\n')
+            content.append(self.header_comment.strip() + "\n\n")
 
         # Write metadata
         content.append('msgid ""\n')
@@ -307,39 +299,39 @@ class POTFile(object):
                     self._escape_string(key),
                     self._escape_string(value)
                 ))
-        content.append('\n')
+        content.append("\n")
 
         # Write messages
         for message in self.translations.values():
             if message.msgid == "":  # Skip metadata message
                 continue
-                
+
             # Write automatic comments
             if message.auto_comments:
                 for comment in message.auto_comments:
-                    content.append('#. ' + comment + '\n')
+                    content.append("#. " + comment + "\n")
 
             # Write user comments
             if message.user_comments:
                 for comment in message.user_comments:
-                    content.append('# ' + comment + '\n')
+                    content.append("# " + comment + "\n")
 
             # Write locations (deduplicated)
             if message.locations:
                 locations = sorted(set(message.locations))  # Remove duplicates
                 for loc in locations:
                     if isinstance(loc, tuple):
-                        content.append('#: {}:{}\n'.format(
+                        content.append("#: {}:{}\n".format(
                             normalize_path(str(loc[0])),
                             loc[1]
                         ))
                     else:
-                        content.append('#: {}\n'.format(normalize_path(str(loc))))
+                        content.append("#: {}\n".format(normalize_path(str(loc))))
 
             # Write flags (deduplicated)
             if message.flags:
                 flags = sorted(set(message.flags))  # Remove duplicates
-                content.append('#, ' + ', '.join(flags) + '\n')
+                content.append("#, " + ", ".join(flags) + "\n")
 
             # Write message context
             if message.context:
@@ -377,12 +369,12 @@ class POTFile(object):
                     for line in message.msgstr:
                         content.append('"{0}"\n'.format(self._escape_string(line)))
                 else:
-                    content.append('msgstr "{}"\n'.format(self._escape_string(message.msgstr or '')))
+                    content.append('msgstr "{}"\n'.format(self._escape_string(message.msgstr or "")))
 
-            content.append('\n')
+            content.append("\n")
 
         # Write to file using filesystem module
-        write_file(file_path, ''.join(content), encoding=DEFAULT_CHARSET)
+        write_file(file_path, "".join(content), encoding=DEFAULT_CHARSET)
 
     def load(self, file_path=None):
         """Load messages from a PO/POT file.
@@ -425,6 +417,8 @@ class POTFile(object):
                     current_message.msgstr = "".join(current_msgstr)
                     if current_msgctxt:
                         current_message.context = "".join(current_msgctxt)
+                    if current_locations:
+                        current_message.locations = current_locations[:]  # Correctly handle locations
                     self._add_current_message(current_message)
                     current_message = None
                     current_locations = []
@@ -460,8 +454,6 @@ class POTFile(object):
                                 current_locations.append((normalize_path(filename.strip()), lineno))
                             except ValueError:
                                 current_locations.append(normalize_path(location))
-                        else:
-                            current_locations.append(normalize_path(location))
                 elif line.startswith("#,"):  # Flags
                     flags = line[2:].strip().split(",")
                     current_flags.update(f.strip() for f in flags)
@@ -489,6 +481,8 @@ class POTFile(object):
                 if current_message is not None:
                     # Update msgid and add the message
                     current_message.msgid = "".join(current_msgid)
+                    if current_locations:
+                        current_message.locations = current_locations[:]  # Correctly handle locations
                     self._add_current_message(current_message)
                 # Reset message parts
                 current_msgid = []
@@ -520,12 +514,14 @@ class POTFile(object):
                 elif reading_msgstr:
                     current_msgstr.append(self._parse_string(line))
 
-        # Add last message if exists
+        # Add the last message if there is one
         if current_message is not None:
             current_message.msgid = "".join(current_msgid)
             current_message.msgstr = "".join(current_msgstr)
             if current_msgctxt:
                 current_message.context = "".join(current_msgctxt)
+            if current_locations:
+                current_message.locations = current_locations[:]  # Correctly handle locations
             self._add_current_message(current_message)
 
         # Parse header if exists
@@ -556,6 +552,34 @@ class POTFile(object):
             # Add regular message to translations
             key = self._get_key(message.msgid, message.context)
             self.translations[key] = message
+
+    def add(self, msgid, msgstr="", flags=None, auto_comments=None, user_comments=None, context=None, locations=None):
+        """Add a new message to the catalog.
+
+        Args:
+            msgid: Message ID (source string)
+            msgstr: Message string (translated string)
+            flags: List of flags
+            auto_comments: List of automatic comments
+            user_comments: List of user comments
+            context: Message context
+            locations: List of (filename, line) tuples
+
+        Returns:
+            Message: The added message
+        """
+        message = Message(
+            msgid=msgid,
+            msgstr=msgstr,
+            flags=flags or [],
+            auto_comments=auto_comments or [],
+            user_comments=user_comments or [],
+            context=context,
+            locations=locations or []
+        )
+        key = (msgid, context)
+        self.translations[key] = message
+        return message
 
 
 class PotExtractor(object):
@@ -677,7 +701,7 @@ class PotExtractor(object):
                             break
 
                         # Handle keyword arguments
-                        if token_type == tokenize.NAME and i + 1 < len(tokens) and tokens[i+1][1] == "=":
+                        if token_type == tokenize.NAME and i + 1 < len(tokens) and tokens[i + 1][1] == "=":
                             kwarg_name = token_string
                             i += 2  # Skip '=' token
                             if i < len(tokens) and tokens[i][0] == tokenize.STRING:
@@ -827,6 +851,7 @@ class PotExtractor(object):
         # Save catalog to POT file
         self.catalog.save()
 
+
 class PotUpdater(object):
     """Update PO catalogs from a POT file."""
 
@@ -865,65 +890,58 @@ class PotUpdater(object):
                 os.makedirs(locale_dir)
 
             # Create or update PO file
-            po_file = os.path.join(locale_dir, "messages.po")
-            
-            # Use POFile instead of POTFile for PO file creation
-            from transx.api.po import POFile
-            po = POFile(po_file, locale=lang, pot_file=self.pot_catalog)
+            self.update_po_file(lang)
 
-            # Save the updated PO file
-            po.save()
-
-    def update_po_file(self, po_file, language):
+    def update_po_file(self, lang):
         """Update a PO file with messages from the POT file.
 
         Args:
-            po_file: Path to the PO file to update
-            language: Language code for the PO file
+            lang: Language code for the PO file
+
         """
-        # Create or load PO file
-        po = POTFile(po_file)
-        if os.path.exists(po_file):
-            po.load()
+        # Load POT file
+        pot = POFile(self.pot_file)
+        pot.load()
 
-        # Update metadata
-        self._update_po_metadata(po, language)
+        # Create language directory
+        lang_dir = os.path.join(self.locales_dir, lang, "LC_MESSAGES")
+        if not os.path.exists(lang_dir):
+            os.makedirs(lang_dir)
+        po_file_path = os.path.join(lang_dir, "messages.po")
 
-        # Clear existing translations but keep the previous ones for reference
-        previous = {}
-        for msg in po.translations.values():
-            key = (msg.msgid, msg.context)  # Use both msgid and context as key
-            previous[key] = msg.msgstr
-        po.translations.clear()
+        # Create PO file from POT
+        po = POFile(po_file_path, locale=lang)
+        po.load() if os.path.exists(po_file_path) else None
 
-        # Copy messages from POT file
-        for key, message in self.pot_catalog.translations.items():
-            if not key[0]:  # Skip header (empty msgid)
-                continue
+        # Update PO from POT
+        po.update(pot)
 
-            # Create a new message in the PO file
-            po_message = po.add(
-                msgid=message.msgid,
-                msgstr=previous.get((message.msgid, message.context), ""),  # Restore previous translation if available
-                flags=message.flags,
-                auto_comments=message.auto_comments,
-                user_comments=message.user_comments,
-                context=message.context,
-            )
+        # Set language-specific metadata
+        po.metadata.update({
+            "Language": lang,
+            "Language-Team": "%s <LL@li.org>" % lang,
+            "Plural-Forms": "nplurals=1; plural=0;" if lang.startswith("zh") else "nplurals=2; plural=(n != 1);"
+        })
 
-            # Copy locations from POT file
-            if message.locations:
-                # Sort locations by filename and line number
-                sorted_locations = sorted(message.locations, key=lambda x: (x[0], x[1]))
-                po_message.locations = sorted_locations
-
-        # Save the updated PO file
+        # Save PO file
         po.save()
+        print("Created/updated PO file: {}".format(po_file_path))
 
     def _update_po_metadata(self, po_catalog, language):
-        """Update PO file metadata based on POT metadata and language."""
+        """Update PO file metadata based on POT metadata and language.
+
+        Args:
+            po_catalog: The PO catalog to update
+            language: Language code for the PO file
+        """
+        # Start with metadata from POT file
+        metadata = OrderedDict()
+        for key, value in self.pot_catalog.metadata.items():
+            if key not in ["Language", "Language-Team", "Plural-Forms", "PO-Revision-Date"]:
+                metadata[key] = value
+
+        # Update language-specific metadata
         now = datetime.datetime.now()
-        year = now.year
         revision_date = now.strftime("%Y-%m-%d %H:%M%z")
 
         # Get language display name
@@ -931,28 +949,16 @@ class PotUpdater(object):
             "en_US": "English (United States)",
             "zh_CN": "Chinese (Simplified)",
             "zh_TW": "Chinese (Traditional)",
+            "ja_JP": "Japanese",
+            "ko_KR": "Korean",
+            "fr_FR": "French",
+            "es_ES": "Spanish",
         }.get(language, language)
-
-        # Add header comments with fuzzy flag
-        po_catalog.header_comment = (
-            "# {} translations for PROJECT.\n"
-            "# Copyright (C) {} ORGANIZATION\n"
-            "# This file is distributed under the same license as the PROJECT project.\n"
-            "# FIRST AUTHOR <EMAIL@ADDRESS>, {}.\n"
-            "#\n"
-            "#, fuzzy\n"
-        ).format(language_name, year, year)
-
-        # Start with metadata from POT file
-        metadata = OrderedDict()
-        for key, value in self.pot_catalog.metadata.items():
-            if key not in ["Language", "Language-Team", "Plural-Forms", "PO-Revision-Date"]:
-                metadata[key] = value
 
         # Set language-specific metadata
         metadata.update({
             "Project-Id-Version": metadata.get("Project-Id-Version", "PROJECT VERSION"),
-            "Report-Msgid-Bugs-To": metadata.get("Report-Msgid-Bugs-To", ""),
+            "Report-Msgid-Bugs-To": metadata.get("Report-Msgid-Bugs-To", "EMAIL@ADDRESS"),
             "POT-Creation-Date": metadata.get("POT-Creation-Date", revision_date),
             "PO-Revision-Date": revision_date,
             "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
@@ -961,7 +967,44 @@ class PotUpdater(object):
             "MIME-Version": "1.0",
             "Content-Type": "text/plain; charset=UTF-8",
             "Content-Transfer-Encoding": "8bit",
-            "Plural-Forms": "nplurals=1; plural=0;" if language.startswith("zh") else "nplurals=2; plural=(n != 1);",
+            "Generated-By": "TransX",
         })
 
+        # Update plural forms based on language
+        if language.startswith("zh") or language in ["ja", "ja_JP", "ko", "ko_KR", "vi", "vi_VN"]:
+            metadata["Plural-Forms"] = "nplurals=1; plural=0;"
+        elif language in ["fr", "fr_FR", "es", "es_ES"]:
+            metadata["Plural-Forms"] = "nplurals=2; plural=(n > 1);"
+        else:
+            metadata["Plural-Forms"] = "nplurals=2; plural=(n != 1);"
+
         po_catalog.metadata = metadata
+
+    def _update_po_header_comment(self, po_catalog, language):
+        """Update PO file header comment.
+
+        Args:
+            po_catalog: The PO catalog to update
+            language: Language code for the PO file
+        """
+        # Get language display name
+        language_name = {
+            "en_US": "English (United States)",
+            "zh_CN": "Chinese (Simplified)",
+            "zh_TW": "Chinese (Traditional)",
+            "ja_JP": "Japanese",
+            "ko_KR": "Korean",
+            "fr_FR": "French",
+            "es_ES": "Spanish",
+        }.get(language, language)
+
+        # Add header comments with fuzzy flag
+        year = datetime.datetime.now().year
+        po_catalog.header_comment = (
+            "# {} translations for PROJECT.\n"
+            "# Copyright (C) {} ORGANIZATION\n"
+            "# This file is distributed under the same license as the PROJECT project.\n"
+            "# FIRST AUTHOR <EMAIL@ADDRESS>, {}.\n"
+            "#\n"
+            "#, fuzzy\n"
+        ).format(language_name, year, year)

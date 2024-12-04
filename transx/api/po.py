@@ -16,7 +16,6 @@ import logging
 import os
 import re
 
-
 try:
     # Import built-in modules
     from collections import OrderedDict
