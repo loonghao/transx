@@ -59,6 +59,15 @@ def test_unicode_handling(tx):
     print(tx.tr("Tab\\there!"))     # Explicitly show tab
     print(tx.tr(r'Path to the file: "C:\Program Files\MyApp"'))  # Use raw string for path
 
+def test_multiline_strings(tx):
+    """Test multiline string support."""
+    print("\n=== Multiline String Support ===\n")
+    print(tx.tr("如果出现错误，显示找不到 DCF_updateViewportList,"
+                "或者找不到 CgAbBlastPanelOptChangeCallback，"
+                "说明你的文件存在病毒，请运行一下打开优化工具，"
+                "执行 remove unknown node and plugin 和 remove callback 两个按钮，"
+                "然后保存一下文件"))
+
 def main():
     # Initialize TransX instance with language pack directory
     locale_dir = os.path.join(os.path.dirname(__file__), "locales")
@@ -80,6 +89,7 @@ def main():
         test_workflow_messages(tx)
         test_error_messages(tx)
         test_unicode_handling(tx)
+        test_multiline_strings(tx)
 
 if __name__ == "__main__":
     main()

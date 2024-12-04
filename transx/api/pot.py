@@ -631,7 +631,6 @@ class PotExtractor(object):
             "# This file is distributed under the same license as the PROJECT project.\n"
             "# FIRST AUTHOR <EMAIL@ADDRESS>, {}.\n"
             "#\n"
-            "#, fuzzy\n"
         ).format(year, year)
 
         self.catalog.metadata.update({
@@ -700,15 +699,25 @@ class PotExtractor(object):
                     # Get arguments
                     args = []
                     kwargs = {}
+                    current_string = []
                     while i < len(tokens):
                         token_type, token_string, start, end, line = tokens[i]
 
                         # End of function call
                         if token_type == tokenize.OP and token_string == ")":
+                            if current_string:
+                                string_content = "".join(current_string)
+                                if string_content:
+                                    args.append(string_content)
                             break
 
                         # Handle keyword arguments
                         if token_type == tokenize.NAME and i + 1 < len(tokens) and tokens[i + 1][1] == "=":
+                            if current_string:
+                                string_content = "".join(current_string)
+                                if string_content:
+                                    args.append(string_content)
+                                current_string = []
                             kwarg_name = token_string
                             i += 2  # Skip '=' token
                             if i < len(tokens) and tokens[i][0] == tokenize.STRING:
@@ -716,14 +725,19 @@ class PotExtractor(object):
                             i += 1
                             continue
 
-                        # Handle positional string arguments
+                        # Handle string concatenation
                         if token_type == tokenize.STRING:
-                            string_content = safe_eval_string(token_string)
-                            if string_content is not None:
-                                args.append(string_content)
+                            string_value = safe_eval_string(token_string)
+                            if string_value is not None:
+                                current_string.append(string_value)
 
                         # Skip commas
                         if token_type == tokenize.OP and token_string == ",":
+                            if current_string:
+                                string_content = "".join(current_string)
+                                if string_content:
+                                    args.append(string_content)
+                                current_string = []
                             i += 1
                             continue
 
@@ -1013,5 +1027,4 @@ class PotUpdater(object):
             "# This file is distributed under the same license as the PROJECT project.\n"
             "# FIRST AUTHOR <EMAIL@ADDRESS>, {}.\n"
             "#\n"
-            "#, fuzzy\n"
         ).format(language_name, year, year)
