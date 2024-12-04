@@ -8,7 +8,7 @@ import re
 
 # Import local modules
 # Import internal modules
-from transx.internal.compat import text_type
+from transx.internal.compat import text_type, binary_type
 from transx.internal.logging import get_logger
 
 
@@ -194,9 +194,7 @@ class EnvironmentVariableInterpreter(TextInterpreter):
 
 
 class TextTypeInterpreter(TextInterpreter):
-    """Interpreter for ensuring text type."""
-    name = "text_type"
-    description = "Ensures text is of correct type"
+    """Ensure text is of the correct type."""
 
     def interpret(self, text, context=None):
         """Interpret text by ensuring correct text type.
@@ -208,9 +206,17 @@ class TextTypeInterpreter(TextInterpreter):
         Returns:
             Text converted to correct type
         """
-        if not isinstance(text, text_type):
+        try:
+            if not isinstance(text, text_type):
+                if isinstance(text, binary_type):
+                    return text.decode('utf-8')
+                return text_type(text)
+            return text
+        except UnicodeDecodeError:
+            # If UTF-8 decode fails, try with error handling
+            if isinstance(text, binary_type):
+                return text.decode('utf-8', errors='replace')
             return text_type(text)
-        return text
 
 
 class InterpreterExecutor(object):
