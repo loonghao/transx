@@ -20,11 +20,18 @@ import tokenize
 
 try:
     # Import built-in modules
-    pass
+    from urllib2 import HTTPError
+    from urllib2 import URLError
+    from urllib2 import Request
+    from urllib2 import urlopen
+    from urllib import urlencode
 
     # Import third-party modules
     from StringIO import StringIO as BytesIO
 except ImportError:
+    from urllib.error import HTTPError, URLError
+    from urllib.request import Request, urlopen
+    from urllib.parse import urlencode
     from io import BytesIO
 
 # Import local modules

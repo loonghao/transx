@@ -27,12 +27,14 @@ def test_basic_translations(tx):
     """Test basic translations."""
     print(tx.tr("Hello", context="login"))
     print(tx.tr("Welcome {name}", name="Alice"))
+    print(tx.tr("Hello~"))
     print(tx.tr("Current username: $username"))
     print(tx.tr("Current language is {lang}", lang=tx.current_locale))
 
 def test_workflow_messages(tx):
     """Test workflow related messages."""
     print("\n=== Workflow Messages ===\n")
+    print(tx.tr("Hello~"))
     print(tx.tr("Starting workflow"))
     print(tx.tr("Processing file {filename}", filename="data.txt"))
     print(tx.tr("Workflow completed"))

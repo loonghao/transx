@@ -18,7 +18,7 @@ def update_translations():
     updater = PotUpdater(pot_file=POT_FILE, locales_dir=LOCALES_DIR)
 
     # Update PO files for all languages
-    languages = ["zh_CN", "ja_JP", "ko_KR", "fr_FR", "es_ES"]
+    languages = ["zh", "ja_JP", "ko_KR", "fr_FR", "es_ES"]
     updater.create_language_catalogs(languages)
 
     print("Language catalogs updated.")
