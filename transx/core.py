@@ -1,40 +1,51 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """Core translation functionality."""
 
 # Import built-in modules
-import logging
 import os
 
 # Import local modules
-from transx.api.mo import MOFile, compile_po_file
+from transx.api.locale import get_system_locale
+from transx.api.mo import MOFile
+from transx.api.mo import compile_po_file
 from transx.api.po import POFile
 from transx.api.translation_catalog import TranslationCatalog
-from transx.compat import string_types
-from transx.constants import (
-    DEFAULT_LOCALE,
-    DEFAULT_LOCALES_DIR,
-    DEFAULT_MESSAGES_DOMAIN,
-    MO_FILE_EXTENSION,
-    PO_FILE_EXTENSION,
-)
-from transx.exceptions import CatalogNotFoundError, LocaleNotFoundError
-from transx.filesystem import read_file
+from transx.constants import DEFAULT_LOCALE
+from transx.constants import DEFAULT_LOCALES_DIR
+from transx.constants import DEFAULT_MESSAGES_DOMAIN
+from transx.constants import MO_FILE_EXTENSION
+from transx.constants import PO_FILE_EXTENSION
+from transx.exceptions import CatalogNotFoundError
+from transx.exceptions import LocaleNotFoundError
+from transx.internal.compat import string_types
+from transx.internal.filesystem import read_file
+from transx.internal.logging import get_logger
 
 
 class TransX:
     """Main translation class for handling translations."""
 
-    def __init__(self, locales_root=None, default_locale=DEFAULT_LOCALE, strict_mode=False, auto_compile=True):
+    # Class-level logger
+    logger = get_logger(__name__)
+
+    def __init__(self, locales_root=None, default_locale=None, strict_mode=False, auto_compile=True):
         """Initialize translator.
 
         Args:
             locales_root: Root directory for translation files. Defaults to './locales'
-            default_locale: Default locale to use. Defaults to 'en'
+            default_locale: Default locale to use. If None, uses system locale or falls back to 'en_US'
             strict_mode: If True, raise exceptions for missing translations. Defaults to False
+            auto_compile: If True, automatically compile PO files to MO files. Defaults to True
         """
-        self.logger = logging.getLogger(__name__)
         self.auto_compile = auto_compile
         self.locales_root = os.path.abspath(locales_root or DEFAULT_LOCALES_DIR)
+
+        # Try to get system locale if default_locale is not specified
+        if default_locale is None:
+            default_locale = get_system_locale() or DEFAULT_LOCALE
+            self.logger.debug("Using system locale: %s", default_locale)
+
         self.default_locale = default_locale
         self.strict_mode = strict_mode
         self._current_locale = default_locale
@@ -48,7 +59,7 @@ class TransX:
         # Log initialization details
         self.logger.debug("Initialized TransX with locales_root: %s, default_locale: %s, strict_mode: %s" % (
             self.locales_root, self.default_locale, self.strict_mode))
-            
+
         # Load catalog for default locale
         if default_locale:
             self.load_catalog(default_locale)
@@ -80,10 +91,10 @@ class TransX:
 
         mo_file = os.path.join(locale_dir, DEFAULT_MESSAGES_DOMAIN + MO_FILE_EXTENSION)
         po_file = os.path.join(locale_dir, DEFAULT_MESSAGES_DOMAIN + PO_FILE_EXTENSION)
-        
+
         self.logger.debug("Checking MO file: %s" % mo_file)
         self.logger.debug("Checking PO file: %s" % po_file)
-        
+
         # First try loading .mo file
         if os.path.exists(mo_file):
             try:
@@ -99,7 +110,7 @@ class TransX:
                 msg = "Failed to load MO file %s: %s" % (mo_file, str(e))
                 self.logger.debug(msg)
                 # Don't raise error here, try PO file next
-    
+
         # If .mo file doesn't exist or failed to load, try .po file
         if os.path.exists(po_file):
             try:
@@ -195,9 +206,6 @@ class TransX:
         if not os.path.exists(locale_dir) and self.strict_mode:
             raise LocaleNotFoundError("Locale directory not found: %s" % locale_dir)
 
-        # Set the locale first
-        self._current_locale = locale
-        
         # Load catalog if not already loaded
         if locale not in self._catalogs:
             self.logger.debug("Loading catalog for locale: %s" % locale)
@@ -206,17 +214,20 @@ class TransX:
             if not success and self.strict_mode:
                 raise LocaleNotFoundError("Failed to load catalog for locale: %s" % locale)
 
+        # Set the locale after successfully loading catalog
+        self._current_locale = locale
+
     def translate(self, msgid, catalog=None, **kwargs):
         """Translate a message.
-        
+
         Args:
             msgid: Message ID to translate
             catalog: Optional catalog to use. If None, uses current locale's catalog
             **kwargs: Format arguments
-            
+
         Returns:
             Translated string
-            
+
         Raises:
             CatalogNotFoundError: If no catalog is available
         """
@@ -233,7 +244,7 @@ class TransX:
 
         # Handle both string and Message object returns
         msgstr = message if isinstance(message, string_types) else message.msgstr
-        
+
         try:
             return msgstr.format(**kwargs) if kwargs else msgstr
         except KeyError as e:
@@ -243,22 +254,24 @@ class TransX:
 
     def tr(self, text, context=None, catalog=None, **kwargs):
         """Translate text using the current locale.
-        
+
         Args:
             text: Text to translate
             context: Optional context for the text
             catalog: Optional specific catalog to use
             **kwargs: Format arguments for the translated text
-            
+
         Returns:
             str: Translated text or original text if no translation found
         """
         self.logger.debug("Translating text: %s", text)
         self.logger.debug("Current locale: %s", self.current_locale)
         self.logger.debug("Available catalogs: %s", list(self._catalogs.keys()))
-        
+
         try:
-            return self.translate(text, catalog, **kwargs)
+            # Add context to msgid if provided
+            msgid = context + "\x04" + text if context else text
+            return self.translate(msgid, catalog, **kwargs)
         except (CatalogNotFoundError, KeyError) as e:
             self.logger.warning("Translation failed: %s", str(e))
             return text

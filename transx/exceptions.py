@@ -1,5 +1,11 @@
 """Custom exceptions for TransX."""
+# fmt: off
+# isort: skip
+# Import future modules
 from __future__ import unicode_literals
+
+
+# fmt: on
 
 
 class TransXError(Exception):
@@ -7,7 +13,7 @@ class TransXError(Exception):
 
     def __init__(self, message, *args):
         """Initialize the exception.
-        
+
         Args:
             message: Error message
             *args: Additional arguments
@@ -21,7 +27,7 @@ class CatalogNotFoundError(TransXError):
 
     def __init__(self, catalog_path, *args):
         """Initialize the exception.
-        
+
         Args:
             catalog_path: Path to the missing catalog
             *args: Additional arguments
@@ -36,7 +42,7 @@ class LocaleNotFoundError(TransXError):
 
     def __init__(self, locale, *args):
         """Initialize the exception.
-        
+
         Args:
             locale: Locale code that was not found
             *args: Additional arguments
@@ -51,7 +57,7 @@ class InvalidFormatError(TransXError):
 
     def __init__(self, file_path, reason=None, *args):
         """Initialize the exception.
-        
+
         Args:
             file_path: Path to the invalid file
             reason: Optional reason for the invalid format
@@ -70,7 +76,7 @@ class TranslationError(TransXError):
 
     def __init__(self, message, source_text=None, source_lang=None, target_lang=None, *args):
         """Initialize the exception.
-        
+
         Args:
             message: Error message
             source_text: Optional source text that failed to translate
@@ -89,7 +95,7 @@ class ParserError(TransXError):
 
     def __init__(self, file_path, line_number=None, reason=None, *args):
         """Initialize the exception.
-        
+
         Args:
             file_path: Path to the file that failed to parse
             line_number: Optional line number where the error occurred
@@ -112,7 +118,7 @@ class ValidationError(TransXError):
 
     def __init__(self, file_path, errors, *args):
         """Initialize the exception.
-        
+
         Args:
             file_path: Path to the file that failed validation
             errors: List of validation errors

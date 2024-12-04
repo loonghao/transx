@@ -5,11 +5,11 @@
 # Import built-in modules
 import os
 
+# Import third-party modules
 from common import LOCALES_DIR
 
-from transx.api.locale import normalize_language_code
-
 # Import local modules
+from transx.api.locale import normalize_language_code
 from transx.api.mo import compile_po_file
 
 

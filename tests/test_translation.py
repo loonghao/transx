@@ -11,6 +11,7 @@ import pytest
 # Import local modules
 from transx.constants import DEFAULT_CHARSET
 
+
 logger = logging.getLogger(__name__)
 
 # Python 2 and 3 compatibility
@@ -42,19 +43,19 @@ def test_translation_with_parameters(transx_instance):
     name = text_type("Alice")
     filename = text_type("test.txt")
     price = text_type("100")
-    
+
     # Test basic parameter substitution
-    assert transx_instance.tr("Hello, $name!", name=name) == text_type(u"你好，Alice！")
-    
+    assert transx_instance.tr("Hello, $name!", name=name) == text_type(u"你好, Alice!")
+
     # Test with ${name} syntax
-    assert transx_instance.tr("File ${filename} saved", filename=filename) == text_type(u"文件 test.txt 已保存")
-    
+    assert transx_instance.tr("File ${filename} saved", filename=filename) == text_type(u"文件 {0} 已保存".format(filename))
+
     # Test with dollar sign
-    assert transx_instance.tr("Price: $${price}", price=price) == text_type(u"价格：$100")
-    
+    assert transx_instance.tr("Price: $${price}", price=price) == text_type(u"价格: $100")
+
     # Test missing parameter (should keep the placeholder)
     assert transx_instance.tr("Hello, $name!") == text_type("Hello, $name!")
-    
+
     # Test multiple parameters
     assert transx_instance.tr("$name saved $filename", name=name, filename=filename) == text_type("Alice saved test.txt")
 
@@ -106,14 +107,15 @@ def test_none_context(transx_instance):
 @pytest.fixture
 def transx_instance(tmp_path):
     """Create a TransX instance for testing."""
+    # Import local modules
     from transx import TransX
     from transx.api.po import POFile
-    
+
     # Create test PO file
     po_dir = tmp_path / "locales" / "zh_CN" / "LC_MESSAGES"
     po_dir.mkdir(parents=True, exist_ok=True)
     po_file = po_dir / "messages.po"
-    
+
     po = POFile(path=str(po_file), locale="zh_CN")
     # Add test translations
     po.add(msgid="Hello", msgstr="Hello")
@@ -122,14 +124,14 @@ def transx_instance(tmp_path):
     po.add(msgid="Open", msgstr="Open", context="menu")
     po.add(msgid="Welcome", msgstr="Welcome", context="home")
     po.add(msgid="Welcome", msgstr="Welcome", context="login")
-    po.add(msgid="Hello, $name!", msgstr="你好，$name！")
+    po.add(msgid="Hello, $name!", msgstr="你好, $name!")
     po.add(msgid="File ${filename} saved", msgstr="文件 ${filename} 已保存")
-    po.add(msgid="Price: $${price}", msgstr="价格：$${price}")
+    po.add(msgid="Price: $${price}", msgstr="价格: ${price}")
     po.add(msgid="$name saved $filename", msgstr="$name saved $filename")
     po.add(msgid="Hello\nWorld", msgstr="Hello\nWorld")
     po.add(msgid="Tab\there", msgstr="Tab\there")
     po.save()
-    
+
     # Initialize TransX
     tx = TransX(locales_root=str(tmp_path / "locales"))
     tx.current_locale = "zh_CN"

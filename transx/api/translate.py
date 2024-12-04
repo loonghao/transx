@@ -1,9 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """Translation functions for TransX."""
+# Import future modules
+# fmt: off
+# isort: skip
 from __future__ import unicode_literals
 
 # Import built-in modules
+# fmt: on
 import abc
 import logging
 import os
@@ -12,22 +16,18 @@ import time
 # Import local modules
 from transx.api.locale import normalize_language_code
 from transx.api.po import POFile
-
-# Import third-party modules
-from transx.compat import (
-    PY2,
-    HTTPError,
-    Request,
-    URLError,
-    binary_type,
-    decompress_gzip,
-    ensure_unicode,
-    string_types,
-    text_type,
-    urlencode,
-    urlopen,
-)
 from transx.exceptions import TranslationError
+from transx.internal.compat import HTTPError
+from transx.internal.compat import PY2
+from transx.internal.compat import Request
+from transx.internal.compat import URLError
+from transx.internal.compat import binary_type
+from transx.internal.compat import decompress_gzip
+from transx.internal.compat import ensure_unicode
+from transx.internal.compat import string_types
+from transx.internal.compat import text_type
+from transx.internal.compat import urlencode
+from transx.internal.compat import urlopen
 
 
 class Translator(object):
@@ -158,10 +158,10 @@ class GoogleTranslator(Translator):
     """Google Translate API implementation based on deep-translator."""
 
     BASE_URL = "https://translate.google.com/m"
-    
+
     def __init__(self, max_retries=5, initial_delay=1, max_delay=3600):
         """Initialize the translator.
-        
+
         Args:
             max_retries (int): Maximum number of retry attempts
             initial_delay (int): Initial delay in seconds between retries
@@ -207,15 +207,15 @@ class GoogleTranslator(Translator):
 
     def _escape_special_chars(self, text):
         """Escape special characters for translation.
-        
+
         Args:
             text (str): Text to escape
-            
+
         Returns:
             str: Escaped text
         """
         text = ensure_unicode(text)
-            
+
         replacements = {
             text_type("\n"): text_type("{{NEWLINE}}"),
             text_type("\r"): text_type("{{RETURN}}"),
@@ -229,18 +229,18 @@ class GoogleTranslator(Translator):
         for char, placeholder in replacements.items():
             result = result.replace(char, placeholder)
         return result
-        
+
     def _unescape_special_chars(self, text):
         """Restore special characters after translation.
-        
+
         Args:
             text (str): Text to unescape
-            
+
         Returns:
             str: Unescaped text
         """
         text = ensure_unicode(text)
-            
+
         replacements = {
             text_type("{{NEWLINE}}"): text_type("\n"),
             text_type("{{RETURN}}"): text_type("\r"),
@@ -257,15 +257,15 @@ class GoogleTranslator(Translator):
 
     def translate(self, text, source_lang="auto", target_lang="en"):
         """Translate text using Google Translate API.
-        
+
         Args:
             text (str): Text to translate
             source_lang (str): Source language code (default: auto)
             target_lang (str): Target language code (default: en)
-            
+
         Returns:
             str: Translated text
-            
+
         Raises:
             TranslationError: If translation fails after all retries
         """
@@ -275,7 +275,7 @@ class GoogleTranslator(Translator):
 
         # Escape special characters
         escaped_text = self._escape_special_chars(text)
-        
+
         # Convert language codes
         target_lang = self.language_code_map.get(target_lang, target_lang)
         if source_lang != "auto":
@@ -297,10 +297,10 @@ class GoogleTranslator(Translator):
                 encoded_params[key] = value
 
         url = self.BASE_URL + "?" + urlencode(encoded_params)
-        
+
         self.logger.debug("Making request to URL: %s", url)
         self.logger.debug("Request params: %s", params)
-        
+
         # Set request headers to mimic a mobile browser
         headers = {
             "User-Agent": (
@@ -314,21 +314,21 @@ class GoogleTranslator(Translator):
             "Connection": "keep-alive"
         }
 
-        for attempt in range(self.max_retries):
+        for _attempt in range(self.max_retries):
             try:
                 # Wait for rate limit if needed
                 self._wait_for_rate_limit()
-                
+
                 # Create and send request
                 request = Request(url, headers=headers)
                 response = urlopen(request)
-                
+
                 # Reset rate limit state after successful request
                 self._reset_rate_limit_state()
-                
+
                 # Read and process response
                 response_data = response.read()
-                
+
                 # Check if response is gzip compressed
                 if response.headers.get("content-encoding", "").lower() == "gzip":
                     try:
@@ -336,13 +336,13 @@ class GoogleTranslator(Translator):
                     except Exception as e:
                         self.logger.error("Failed to decompress response: %s", e)
                         raise TranslationError("Failed to decompress response: " + str(e))
-                
+
                 # Decode response data
                 if isinstance(response_data, binary_type):
                     response_data = response_data.decode("utf-8", errors="ignore")
-                
+
                 self.logger.debug("Raw response: %s", response_data)
-                
+
                 # Extract translation from response
                 try:
                     # Try different possible result container patterns
@@ -352,7 +352,7 @@ class GoogleTranslator(Translator):
                         ('class="t0">', "</div>"),
                         ("<div dir='ltr'>", "</div>"),
                     ]
-                    
+
                     translated_text = None
                     for start_pattern, end_pattern in patterns:
                         start = response_data.find(start_pattern)
@@ -362,33 +362,33 @@ class GoogleTranslator(Translator):
                             if end != -1:
                                 translated_text = response_data[start:end].strip()
                                 break
-                    
+
                     if translated_text is None:
                         raise TranslationError("Could not find translation in response")
-                    
+
                     self.logger.debug("Extracted translation: %s", translated_text)
-                    
+
                     # Restore special characters
                     return self._unescape_special_chars(translated_text)
-                
+
                 except Exception as e:
                     self.logger.error("Failed to extract translation: %s", e)
                     raise TranslationError("Failed to extract translation: " + str(e))
-                    
+
             except HTTPError as e:
                 self.logger.error("HTTP error occurred: %s", e)
                 if e.code == 429:  # Too Many Requests
                     self._handle_rate_limit()
                     continue
                 raise TranslationError("HTTP error occurred: " + str(e))
-                
+
             except URLError as e:
                 self.logger.error("URL error occurred: %s", e)
                 self._handle_rate_limit()
                 continue
-                
+
             except Exception as e:
                 self.logger.error("Translation error occurred: %s", e)
                 raise TranslationError("Translation error occurred: " + str(e))
-                
+
         raise TranslationError("Max retries exceeded")

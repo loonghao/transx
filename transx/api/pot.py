@@ -1,28 +1,33 @@
 #!/usr/bin/env python
 """POT file format handler for TransX."""
+# fmt: off
+# isort: skip
+# Import future modules
 from __future__ import unicode_literals
 
 # Import built-in modules
+# fmt: on
 import datetime
 import os
 import tokenize
 
+
 try:
+    # Import built-in modules
     from collections import OrderedDict
 except ImportError:
     # Python 2.6 compatibility
     from ordereddict import OrderedDict
 
+# Import local modules
 from transx.api.locale import normalize_language_code
 from transx.api.message import Message
 from transx.api.po import POFile
-from transx.compat import PY2, safe_eval_string, tokenize_source
-
-# Import local modules
-from transx.constants import (
-    DEFAULT_KEYWORDS,
-    LANGUAGE_CODES,
-)
+from transx.constants import DEFAULT_KEYWORDS
+from transx.constants import LANGUAGE_CODES
+from transx.internal.compat import PY2
+from transx.internal.compat import safe_eval_string
+from transx.internal.compat import tokenize_source
 
 
 class PotExtractor(object):
@@ -111,11 +116,11 @@ class PotExtractor(object):
         """Process tokens from source file."""
         tokens = tokenize_source(content)
         tokens = list(tokens)  # Convert iterator to list for look-ahead
-        
+
         i = 0
         while i < len(tokens):
             token_type, token_string, start, end, line = tokens[i]
-            
+
             # Look for translation function calls
             if token_type == tokenize.NAME and token_string in DEFAULT_KEYWORDS:
                 self.current_line = start[0]  # Update current line number
@@ -124,7 +129,7 @@ class PotExtractor(object):
                 i += 1
                 if i >= len(tokens):
                     break
-                    
+
                 # Look for opening parenthesis
                 token_type, token_string, start, end, line = tokens[i]
                 if token_type == tokenize.OP and token_string == "(":
@@ -132,40 +137,39 @@ class PotExtractor(object):
                     i += 1
                     if i >= len(tokens):
                         break
-                        
+
                     # Get arguments
                     args = []
                     kwargs = {}
                     while i < len(tokens):
                         token_type, token_string, start, end, line = tokens[i]
-                        
+
                         # End of function call
                         if token_type == tokenize.OP and token_string == ")":
                             break
-                            
+
                         # Handle keyword arguments
-                        if token_type == tokenize.NAME:
-                            if i + 1 < len(tokens) and tokens[i+1][1] == "=":
-                                kwarg_name = token_string
-                                i += 2  # Skip '=' token
-                                if i < len(tokens) and tokens[i][0] == tokenize.STRING:
-                                    kwargs[kwarg_name] = safe_eval_string(tokens[i][1])
-                                i += 1
-                                continue
-                                
+                        if token_type == tokenize.NAME and i + 1 < len(tokens) and tokens[i+1][1] == "=":
+                            kwarg_name = token_string
+                            i += 2  # Skip '=' token
+                            if i < len(tokens) and tokens[i][0] == tokenize.STRING:
+                                kwargs[kwarg_name] = safe_eval_string(tokens[i][1])
+                            i += 1
+                            continue
+
                         # Handle positional string arguments
                         if token_type == tokenize.STRING:
                             string_content = safe_eval_string(token_string)
                             if string_content is not None:
                                 args.append(string_content)
-                                
+
                         # Skip commas
                         if token_type == tokenize.OP and token_string == ",":
                             i += 1
                             continue
-                            
+
                         i += 1
-                        
+
                     # Process arguments based on function type
                     if func_name == "pgettext":
                         # pgettext(context, msgid)
@@ -199,54 +203,53 @@ class PotExtractor(object):
 
     def _should_skip_string(self, string):
         """Check if a string should be skipped from translation.
-        
+
         Args:
             string: String to check
-            
+
         Returns:
             bool: True if string should be skipped
         """
         # Skip empty strings or whitespace only
         if not string or string.isspace():
             return True
-            
+
         # Skip language codes using the full LANGUAGE_CODES dictionary
-        for code, (name, aliases) in LANGUAGE_CODES.items():
+        for code, (_name, aliases) in LANGUAGE_CODES.items():
             if string in [code] + aliases:
                 return True
-            
+
         # Skip directory names
         if string in ("locales", "LC_MESSAGES"):
             return True
-            
+
         # Skip Python special names
         if string in ("__main__", "__init__", "__file__"):
             return True
-            
+
         # Skip strings that are just separators/formatting
         if set(string).issubset({"=", "-", "_", "\n", " ", "."}):
             return True
-            
+
         # Skip strings that are just numbers
         if string.replace(".", "").isdigit():
             return True
-            
+
         # Skip URLs
-        if string.startswith(("http://", "https://", "ftp://")):
-            return True
-            
+        return string.startswith(("http://", "https://", "ftp://"))
+
         return False
 
     def _add_message(self, message, line):
         """Add a message to the catalog with location information.
-        
+
         Args:
             message: Message to add
             line: Line number where message was found
         """
         # Add location information
         location = (self.current_file, line)
-        
+
         # Check if this message already exists
         key = self.catalog._get_key(message.msgid, message.context)
         if key in self.catalog.translations:
@@ -302,7 +305,7 @@ class PotUpdater(object):
         """
         self.pot_file = pot_file
         self.locales_dir = locales_dir
-        
+
         # Load the POT file
         self.pot_catalog = POFile(pot_file)
         if os.path.exists(pot_file):
@@ -312,7 +315,7 @@ class PotUpdater(object):
 
     def create_language_catalogs(self, languages):
         """Create or update PO catalogs for specified languages.
-        
+
         Args:
             languages: List of language codes to generate catalogs for
         """
@@ -372,11 +375,11 @@ class PotUpdater(object):
                         user_comments=message.user_comments[:],
                         context=message.context
                     )
-                    
+
                     # Copy locations exactly as they are in POT
                     if message.locations:
                         new_message.locations = message.locations[:]
-                    
+
                     # Add to PO file using the same key as POT
                     po.translations[key] = new_message
 
@@ -425,7 +428,7 @@ class PotUpdater(object):
                 # Sort locations by filename and line number
                 sorted_locations = sorted(message.locations, key=lambda x: (x[0], x[1]))
                 po_message.locations = sorted_locations
-        
+
         # Save the updated PO file
         po.save()
 

@@ -8,8 +8,12 @@ import sys
 
 # Import local modules
 from transx.api.mo import compile_po_file
-from transx.api.pot import PotExtractor, PotUpdater
-from transx.constants import DEFAULT_LOCALES_DIR, DEFAULT_MESSAGES_DOMAIN, MO_FILE_EXTENSION, POT_FILE_EXTENSION
+from transx.api.pot import PotExtractor
+from transx.api.pot import PotUpdater
+from transx.constants import DEFAULT_LOCALES_DIR
+from transx.constants import DEFAULT_MESSAGES_DOMAIN
+from transx.constants import MO_FILE_EXTENSION
+from transx.constants import POT_FILE_EXTENSION
 
 
 def setup_logging():
@@ -109,7 +113,7 @@ def create_parser():
 def extract_command(args):
     """Execute extract command."""
     logger = logging.getLogger(__name__)
-    
+
     if not os.path.exists(args.source_path):
         logger.error("Path does not exist: %s", args.source_path)
         return 1
@@ -147,14 +151,14 @@ def extract_command(args):
         # Generate language files
         languages = args.languages.split(",") if args.languages else ["en", "zh_CN", "ja_JP", "ko_KR"]
         locales_dir = os.path.abspath(args.output_dir)
-        
+
         # Create updater for language files
         updater = PotUpdater(args.output, locales_dir)
         updater.create_language_catalogs(languages)
-        
+
         logger.info("POT file created and language files updated: %s", args.output)
         return 0
-        
+
     except Exception as e:
         logger.error("Error processing files: %s", str(e))
         return 1
@@ -163,7 +167,7 @@ def extract_command(args):
 def update_command(args):
     """Execute update command."""
     logger = logging.getLogger(__name__)
-    
+
     if not os.path.exists(args.pot_file):
         logger.error("POT file not found: %s", args.pot_file)
         return 1
@@ -192,7 +196,7 @@ def compile_command(args):
     """Execute compile command."""
     logger = logging.getLogger(__name__)
     success = True
-    
+
     for po_file in args.po_files:
         if not os.path.exists(po_file):
             logger.error("PO file not found: %s", po_file)
@@ -216,7 +220,7 @@ def main():
     """Main entry function."""
     # Setup logging
     setup_logging()
-    
+
     parser = create_parser()
     args = parser.parse_args()
 

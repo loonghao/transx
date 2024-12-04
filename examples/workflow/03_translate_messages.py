@@ -2,9 +2,12 @@
 # -*- coding: utf-8 -*-
 """Translate messages in PO files."""
 
+# Import third-party modules
 from common import POT_FILE
 
-from transx.api.translate import GoogleTranslator, create_po_files
+# Import local modules
+from transx.api.translate import GoogleTranslator
+from transx.api.translate import create_po_files
 
 
 def translate_messages():

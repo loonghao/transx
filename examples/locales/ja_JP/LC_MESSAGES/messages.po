@@ -9,107 +9,103 @@ msgid ""
 msgstr ""
 "Project-Id-Version: TransX Demo 1.0\n"
 "Report-Msgid-Bugs-To: transx@example.com\n"
-"POT-Creation-Date: 2024-12-04 01:46\n"
+"POT-Creation-Date: 2024-12-04 08:13\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: ja_JP <LL@li.org>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: ja_JP\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: TransX\n"
 "Copyright-Holder: TransX Team\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: G:/PycharmProjects/github/transx/examples/demo.py:27
-#: G:/PycharmProjects/github/transx/examples/demo.py:53
-msgid "Hello"
-msgstr "こんにちは"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:28
 msgctxt "login"
 msgid "Hello"
 msgstr "こんにちは"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:29
+#: G:/PycharmProjects/github/transx/examples/demo.py:28
 msgid "Welcome {name}"
 msgstr "ようこそ{name}"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:30
+#: G:/PycharmProjects/github/transx/examples/demo.py:29
 msgid "Current language is {lang}"
 msgstr "現在の言語は{lang}です"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:35
+#: G:/PycharmProjects/github/transx/examples/demo.py:34
 msgid "Starting workflow"
 msgstr "ワークフローの開始"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:36
+#: G:/PycharmProjects/github/transx/examples/demo.py:35
 msgid "Processing file {filename}"
 msgstr "ファイル{filename}を処理中"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:37
+#: G:/PycharmProjects/github/transx/examples/demo.py:36
 msgid "Workflow completed"
 msgstr "ワークフローが完了しました"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:38
+#: G:/PycharmProjects/github/transx/examples/demo.py:37
 msgid "Validating input data"
 msgstr "入力データの検証"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:39
+#: G:/PycharmProjects/github/transx/examples/demo.py:38
 msgid "Analyzing results"
 msgstr "結果の分析"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:40
+#: G:/PycharmProjects/github/transx/examples/demo.py:39
 msgid "Task completed successfully"
 msgstr "タスクは正常に完了しました"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:45
+#: G:/PycharmProjects/github/transx/examples/demo.py:44
 msgid "Error: File not found"
 msgstr "エラー: ファイルが見つかりません"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:46
+#: G:/PycharmProjects/github/transx/examples/demo.py:45
 msgid "Warning: Low disk space"
 msgstr "警告: ディスク容量不足"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:47
+#: G:/PycharmProjects/github/transx/examples/demo.py:46
 msgid "Invalid input: {input}"
 msgstr "無効な入力: {input}"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:48
+#: G:/PycharmProjects/github/transx/examples/demo.py:47
 msgid "Operation failed: {reason}"
 msgstr "操作に失敗しました: {reason}"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:54
+#: G:/PycharmProjects/github/transx/examples/demo.py:52
+msgid "Hello"
+msgstr "こんにちは"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:53
 msgid "Hello\\nWorld"
 msgstr "こんにちは\\nWorld"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:55
+#: G:/PycharmProjects/github/transx/examples/demo.py:54
 msgid "Tab\\there"
 msgstr "Tab\\tここ"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:56
+#: G:/PycharmProjects/github/transx/examples/demo.py:55
 msgid "Tab\\there!"
 msgstr "Tab\\t をここへ!"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:57
+#: G:/PycharmProjects/github/transx/examples/demo.py:56
 msgid "Path to the file: \"C:\\Program Files\\MyApp\""
 msgstr "ファイルへのパス: \"C:\\Program Files\\MyApp\""
-
-
