@@ -5,10 +5,8 @@
 import re
 
 # Import local modules
-from transx.constants import DEFAULT_CHARSET
-from transx.constants import DEFAULT_MESSAGES_DOMAIN
-from transx.internal.compat import binary_type
-from transx.internal.compat import text_type
+from transx.constants import DEFAULT_CHARSET, DEFAULT_MESSAGES_DOMAIN
+from transx.internal.compat import binary_type, text_type
 
 
 class TranslationCatalog:

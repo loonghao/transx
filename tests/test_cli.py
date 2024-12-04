@@ -6,14 +6,12 @@ import sys
 # Import third-party modules
 import pytest
 
+from transx.api.locale import normalize_language_code
+
 # Import local modules
 from transx.cli import main
-from transx.constants import DEFAULT_CHARSET
-from transx.constants import DEFAULT_MESSAGES_DOMAIN
-from transx.constants import MO_FILE_EXTENSION
-from transx.constants import PO_FILE_EXTENSION
-from transx.filesystem import read_file
-from transx.filesystem import write_file
+from transx.constants import DEFAULT_CHARSET, DEFAULT_MESSAGES_DOMAIN, MO_FILE_EXTENSION, PO_FILE_EXTENSION
+from transx.internal.filesystem import read_file, write_file
 
 
 @pytest.fixture
@@ -69,7 +67,7 @@ def test_extract_command(tmpdir, sample_source_dir):
         "-o", output_pot,
         "-p", "Test Project",
         "-v", "1.0",
-        "-l", "en_US,zh_CN",
+        "-l", "en,zh_CN",
         "-d", output_dir
     )
 
@@ -86,8 +84,8 @@ def test_extract_command(tmpdir, sample_source_dir):
     assert "Content-Type: text/plain; charset={}".format(DEFAULT_CHARSET) in content
 
     # Verify language files were created
-    assert os.path.exists(os.path.join(output_dir, "en_US", "LC_MESSAGES", "messages.po"))
-    assert os.path.exists(os.path.join(output_dir, "zh_CN", "LC_MESSAGES", "messages.po"))
+    assert os.path.exists(os.path.join(output_dir, normalize_language_code("en"), "LC_MESSAGES", "messages.po"))
+    assert os.path.exists(os.path.join(output_dir, normalize_language_code("zh_CN"), "LC_MESSAGES", "messages.po"))
 
 
 def test_update_command(tmpdir):
@@ -121,8 +119,8 @@ msgstr ""
     assert exit_code == 0
 
     # Verify PO files exist
-    en_po_path = os.path.join(str(tmpdir), "en_US", "LC_MESSAGES", DEFAULT_MESSAGES_DOMAIN + PO_FILE_EXTENSION)
-    zh_po_path = os.path.join(str(tmpdir), "zh_CN", "LC_MESSAGES", DEFAULT_MESSAGES_DOMAIN + PO_FILE_EXTENSION)
+    en_po_path = os.path.join(str(tmpdir), normalize_language_code("en"), "LC_MESSAGES", DEFAULT_MESSAGES_DOMAIN + PO_FILE_EXTENSION)
+    zh_po_path = os.path.join(str(tmpdir), normalize_language_code("zh_CN"), "LC_MESSAGES", DEFAULT_MESSAGES_DOMAIN + PO_FILE_EXTENSION)
     assert os.path.exists(en_po_path)
     assert os.path.exists(zh_po_path)
 
@@ -142,7 +140,7 @@ msgstr ""
 def test_compile_command(tmpdir):
     """Test the compile command for creating MO files."""
     # Create example PO file
-    po_dir = os.path.join(str(tmpdir), "en_US", "LC_MESSAGES")
+    po_dir = os.path.join(str(tmpdir), normalize_language_code("en_US"), "LC_MESSAGES")
     os.makedirs(po_dir)
     po_file = os.path.join(po_dir, DEFAULT_MESSAGES_DOMAIN + PO_FILE_EXTENSION)
 

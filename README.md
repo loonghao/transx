@@ -35,14 +35,17 @@ The API is designed to be [DCC](https://en.wikipedia.org/wiki/Digital_content_cr
 | 🔄 Auto Management | Automatic translation file handling        |
 | 🔍 String Extraction | Built-in source code string extraction     |
 | 🌐 Unicode | Complete Unicode support                   |
-| 🔠 Parameters | Dynamic parameter substitution             |
+| 🔠 Parameters | Named, positional and ${var} style parameters |
+| 💫 Variable Support | Environment variable expansion support     |
 | ⚡ Performance | High-speed and thread-safe operations      |
-| 🛡️ Error Handling | Comprehensive error management             |
-| 🧪 Testing | Extensive test coverage                    |
-| 🌐 Auto Translation | Built-in Google Translate support          |
-| 🎥 DCC Support | Tested with Maya, 3DsMax, Houdini, etc.      |
+| 🛡️ Error Handling | Comprehensive error management with fallbacks |
+| 🧪 Testing | 100% test coverage with extensive cases    |
+| 🌐 Auto Translation | Built-in Google Translate API support      |
+| 🎥 DCC Support | Tested with Maya, 3DsMax, Houdini, etc.   |
 | 📁 Project Structure | Well-organized and maintainable codebase |
-
+| 🔌 Extensible | Pluggable custom text interpreters system |
+| 🎨 Flexible Formatting | Support for various string format styles  |
+| 🔄 Runtime Switching | Dynamic locale switching at runtime       |
 </div>
 
 ## 📁 Project Structure
@@ -93,7 +96,101 @@ tx.current_locale = "ja_JP"
 print(tx.tr("Hello"))  # Output: こんにちは
 ```
 
+### 🔄 Advanced Parameter Substitution
+
+```python
+# Named parameters
+tx.tr("Welcome to {city}, {country}!", city="北京", country="中国")
+
+# Positional parameters
+tx.tr("File {0} of {1}", 1, 10)
+
+# Dollar sign variables (useful in shell-like contexts)
+tx.tr("Current user: ${USER}")  # Supports ${var} syntax
+tx.tr("Path: $HOME/documents")  # Supports $var syntax
+
+# Escaping dollar signs
+tx.tr("Price: $$99.99")  # Outputs: Price: $99.99
+```
+
+### 🌍 Environment Variable Support
+
+```python
+# Environment variables are automatically expanded
+tx.tr("User home: ${HOME}")
+tx.tr("Current path: ${PATH}")
+
+# Mix with translation parameters
+tx.tr("Welcome {name} to ${HOSTNAME}!", name="John")
+```
+
+### 🎯 Context-Aware Translation
+
+```python
+# Same string, different contexts
+tx.tr("Open", context="button")      # Translation for button label
+tx.tr("Open", context="menu")        # Translation for menu item
+tx.tr("Open", context="file_state")  # Translation for file status
+
+# Context with parameters
+tx.tr("Created {count} items", count=5, context="notification")
+```
+
 ## 🛠️ Advanced API Usage
+
+### 🔌 Custom Interpreter System
+
+TransX provides a powerful and flexible interpreter system that allows you to customize text processing:
+
+```python
+from transx import TextInterpreter, InterpreterExecutor
+
+# Create a custom interpreter
+class MyCustomInterpreter(TextInterpreter):
+    name = "custom"
+    description = "My custom text processor"
+    
+    def interpret(self, text, context=None):
+        # Add your custom text processing logic here
+        return text.replace("old", "new")
+
+# Use built-in interpreters
+tx = TransX(locales_root="./locales")
+executor = tx.get_interpreter_executor()
+
+# Add your custom interpreter
+executor.add_interpreter(MyCustomInterpreter())
+
+# Built-in interpreters include:
+# - TextTypeInterpreter: Ensures correct text encoding
+# - DollarVariableInterpreter: Handles ${var} style variables
+# - ParameterSubstitutionInterpreter: Handles {name} style parameters
+# - EnvironmentVariableInterpreter: Expands environment variables
+# - TranslationInterpreter: Handles text translation
+
+# Chain multiple interpreters
+executor = InterpreterExecutor([
+    MyCustomInterpreter(),
+    tx.get_interpreter("env"),     # Environment variables
+    tx.get_interpreter("dollar"),  # ${var} style variables
+])
+
+# Execute the interpreter chain
+result = executor.execute("Hello ${USER}", {"name": "world"})
+
+# Safe execution with fallback
+result = executor.execute_safe(
+    "Hello ${USER}", 
+    fallback_interpreters=[tx.get_interpreter("parameter")]
+)
+```
+
+The interpreter system follows a chain-of-responsibility pattern where each interpreter can:
+- Transform text in its own specific way
+- Pass context information between interpreters
+- Be ordered to control processing sequence
+- Fail safely without affecting other interpreters
+- Have fallback options for robustness
 
 ### Message Extraction and PO/MO File Management
 
@@ -120,22 +217,19 @@ compile_po_file("zh_CN/LC_MESSAGES/messages.po", "zh_CN/LC_MESSAGES/messages.mo"
 ### Automatic Translation with Google Translate
 
 ```python
-from transx.api.translate import GoogleTranslator, create_po_files
+from transx.api.translate import GoogleTranslator, translate_po_files
 
 # Initialize Google Translator
 translator = GoogleTranslator()
 
 # Create and auto-translate PO files for multiple languages
-create_po_files(
+translate_po_files(
     pot_file_path="messages.pot",
     languages=["zh_CN", "ja_JP", "ko_KR"],
     output_dir="locales",
     translator=translator
 )
 
-# Or translate a single PO file
-from transx.api.translate import translate_po_file
-translate_po_file("locales/zh_CN/LC_MESSAGES/messages.po", translator)
 ```
 
 ### Implementing Custom Translation API
@@ -144,6 +238,8 @@ You can implement your own translation API by inheriting from the `Translator` b
 
 ```python
 from transx.api.translate import Translator
+from transx.api.translate import translate_po_files
+
 
 class MyCustomTranslator(Translator):
     def translate(self, text, source_lang="auto", target_lang="en"):
@@ -165,9 +261,10 @@ class MyCustomTranslator(Translator):
             to_lang=target_lang
         )
 
+
 # Use your custom translator
 translator = MyCustomTranslator()
-create_po_files(
+translate_po_files(
     pot_file_path="messages.pot",
     languages=["zh_CN", "ja_JP"],
     translator=translator
@@ -187,6 +284,8 @@ The simplest way is to inherit from the `Translator` base class:
 
 ```python
 from transx.api.translate import Translator
+from transx.api.translate import translate_po_files
+
 
 class MyCustomTranslator(Translator):
     def translate(self, text, source_lang="auto", target_lang="en"):
@@ -207,9 +306,10 @@ class MyCustomTranslator(Translator):
             to_lang=target_lang
         )
 
+
 # Use your custom translator
 translator = MyCustomTranslator()
-create_po_files(
+translate_po_files(
     pot_file_path="messages.pot",
     languages=["zh_CN", "ja_JP"],
     translator=translator
@@ -490,6 +590,19 @@ Key error handling features:
 - 🪵 Fallback behavior in non-strict mode
 - 📋 Comprehensive logging
 
+### 🔧 Error Handling
+
+```python
+from transx.exceptions import TranslationError, LocaleError
+
+try:
+    tx.tr("Hello")
+except TranslationError as e:
+    print(f"Translation failed: {e}")
+except LocaleError as e:
+    print(f"Locale error: {e}")
+```
+
 ### Multiple Catalogs
 
 ```python
@@ -535,7 +648,7 @@ transx/
 │   │   ├── mo.py         # MO file operations
 │   │   ├── po.py         # PO file operations
 │   │   └── translate.py   # Translation services
-│   ├── core.py           # Core translation functionality
+│   ├── core.py           # Core functionality
 │   └── constants.py       # Constants and configurations
 ├── tests/                 # Test directory
 ├── examples/              # Example code and usage

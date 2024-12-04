@@ -6,7 +6,6 @@ import logging
 import os
 import sys
 
-
 # For Python 2/3 compatibility
 if sys.version_info[0] < 3:
     reload(sys)
@@ -62,7 +61,7 @@ def test_unicode_handling(tx):
 def main():
     # Initialize TransX instance with language pack directory
     locale_dir = os.path.join(os.path.dirname(__file__), "locales")
-    tx = TransX(locales_root=locale_dir, default_locale="fr_FR", strict_mode=True)
+    tx = TransX(locales_root=locale_dir, default_locale="fr_FR")
 
     # Test translations for different languages
     languages = ["fr_FR", "zh_CN", "ja_JP", "ko_KR", "es_ES"]

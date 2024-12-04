@@ -17,17 +17,19 @@ import time
 from transx.api.locale import normalize_language_code
 from transx.api.po import POFile
 from transx.exceptions import TranslationError
-from transx.internal.compat import HTTPError
-from transx.internal.compat import PY2
-from transx.internal.compat import Request
-from transx.internal.compat import URLError
-from transx.internal.compat import binary_type
-from transx.internal.compat import decompress_gzip
-from transx.internal.compat import ensure_unicode
-from transx.internal.compat import string_types
-from transx.internal.compat import text_type
-from transx.internal.compat import urlencode
-from transx.internal.compat import urlopen
+from transx.internal.compat import (
+    PY2,
+    HTTPError,
+    Request,
+    URLError,
+    binary_type,
+    decompress_gzip,
+    ensure_unicode,
+    string_types,
+    text_type,
+    urlencode,
+    urlopen,
+)
 
 
 class Translator(object):
@@ -51,6 +53,7 @@ class Translator(object):
         """
         raise NotImplementedError
 
+
 class DummyTranslator(Translator):
     """A dummy translator that returns the input text unchanged."""
 
@@ -59,38 +62,60 @@ class DummyTranslator(Translator):
         return text
 
 
-def ensure_dir(path):
-    """Ensure directory exists, create it if it doesn't exist."""
-    if not os.path.exists(path):
-        os.makedirs(path)
+def translate_po_file(pot_file_path, lang, output_dir=None, translator=None):
+    logger = logging.getLogger(__name__)
+
+    if not os.path.exists(pot_file_path):
+        raise IOError("POT file not found: %s" % pot_file_path)
+
+    # Load POT file
+    pot = POFile(pot_file_path)
+    pot.load()
+
+    output_dir = output_dir or os.path.dirname(pot_file_path)
+    # Create output directory if not exists
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # Normalize language code
+    lang = normalize_language_code(lang)
+
+    # Create language-specific output directory
+    if output_dir:
+        lang_dir = os.path.join(output_dir, lang, "LC_MESSAGES")
+        if not os.path.exists(lang_dir):
+            os.makedirs(lang_dir)
+        po_file_path = os.path.join(lang_dir, "messages.po")
+    else:
+        # Use same directory as POT file
+        pot_dir = os.path.dirname(pot_file_path)
+        po_file_path = os.path.join(pot_dir, "%s.po" % lang)
+
+    # Create PO file from POT
+    po = POFile(po_file_path, locale=lang)
+    po.load() if os.path.exists(po_file_path) else None
+
+    # Update PO from POT
+    po.update(pot)
+
+    # Set language-specific metadata
+    po.metadata.update({
+        "Language": lang,
+        "Language-Team": "%s <LL@li.org>" % lang,
+        "Plural-Forms": "nplurals=1; plural=0;" if lang.startswith("zh") else "nplurals=2; plural=(n != 1);"
+    })
+
+    # Optionally translate untranslated entries
+    if translator:
+        logger.info("Auto-translating untranslated strings for %s..." % lang)
+        po.translate_messages(translator, target_lang=lang)
+
+    # Save PO file
+    po.save()
+    return po_file_path
 
 
-def translate_po_file(po_file, translator):
-    """Translate messages in PO file.
-
-    Args:
-        po_file (str): Path to PO file
-        translator (Translator): Translator instance
-    """
-    # Load PO file
-    po = POFile(po_file)
-
-    # Get target language from PO file path
-    target_lang = po_file.split("/")[-3]
-
-    # Translate each message
-    for message in po.messages:
-        if not message.msgstr and message.msgid:
-            # Translate message
-            translation = translator.translate(message.msgid, target_lang=target_lang)
-            if translation:
-                message.msgstr = translation
-
-    # Save translated PO file
-    po.save(po_file)
-
-
-def create_po_files(pot_file_path, languages, output_dir=None, translator=None):
+def translate_po_files(pot_file_path, languages, output_dir=None, translator=None):
     """Create PO files from POT file.
 
     Args:
@@ -104,54 +129,10 @@ def create_po_files(pot_file_path, languages, output_dir=None, translator=None):
     if not os.path.exists(pot_file_path):
         raise IOError("POT file not found: %s" % pot_file_path)
 
-    # Load POT file
-    pot = POFile(pot_file_path)
-    pot.load()
-
-    output_dir = output_dir or os.path.dirname(pot_file_path)
-    print(output_dir)
-    # Create output directory if not exists
-    if output_dir and not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-
     # Create PO files for each language
     for lang in languages:
-        # Normalize language code
-        lang = normalize_language_code(lang)
-
-        # Create language-specific output directory
-        if output_dir:
-            lang_dir = os.path.join(output_dir, lang, "LC_MESSAGES")
-            if not os.path.exists(lang_dir):
-                os.makedirs(lang_dir)
-            po_file_path = os.path.join(lang_dir, "messages.po")
-        else:
-            # Use same directory as POT file
-            pot_dir = os.path.dirname(pot_file_path)
-            po_file_path = os.path.join(pot_dir, "%s.po" % lang)
-
-        # Create PO file from POT
-        po = POFile(po_file_path, locale=lang)
-        po.load() if os.path.exists(po_file_path) else None
-
-        # Update PO from POT
-        po.update(pot)
-
-        # Set language-specific metadata
-        po.metadata.update({
-            "Language": lang,
-            "Language-Team": "%s <LL@li.org>" % lang,
-            "Plural-Forms": "nplurals=1; plural=0;" if lang.startswith("zh") else "nplurals=2; plural=(n != 1);"
-        })
-
-        # Optionally translate untranslated entries
-        if translator:
-            logger.info("Auto-translating untranslated strings for %s..." % lang)
-            po.translate_messages(translator, target_lang=lang)
-
-        # Save PO file
-        po.save()
-        print("Created/updated PO file: {}".format(po_file_path))
+        po_file_path = translate_po_file(pot_file_path, lang, output_dir, translator)
+        logger.debug("Created/updated PO file: %s", po_file_path)
 
 
 class GoogleTranslator(Translator):

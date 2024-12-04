@@ -4,7 +4,6 @@
 # Import future modules
 from __future__ import unicode_literals
 
-
 # fmt: on
 
 
