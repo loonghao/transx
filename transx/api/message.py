@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 """Message class for translation entries."""
+# fmt: off
+# isort: skip
+# Import future modules
 from __future__ import unicode_literals
 
-from transx.compat import ensure_unicode
+# Import local modules
+# fmt: on
+from transx.internal.compat import ensure_unicode
 
 
 class Message(object):
@@ -42,7 +47,7 @@ class Message(object):
 
         # Initialize other attributes
         self.context = ensure_unicode(context) if context else None
-        self.locations = [(ensure_unicode(f), l) for f, l in locations or []]
+        self.locations = [(ensure_unicode(f), line_num) for f, line_num in locations or []]
         self.flags = set(flags or [])
         self.auto_comments = [ensure_unicode(c) for c in auto_comments or []]
         self.user_comments = [ensure_unicode(c) for c in user_comments or []]
@@ -62,7 +67,7 @@ class Message(object):
 
     def add_location(self, filename, lineno):
         """Add a source location to the message.
-        
+
         Args:
             filename: Source file path
             lineno: Line number in the source file
@@ -71,7 +76,7 @@ class Message(object):
 
     def add_comment(self, comment, user=True):
         """Add a comment to the message.
-        
+
         Args:
             comment: The comment text
             user: True if this is a user comment, False for automatic comments
@@ -92,7 +97,7 @@ class Message(object):
 
     def add_flag(self, flag):
         """Add a flag to the message.
-        
+
         Args:
             flag: The flag to add
         """
@@ -100,7 +105,7 @@ class Message(object):
 
     def remove_flag(self, flag):
         """Remove a flag from the message.
-        
+
         Args:
             flag: The flag to remove
         """
@@ -120,7 +125,7 @@ class Message(object):
 
     def merge(self, other):
         """Merge another message into this one.
-        
+
         Args:
             other: Another Message instance to merge from
         """

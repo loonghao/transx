@@ -1,19 +1,30 @@
 #!/usr/bin/env python
 """MO file format handler for TransX."""
+# fmt: off
+# isort: skip
+# black: disable
+# Import future modules
 from __future__ import unicode_literals
 
+# Import built-in modules
+# fmt: on
 import re
 import struct
 
+
 try:
+    # Import built-in modules
     from collections import OrderedDict
 except ImportError:
     from ordereddict import OrderedDict
 
+# Import local modules
 from transx.api.message import Message
 from transx.api.po import POFile
-from transx.compat import binary_type, ensure_unicode, text_type
 from transx.constants import DEFAULT_ENCODING
+from transx.internal.compat import binary_type
+from transx.internal.compat import ensure_unicode
+from transx.internal.compat import text_type
 
 
 class MOFile(object):
@@ -21,7 +32,7 @@ class MOFile(object):
 
     def __init__(self, fileobj=None):
         """Initialize a new MO file handler.
-        
+
         Args:
             fileobj: Optional file object to read from
         """
@@ -40,7 +51,7 @@ class MOFile(object):
 
     def _parse(self, fileobj):
         """Parse MO file format.
-        
+
         See: https://www.gnu.org/software/gettext/manual/html_node/MO-Files.html
         """
         # Read header
@@ -108,10 +119,10 @@ class MOFile(object):
 
     def _normalize_string(self, s):
         """Normalize string for writing to MO file.
-        
+
         Args:
             s: String to normalize
-            
+
         Returns:
             Normalized string with consistent escape sequences
         """
@@ -121,7 +132,7 @@ class MOFile(object):
 
     def save(self, fileobj):
         """Save MO file.
-        
+
         Args:
             fileobj: File object to write to
         """
@@ -142,7 +153,7 @@ class MOFile(object):
         for message in messages:
             msgid = self._normalize_string(message.msgid)
             msgstr = self._normalize_string(message.msgstr or "")  # Handle None msgstr
-            
+
             # Add to data sections
             ids_data.append(msgid)
             strs_data.append(msgstr)
@@ -190,10 +201,10 @@ class MOFile(object):
 
     def gettext(self, msgid):
         """Get the translated string for a given msgid.
-        
+
         Args:
             msgid: Message ID to translate
-            
+
         Returns:
             Translated string or original string if not found
         """
@@ -206,21 +217,21 @@ class MOFile(object):
 
     def ngettext(self, msgid1, msgid2, n):
         """Get the plural form for a given msgid and count.
-        
+
         Args:
             msgid1: Singular form
             msgid2: Plural form
             n: Count
-            
+
         Returns:
             Appropriate plural form
         """
         if not isinstance(msgid1, (text_type, binary_type)) or not isinstance(msgid2, (text_type, binary_type)):
             return msgid1 if n == 1 else msgid2
-            
+
         msgid1 = ensure_unicode(msgid1)
         msgid2 = ensure_unicode(msgid2)
-        
+
         message = self.translations.get(msgid1)
         if message and message.msgstr:
             try:
@@ -244,11 +255,11 @@ class MOFile(object):
 
 def compile_po_file(po_file_path, mo_file_path):
     """Compile a PO file to MO format.
-    
+
     Args:
         po_file_path: Path to input PO file
         mo_file_path: Path to output MO file
-        
+
     Raises:
         IOError: If the input file cannot be read or the output file cannot be written
         ValueError: If the input file is not a valid PO file

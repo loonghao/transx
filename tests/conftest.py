@@ -6,6 +6,7 @@ import os
 import shutil
 import sys
 
+# Import third-party modules
 import pytest
 
 # Import local modules
@@ -50,36 +51,36 @@ def translations():
     return {
         "zh_CN": {
             # Basic translations
-            (u"Hello", None): u"你好",
-            (u"Goodbye", None): u"再见",
+            (u"Hello", None): u"Hello",
+            (u"Goodbye", None): u"Goodbye",
             (u"", None): u"",  # Empty string test
 
             # Parameter translations
-            (u"Hello, $name!", None): u"你好，$name！",
-            (u"File ${filename} saved", None): u"文件 ${filename} 已保存",
-            (u"Price: $${price}", None): u"价格：$${price}",
-            (u"Hello {name}", None): u"你好 {name}",
-            (u"File {filename} saved", None): u"文件 {filename} 已保存",
+            (u"Hello, $name!", None): u"Hello, $name!",
+            (u"File ${filename} saved", None): u"File ${filename} saved",
+            (u"Price: $${price}", None): u"Price: ${price}",
+            (u"Hello {name}", None): u"Hello {name}",
+            (u"File {filename} saved", None): u"File {filename} saved",
 
             # UI Context translations
-            (u"Open", u"button"): u"打开",
-            (u"Open", u"menu"): u"打开文件",
-            (u"Save", u"button"): u"保存",
-            (u"Save", u"menu"): u"保存文件",
-            (u"Save {filename}", u"button"): u"保存 {filename}",
-            (u"Save {filename}", u"menu"): u"保存文件 {filename}",
+            (u"Open", u"button"): u"Open",
+            (u"Open", u"menu"): u"Open file",
+            (u"Save", u"button"): u"Save",
+            (u"Save", u"menu"): u"Save file",
+            (u"Save {filename}", u"button"): u"Save {filename}",
+            (u"Save {filename}", u"menu"): u"Save file {filename}",
 
             # Part of Speech Context translations
-            (u"Post", u"verb"): u"发布",
-            (u"Post", u"noun"): u"文章",
+            (u"Post", u"verb"): u"Post",
+            (u"Post", u"noun"): u"Post",
 
             # Scene Context translations
-            (u"Welcome", u"home"): u"欢迎回来",
-            (u"Welcome", u"login"): u"欢迎登录",
+            (u"Welcome", u"home"): u"Welcome back",
+            (u"Welcome", u"login"): u"Welcome login",
 
             # Special character translations
-            (u"Hello\nWorld", None): u"你好\n世界",
-            (u"Tab\there", None): u"制表符\t在这里",
+            (u"Hello\nWorld", None): u"Hello\nWorld",
+            (u"Tab\there", None): u"Tab\there",
         }
     }
 
@@ -101,7 +102,7 @@ def setup_translations(locales_dir, translations):
     # Add translations
     for (msgid, context), msgstr in translations[locale].items():
         po.add(msgid, msgstr=msgstr, context=context)
-    po.save()  # POFile.save() 直接写入文件
+    po.save()  # POFile.save() directly writes to file
 
     # Compile PO to MO
     mo_file = os.path.join(locale_dir, "messages.mo")
@@ -110,9 +111,10 @@ def setup_translations(locales_dir, translations):
     yield locale_dir
 
     # Cleanup after tests
-    try:
+    try:  # noqa: SIM105
         shutil.rmtree(locale_dir)
     except OSError:
+        # Ignore errors when cleaning up test directory
         pass
 
 @pytest.fixture

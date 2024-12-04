@@ -1,62 +1,85 @@
-from transx.constants import DEFAULT_LOCALE, INVALID_LANGUAGE_CODE_ERROR, LANGUAGE_CODE_ALIASES, LANGUAGE_CODES
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""Locale utilities for TransX."""
+
+# Import future modules
+from __future__ import unicode_literals
+
+# Import built-in modules
+import locale
+import sys
+
+# Import local modules
+from transx.constants import DEFAULT_COUNTRY_MAP
+from transx.constants import LANGUAGE_CODES
+from transx.constants import LANGUAGE_MAP
 
 
-def normalize_language_code(locale):
-    """Normalize language code format.
-
-    Convert various language code formats to standard format (e.g., 'zh-CN' -> 'zh_CN').
-    Supported formats include:
-    - ISO 639-1 language codes (e.g., 'en')
-    - ISO 3166-1 country/region codes (e.g., 'zh_CN')
-    - Common non-standard codes (e.g., 'cn' -> 'zh_CN')
+def normalize_language_code(lang_code):
+    """Normalize language code to standard format.
 
     Args:
-        locale (str): Language code (e.g., 'zh-CN', 'zh_cn', 'zh')
+        lang_code (str): Language code in various formats
+            Examples: 'zh-CN', 'zh_CN', 'zh-Hans', 'zh', 'Chinese'
 
     Returns:
-        str: Normalized language code (e.g., 'zh_CN')
-
-    Raises:
-        ValueError: If an invalid language code is provided
-
+        str: Normalized language code in format like 'zh_CN'
     """
-    if not locale:
-        return DEFAULT_LOCALE
+    if not lang_code:
+        return None
 
-    # Remove all whitespace and convert to lowercase
-    normalized = locale.strip().lower()
+    # Convert to lowercase and replace hyphens
+    lang_code = lang_code.lower().replace("-", "_")
 
-    # Check if it's a standard code
-    if normalized in LANGUAGE_CODES:
-        return normalized
+    # Check if it's in LANGUAGE_CODES
+    for code, (_, aliases) in LANGUAGE_CODES.items():
+        if lang_code in [a.lower() for a in aliases]:
+            return code
 
-    # Check if it's an alias
-    if normalized in LANGUAGE_CODE_ALIASES:
-        return LANGUAGE_CODE_ALIASES[normalized]
+    # Check common language mappings
+    if lang_code in LANGUAGE_MAP:
+        return LANGUAGE_MAP[lang_code]
 
-    # If the code contains a separator, try to normalize the format
-    if "-" in normalized or "_" in normalized:
-        parts = normalized.replace("-", "_").split("_")
-        if len(parts) == 2:
-            lang, region = parts
-            # Build a possible standard code
-            possible_code = "{lang}_{region}".format(lang=lang, region=region.upper())
-            if possible_code in LANGUAGE_CODES:
-                return possible_code
+    # Handle codes like 'zh', 'ja', 'ko'
+    if len(lang_code) == 2 and lang_code in DEFAULT_COUNTRY_MAP:
+        return f"{lang_code}_{DEFAULT_COUNTRY_MAP[lang_code]}"
 
-    # If no matching code is found, generate an error message
-    valid_codes = "\n".join(
-        "- {} ({}): {}".format(
-            code,
-            name,
-            ", ".join(["'" + a + "'" for a in aliases])
-        )
-        for code, (name, aliases) in sorted(LANGUAGE_CODES.items())
-    )
+    # If already in correct format (e.g. zh_CN), return as is
+    if len(lang_code.split("_")) == 2:
+        return lang_code
 
-    raise ValueError(
-        INVALID_LANGUAGE_CODE_ERROR.format(
-            code=locale,
-            valid_codes=valid_codes
-        )
-    )
+    return None
+
+
+def get_system_locale():
+    """Get system locale and normalize it.
+
+    Returns:
+        str: Normalized system locale (e.g. 'zh_CN', 'en_US')
+    """
+    try:
+        if sys.platform == "win32":
+            # Import built-in modules
+            import ctypes
+            windll = ctypes.windll.kernel32
+            # Get system default locale identifier
+            lcid = windll.GetUserDefaultUILanguage()
+            # Convert LCID to locale name
+            buf_size = 85
+            buf = ctypes.create_unicode_buffer(buf_size)
+            windll.LCIDToLocaleName(lcid, buf, buf_size, 0)
+            sys_locale = buf.value
+        else:
+            # For Unix-like systems
+            sys_locale = locale.getdefaultlocale()[0]
+
+        if not sys_locale:
+            return None
+
+        # Some systems return locale with encoding (e.g. 'zh_CN.UTF-8')
+        sys_locale = sys_locale.split(".")[0]
+
+        return normalize_language_code(sys_locale)
+
+    except Exception:
+        return None

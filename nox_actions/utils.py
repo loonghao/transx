@@ -1,6 +1,7 @@
 # Import built-in modules
 from pathlib import Path
 
+
 PACKAGE_NAME = "transx"
 THIS_ROOT = Path(__file__).parent.parent
 PROJECT_ROOT = THIS_ROOT.parent

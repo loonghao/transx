@@ -2,10 +2,13 @@
 # -*- coding: utf-8 -*-
 """Test PO file functionality."""
 
+# Import built-in modules
 import os
 
+# Import third-party modules
 import pytest
 
+# Import local modules
 from transx.api.message import Message
 from transx.api.po import POFile
 from transx.constants import METADATA_KEYS
@@ -52,7 +55,7 @@ def test_add_message(po_file):
         locations=[("test.py", 1)],
         auto_comments=["Test comment"]
     )
-    
+
     assert msgid in po_file.translations
     message = po_file.translations[msgid]
     assert message.msgstr == msgstr
@@ -77,7 +80,7 @@ def test_save_and_load(po_file, temp_dir):
 
     # Check metadata
     assert po_file.metadata == new_po.metadata
-    
+
     # Check messages
     assert len(po_file.translations) == len(new_po.translations)
     assert msgid in new_po.translations
@@ -106,7 +109,7 @@ def test_update_from_pot(po_file, pot_file):
     # Check if existing translation is preserved
     assert "Message 1" in updated_po.translations
     assert updated_po.translations["Message 1"].msgstr == "Message One"
-    
+
     # Check if new message is added
     assert "Message 2" in updated_po.translations
     assert updated_po.translations["Message 2"].msgstr == ""
@@ -128,7 +131,7 @@ def test_header_update(po_file, pot_file):
     # Load updated PO and check metadata
     updated_po = POFile(po_file.path)
     updated_po.load()
-    
+
     assert (
         updated_po.metadata[METADATA_KEYS["PROJECT_ID_VERSION"]] ==
         "New Version"
@@ -145,9 +148,9 @@ def test_empty_file_creation(temp_dir):
     po_path = temp_dir / "empty.po"
     with POFile(str(po_path), locale="zh_CN") as po:
         pass
-    
+
     assert os.path.exists(po_path)
-    
+
     # Load and verify header
     po = POFile(str(po_path))
     po.load()
@@ -166,7 +169,7 @@ def test_message_variants(po_file, msgid, msgstr):
     """Test different types of messages"""
     po_file.add(msgid=msgid, msgstr=msgstr)
     po_file.save()
-    
+
     loaded_po = POFile(po_file.path)
     loaded_po.load()
     if msgid:  # Skip empty message ID (header) check
@@ -180,11 +183,11 @@ def test_invalid_header_handling(po_file):
     # Add an invalid header message
     po_file.translations[""] = Message(msgid="", msgstr="Invalid header")
     po_file.save()
-    
+
     # Reload file, should reset to valid header
     new_po = POFile(po_file.path)
     new_po.load()
-    
+
     assert "" in new_po.translations
     assert all(key in new_po.metadata for key in METADATA_KEYS.values())
     assert all(key in new_po.translations[""].msgstr for key in METADATA_KEYS.values())
@@ -193,32 +196,32 @@ def test_invalid_header_handling(po_file):
 def test_special_chars_preservation(po_file):
     """Test that special characters are preserved during translation."""
     test_cases = [
-        # 转义序列
-        (u"Hello\\nWorld", u"你好\\n世界"),
-        # 带引号的路径
-        (u'Path: "C:\\Program Files\\App"', u'路径："C:\\Program Files\\App"'),
-        # HTML 转义
-        (u"Text: &quot;Hello&quot;", u"文本：&quot;你好&quot;"),
-        # 混合情况
-        (u'Error in "C:\\temp\\{filename}\\log.txt"', u'错误于 "C:\\temp\\{filename}\\log.txt"'),
+        # Escape sequence
+        (u"Hello\\nWorld", u"Hello\\nWorld"),
+        # Path with quotes
+        (u'Path: "C:\\Program Files\\App"', u'Path: "C:\\Program Files\\App"'),
+        # HTML escaping
+        (u"Text: &quot;Hello&quot;", u"Text: &quot;Hello&quot;"),
+        # Mixed cases
+        (u'Error in "C:\\temp\\{filename}\\log.txt"', u'Error in "C:\\temp\\{filename}\\log.txt"'),
     ]
-    
+
     for original, expected in test_cases:
-        # 保护特殊字符
+        # Protect special characters
         processed, special_chars = po_file._preserve_special_chars(original)
-        
-        # 验证特殊字符被替换为标记
+
+        # Verify special characters were replaced with markers
         for char in ["\\", '"', "{", "}", "&quot;"]:
             if char in original:
                 assert char not in processed
-        
-        # 模拟翻译（这里我们直接使用预期的翻译）
+
+        # Mock translation (directly use expected translation)
         translated = expected
-        
-        # 还原特殊字符
+
+        # Restore special characters
         result = po_file._restore_special_chars(translated, special_chars)
-        
-        # 验证特殊字符被正确还原
+
+        # Verify special characters were correctly restored
         for char in ["\\", '"', "{", "}", "&quot;"]:
             assert result.count(char) == expected.count(char)
 
@@ -228,18 +231,18 @@ def test_placeholder_preservation(po_file):
     # Test both {name} and ${name} style placeholders
     original = u"Hello {name}, your balance is ${amount}"
     processed, placeholders = po_file._preserve_placeholders(original)
-    
+
     # Verify placeholders were replaced with markers
     assert "{name}" not in processed
     assert "${amount}" not in processed
     assert len(placeholders) == 2
-    
+
     # Simulate translation (replace words but keep markers)
     translated = processed.replace("Hello", "Bonjour").replace("balance", "solde").replace("is", "est")
-    
+
     # Restore placeholders
     result = po_file._restore_placeholders(translated, placeholders)
-    
+
     # Verify placeholders are back and text is translated
     assert "{name}" in result
     assert "${amount}" in result

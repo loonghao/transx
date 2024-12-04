@@ -6,6 +6,7 @@ import logging
 import os
 import sys
 
+
 # For Python 2/3 compatibility
 if sys.version_info[0] < 3:
     reload(sys)
@@ -24,7 +25,6 @@ from transx import TransX
 
 def test_basic_translations(tx):
     """Test basic translations."""
-    print(tx.tr("Hello"))
     print(tx.tr("Hello", context="login"))
     print(tx.tr("Welcome {name}", name="Alice"))
     print(tx.tr("Current language is {lang}", lang=tx.current_locale))
@@ -51,10 +51,10 @@ def test_unicode_handling(tx):
     """Test unicode handling."""
     print("\n=== Unicode Handling ===")
     print(tx.tr("Hello"))
-    print(tx.tr(r"Hello\nWorld"))  # 显式展示换行符
-    print(tx.tr(r"Tab\there"))     # 显式展示制表符
-    print(tx.tr("Tab\\there!"))     # 显式展示制表符
-    print(tx.tr(r'Path to the file: "C:\Program Files\MyApp"'))  # 使用原始字符串处理路径
+    print(tx.tr(r"Hello\nWorld"))  # Explicitly show newline
+    print(tx.tr(r"Tab\there"))     # Explicitly show tab
+    print(tx.tr("Tab\\there!"))     # Explicitly show tab
+    print(tx.tr(r'Path to the file: "C:\Program Files\MyApp"'))  # Use raw string for path
 
 def main():
     # Initialize TransX instance with language pack directory

@@ -2,6 +2,9 @@
 
 🚀 A lightweight, zero-dependency Python internationalization library that supports Python 2.7 through 3.12.
 
+The API is designed to be [DCC](https://en.wikipedia.org/wiki/Digital_content_creation)-friendly, for example, works with [Maya](https://www.autodesk.com/products/maya/overview), [3DsMax](https://www.autodesk.com/products/3ds-max/overview), [Houdini](https://www.sidefx.com/products/houdini/), etc.
+
+
 <div align="center">
 
 [![Python Version](https://img.shields.io/pypi/pyversions/transx)](https://img.shields.io/pypi/pyversions/transx)
@@ -37,8 +40,27 @@
 | 🛡️ Error Handling | Comprehensive error management             |
 | 🧪 Testing | Extensive test coverage                    |
 | 🌐 Auto Translation | Built-in Google Translate support          |
+| 🎥 DCC Support | Tested with Maya, 3DsMax, Houdini, etc.      |
+| 📁 Project Structure | Well-organized and maintainable codebase |
 
 </div>
+
+## 📁 Project Structure
+
+```
+transx/
+├── transx/                 # Main package directory
+│   ├── api/               # Public API implementations
+│   ├── internal/          # Internal implementation details
+│   ├── core.py           # Core functionality
+│   ├── cli.py            # Command-line interface
+│   ├── constants.py      # Constants and configurations
+│   └── exceptions.py     # Custom exceptions
+├── examples/              # Example code and usage demos
+├── tests/                # Test suite
+├── pyproject.toml        # Project configuration
+└── noxfile.py           # Test automation configuration
+```
 
 ## 🚀 Quick Start
 
@@ -53,19 +75,22 @@ pip install transx
 ```python
 from transx import TransX
 
-# Initialize translator
-tx = TransX(locales_root='locales')
-tx.current_locale = 'zh_CN'
+# Initialize with locale directory
+tx = TransX(locales_root="./locales")
 
 # Basic translation
-print(tx.tr('Hello'))  # Output: 你好
-
-# Translation with context
-print(tx.tr('Open', context='button'))  # Output: 打开
-print(tx.tr('Open', context='menu'))    # Output: 打开文件
+print(tx.tr("Hello"))  # Output: 你好
 
 # Translation with parameters
-print(tx.tr('Hello {name}!', name='张三'))  # Output: 你好 张三！
+print(tx.tr("Hello {name}!", name="张三"))  # Output: 你好 张三！
+
+# Context-based translation
+print(tx.tr("Open", context="button"))  # 打开
+print(tx.tr("Open", context="menu"))    # 打开文件
+
+# Switch language at runtime
+tx.current_locale = "ja_JP"
+print(tx.tr("Hello"))  # Output: こんにちは
 ```
 
 ## 🛠️ Advanced API Usage
@@ -113,6 +138,237 @@ from transx.api.translate import translate_po_file
 translate_po_file("locales/zh_CN/LC_MESSAGES/messages.po", translator)
 ```
 
+### Implementing Custom Translation API
+
+You can implement your own translation API by inheriting from the `Translator` base class:
+
+```python
+from transx.api.translate import Translator
+
+class MyCustomTranslator(Translator):
+    def translate(self, text, source_lang="auto", target_lang="en"):
+        """Implement your custom translation logic.
+
+        Args:
+            text (str): Text to translate
+            source_lang (str): Source language code (default: auto)
+            target_lang (str): Target language code (default: en)
+
+        Returns:
+            str: Translated text
+        """
+        # Add your translation logic here
+        # For example, calling your own translation service:
+        return my_translation_service.translate(
+            text=text,
+            from_lang=source_lang,
+            to_lang=target_lang
+        )
+
+# Use your custom translator
+translator = MyCustomTranslator()
+create_po_files(
+    pot_file_path="messages.pot",
+    languages=["zh_CN", "ja_JP"],
+    translator=translator
+)
+```
+
+### 🔌 Implementing Custom Translation API
+
+TransX provides a flexible way to implement your own translation service. You can either:
+- 🔧 Implement your own translation logic
+- 🔗 Integrate with third-party translation libraries
+- 🌐 Use direct HTTP requests to translation services
+
+#### Basic Implementation
+
+The simplest way is to inherit from the `Translator` base class:
+
+```python
+from transx.api.translate import Translator
+
+class MyCustomTranslator(Translator):
+    def translate(self, text, source_lang="auto", target_lang="en"):
+        """Implement your custom translation logic.
+
+        Args:
+            text (str): Text to translate
+            source_lang (str): Source language code (default: auto)
+            target_lang (str): Target language code (default: en)
+
+        Returns:
+            str: Translated text
+        """
+        # Add your translation logic here
+        return my_translation_service.translate(
+            text=text,
+            from_lang=source_lang,
+            to_lang=target_lang
+        )
+
+# Use your custom translator
+translator = MyCustomTranslator()
+create_po_files(
+    pot_file_path="messages.pot",
+    languages=["zh_CN", "ja_JP"],
+    translator=translator
+)
+```
+
+#### 🚀 Using Third-Party Libraries
+
+For faster implementation, you can integrate with existing translation libraries:
+
+<details>
+<summary>📚 deep-translator (Python 3.x only)</summary>
+
+```python
+from deep_translator import GoogleTranslator as DeepGoogleTranslator
+from transx.api.translate import Translator
+
+class DeepTranslator(Translator):
+    """A powerful translator using deep-translator library.
+
+    Supported Services:
+    ✨ Google Translate
+    ✨ DeepL
+    ✨ Microsoft Translator
+    ✨ PONS
+    ✨ Linguee
+    ✨ MyMemory
+    And more...
+    """
+    def translate(self, text, source_lang="auto", target_lang="en"):
+        try:
+            # Convert language codes (e.g., zh_CN -> zh-cn)
+            source = source_lang.lower().replace('_', '-')
+            target = target_lang.lower().replace('_', '-')
+
+            translator = DeepGoogleTranslator(
+                source=source if source != "auto" else "auto",
+                target=target
+            )
+            return translator.translate(text)
+        except Exception as e:
+            raise TranslationError(f"Translation failed: {str(e)}")
+```
+</details>
+
+<details>
+<summary>📦 translate (Python 2.7 compatible)</summary>
+
+```python
+from translate import Translator as PyTranslator
+from transx.api.translate import Translator
+
+class SimpleTranslator(Translator):
+    """A lightweight translator using the 'translate' library.
+
+    Supported Services:
+    ✨ Google Translate
+    ✨ MyMemory
+    ✨ Microsoft Translator
+    """
+    def translate(self, text, source_lang="auto", target_lang="en"):
+        try:
+            translator = PyTranslator(from_lang=source_lang, to_lang=target_lang)
+            return translator.translate(text)
+        except Exception as e:
+            raise TranslationError(f"Translation failed: {str(e)}")
+```
+</details>
+
+#### ⚠️ Python 2.7 Compatibility Note
+
+While TransX supports Python 2.7 through 3.12, many modern translation libraries have dropped Python 2.7 support. Here are your options:
+
+1. 📦 Use older versions of translation libraries that still support Python 2.7
+2. 🌐 Implement a simple HTTP client to directly call translation APIs
+3. ✨ Use TransX's built-in `GoogleTranslator` which maintains Python 2.7 compatibility
+
+<details>
+<summary>🔧 HTTP Client Example (Python 2.7 compatible)</summary>
+
+```python
+import requests
+from transx.api.translate import Translator
+from transx.compat import urlencode
+
+class SimpleGoogleTranslator(Translator):
+    """A basic Google Translate implementation using requests."""
+
+    def translate(self, text, source_lang="auto", target_lang="en"):
+        try:
+            # Convert language codes
+            source = source_lang.lower().replace('_', '-')
+            target = target_lang.lower().replace('_', '-')
+
+            # Build URL
+            params = {
+                'sl': source,
+                'tl': target,
+                'q': text
+            }
+            url = 'https://translate.googleapis.com/translate_a/single?' + urlencode({
+                'client': 'gtx',
+                'dt': 't',
+                **params
+            })
+
+            # Make request
+            response = requests.get(url)
+            data = response.json()
+
+            # Extract translation
+            return ''.join(part[0] for part in data[0])
+
+        except Exception as e:
+            raise TranslationError(f"Translation failed: {str(e)}")
+```
+</details>
+
+### 🌍 Language Code Support
+
+TransX provides flexible language code handling with automatic normalization:
+
+<details>
+<summary>📝 Example Usage</summary>
+
+```python
+from transx import TransX
+
+tx = TransX()
+
+# Different language code formats are supported:
+tx.current_locale = "zh-CN"    # Hyphen format
+tx.current_locale = "zh_CN"    # Underscore format
+tx.current_locale = "zh"       # Language only (will use default country code)
+tx.current_locale = "Chinese"  # Language name
+```
+</details>
+
+#### Supported Language Codes
+
+| Language | Standard Code | Alternative Formats |
+|----------|--------------|-------------------|
+| Chinese (Simplified) | `zh_CN` | `zh-CN`, `zh_Hans`, `Chinese`, `Chinese Simplified` |
+| Japanese | `ja_JP` | `ja`, `Japanese` |
+| Korean | `ko_KR` | `ko`, `Korean` |
+| English | `en_US` | `en`, `English` |
+| French | `fr_FR` | `fr`, `French` |
+| Spanish | `es_ES` | `es`, `Spanish` |
+| German | `de_DE` | `de`, `German` |
+| Italian | `it_IT` | `it`, `Italian` |
+| Russian | `ru_RU` | `ru`, `Russian` |
+
+#### 🔄 Default Behavior
+
+TransX handles language codes in the following way:
+1. 🔍 Attempts to detect the system language automatically
+2. 🔄 Normalizes language codes to standard format (e.g., `zh-CN` → `zh_CN`)
+3. ⚡ Falls back to `en_US` if the system language is not supported or cannot be detected
+
 ## 🛠️ Command Line Interface
 
 TransX provides a powerful CLI for translation management:
@@ -156,10 +412,204 @@ The Google Translator supports a wide range of languages. Here are some commonly
 
 For a complete list of supported languages, refer to the [language code documentation](https://cloud.google.com/translate/docs/languages).
 
+## 🎯 Advanced Features
+
+### Context-Based Translations
+
+```python
+# UI Context
+print(tx.tr("Open", context="button"))  # 打开
+print(tx.tr("Open", context="menu"))    # 打开文件
+
+# Part of Speech
+print(tx.tr("Post", context="verb"))    # 发布
+print(tx.tr("Post", context="noun"))    # 文章
+
+# Scene Context
+print(tx.tr("Welcome", context="login")) # 欢迎登录
+print(tx.tr("Welcome", context="home"))  # 欢迎回来
+```
+
+### Error Handling
+
+TransX provides comprehensive error handling for various scenarios:
+
+```python
+from transx import TransX
+from transx.exceptions import LocaleNotFoundError, CatalogNotFoundError, TranslationError
+
+# 1. Locale and Catalog Errors
+tx = TransX(strict_mode=True)  # Enable strict mode to raise exceptions
+
+try:
+    tx.load_catalog("invalid_locale")
+except LocaleNotFoundError as e:
+    print(f"❌ Locale error: {e.message}")
+    print(f"  Missing locale: {e.locale}")
+
+try:
+    tx.load_catalog(None)
+except ValueError as e:
+    print("❌ Invalid locale: Locale cannot be None")
+
+# 2. Translation Errors
+from transx.api.translate import GoogleTranslator
+
+translator = GoogleTranslator()
+try:
+    result = translator.translate("Hello", source_lang="invalid", target_lang="zh_CN")
+except TranslationError as e:
+    print(f"❌ Translation failed: {e.message}")
+    print(f"  Source text: {e.source_text}")
+    print(f"  From: {e.source_lang} To: {e.target_lang}")
+
+# 3. File Parsing Errors
+from transx.exceptions import ParserError, ValidationError
+from transx.api.po import POFile
+
+try:
+    po = POFile("invalid.po")
+    po.parse()
+except ParserError as e:
+    print(f"❌ Parse error in {e.file_path}")
+    if e.line_number:
+        print(f"  At line: {e.line_number}")
+    if e.reason:
+        print(f"  Reason: {e.reason}")
+
+# 4. Non-Strict Mode Behavior
+tx = TransX(strict_mode=False)  # Default behavior
+# These operations will log warnings instead of raising exceptions
+tx.load_catalog("missing_locale")  # Returns False, logs warning
+tx.tr("missing_key")  # Returns the key itself, logs warning
+```
+
+Key error handling features:
+- 🔒 Strict mode for development/testing
+- 📝 Detailed error messages and context
+- 🪵 Fallback behavior in non-strict mode
+- 📋 Comprehensive logging
+
+### Multiple Catalogs
+
+```python
+tx = TransX()
+tx.load_catalog("path/to/main.mo")     # Main catalog
+tx.load_catalog("path/to/extra.mo")    # Extra translations
+```
+
+## ⚡ Performance Features
+
+- 🚀 Uses compiled MO files for optimal speed
+- 💾 Automatic translation caching
+- 🔒 Thread-safe for concurrent access
+- 📉 Minimal memory footprint
+- 🔄 Automatic PO to MO compilation
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+## 👨‍💻 Developer Guide
+
+### 🔧 Development Setup
+
+1. Clone the repository:
+```bash
+git clone https://github.com/loonghao/transx.git
+cd transx
+```
+
+2. Install development dependencies:
+```bash
+pip install -r requirements-dev.txt
+```
+
+### 📁 Project Structure
+
+```
+transx/
+├── transx/                 # Main package directory
+│   ├── api/               # Public API modules
+│   │   ├── locale.py      # Locale handling
+│   │   ├── mo.py         # MO file operations
+│   │   ├── po.py         # PO file operations
+│   │   └── translate.py   # Translation services
+│   ├── core.py           # Core translation functionality
+│   └── constants.py       # Constants and configurations
+├── tests/                 # Test directory
+├── examples/              # Example code and usage
+├── nox_actions/          # Nox automation scripts
+│   ├── codetest.py       # Test execution configuration
+│   ├── lint.py          # Code linting and formatting
+│   └── utils.py         # Shared utilities and constants
+└── docs/                 # Documentation
+```
+
+### 🔄 Development Workflow
+
+We use [Nox](https://nox.thea.codes/) to automate development tasks. Here are the main commands:
+
+```bash
+# Run linting
+nox -s lint
+
+# Fix linting issues automatically
+nox -s lint-fix
+
+# Run tests
+nox -s pytest
+```
+
+### 🧪 Running Tests
+
+Tests are written using pytest and can be run using nox:
+
+```bash
+nox -s pytest
+```
+
+For running specific tests:
+
+```bash
+# Run a specific test file
+nox -s pytest -- tests/test_core.py
+
+# Run tests with specific markers
+nox -s pytest -- -m "not integration"
+```
+
+### 🔍 Code Quality
+
+We maintain high code quality standards using various tools:
+
+- **Linting**: We use ruff and isort for code linting and formatting
+- **Type Checking**: Static type checking with mypy
+- **Testing**: Comprehensive test suite with pytest
+- **Coverage**: Code coverage tracking with coverage.py
+- **CI/CD**: Automated testing and deployment with GitHub Actions
+
+### 📝 Documentation
+
+Documentation is written in Markdown and is available in:
+- README.md: Main documentation
+- examples/: Example code and usage
+- API documentation in source code
+
+### 🤝 Contributing
+
+1. Fork the repository
+2. Create a new branch for your feature
+3. Make your changes
+4. Run tests and linting
+5. Submit a pull request
+
+Please ensure your PR:
+- Passes all tests
+- Includes appropriate documentation
+- Follows our code style
+- Includes test coverage for new features
+
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the LICENSE file for details.

@@ -105,14 +105,7 @@ COMMENT_PATTERNS = {
 # Regular expression for extracting comments
 COMMENT_REGEX = r"(?P<tag>{tags})\s*(?P<text>.+)"
 
-# Language codes
-# Reference: ISO 639-1 (language codes) and ISO 3166-1 (country codes)
-# For more information, visit:
-# - ISO 639-1: https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
-# - ISO 3166-1: https://en.wikipedia.org/wiki/ISO_3166-1
-# - Language tags in HTML and XML: https://www.w3.org/International/articles/language-tags/
-# - IANA Language Subtag Registry: https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry
-
+# Language codes and mappings
 LANGUAGE_CODES = {
     # East Asian Languages
     "zh_CN": ("Chinese (Simplified)", ["zh-CN", "zh_cn", "zh-cn", "zhs", "cn", "chi"]),
@@ -121,19 +114,41 @@ LANGUAGE_CODES = {
     "ko_KR": ("Korean", ["ko", "ko-KR", "kr", "kor"]),
 
     # European Languages
-    "en_US": ("English (US)", ["en", "en-US", "eng", "en_GB", "en-GB"]),
-    "fr_FR": ("French", ["fr", "fr-FR", "fra"]),
+    "en_US": ("English (US)", ["en", "en-US", "eng", "us"]),
+    "fr_FR": ("French", ["fr", "fr-FR", "fra", "fre"]),
     "de_DE": ("German", ["de", "de-DE", "deu", "ger"]),
     "es_ES": ("Spanish", ["es", "es-ES", "spa"]),
     "it_IT": ("Italian", ["it", "it-IT", "ita"]),
-    "pt_BR": ("Portuguese (Brazil)", ["pt", "pt-BR", "por", "pt_PT", "pt-PT"]),
     "ru_RU": ("Russian", ["ru", "ru-RU", "rus"]),
+}
 
-    # Other Major Languages
-    "ar_SA": ("Arabic", ["ar", "ar-SA", "ara"]),
-    "hi_IN": ("Hindi", ["hi", "hi-IN", "hin"]),
-    "vi_VN": ("Vietnamese", ["vi", "vi-VN", "vie"]),
-    "th_TH": ("Thai", ["th", "th-TH", "tha"]),
+# Common language code mappings
+LANGUAGE_MAP = {
+    "zh_hans": "zh_CN",
+    "zh_chs": "zh_CN",
+    "zh_hant": "zh_TW",
+    "zh_cht": "zh_TW",
+    "chinese_simplified": "zh_CN",
+    "chinese_traditional": "zh_TW",
+    "chinese": "zh_CN",
+    "japanese": "ja_JP",
+    "korean": "ko_KR",
+    "french": "fr_FR",
+    "spanish": "es_ES",
+    "english": "en_US",
+}
+
+# Default country code for language codes
+DEFAULT_COUNTRY_MAP = {
+    "zh": "CN",
+    "ja": "JP",
+    "ko": "KR",
+    "en": "US",
+    "fr": "FR",
+    "es": "ES",
+    "de": "DE",
+    "it": "IT",
+    "ru": "RU",
 }
 
 # Mapping of non-standard codes to standard codes

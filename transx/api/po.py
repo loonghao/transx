@@ -1,8 +1,14 @@
 # -*- coding: utf-8 -*-
 #!/usr/bin/env python
 """PO file format handler for TransX."""
+# Import future modules
+# fmt: off
+# isort: skip
+# black: disable
 from __future__ import unicode_literals
 
+# Import built-in modules
+# fmt: on
 import codecs
 import datetime
 import errno
@@ -10,14 +16,15 @@ import logging
 import os
 import re
 
-# Import built-in modules
 
 try:
+    # Import built-in modules
     from collections import OrderedDict
 except ImportError:
     # Python 2.6 compatibility
     from ordereddict import OrderedDict
 
+# Import local modules
 from transx.api.message import Message
 
 
@@ -41,11 +48,11 @@ class POFile(object):
 
     def _get_key(self, msgid, context=None):
         """Get the key for storing a message.
-        
+
         Args:
             msgid: The message ID
             context: The message context
-            
+
         Returns:
             tuple: A tuple of (msgid, context)
         """
@@ -83,7 +90,7 @@ class POFile(object):
 
     def update_metadata(self, new_metadata):
         """Update metadata without duplicating entries.
-        
+
         Args:
             new_metadata: New metadata to merge
         """
@@ -94,7 +101,7 @@ class POFile(object):
         header_key = self._get_key("", None)
         if header_key not in self.translations:
             self.translations[header_key] = Message(msgid="", msgstr="")
-        
+
         # Generate header content with quotes
         header_lines = []
         for key, value in self.metadata.items():
@@ -104,28 +111,28 @@ class POFile(object):
 
     def parse_header(self, header):
         """Parse the header into a dictionary.
-        
+
         Args:
             header: Header string to parse
-            
+
         Returns:
             OrderedDict: Parsed metadata
         """
         headers = OrderedDict()
-        
+
         # First unescape the entire header
         header = self._unescape_string(header)
-        
+
         # Split into lines and process each line
         lines = header.split("\\n")
         current_key = None
         current_value = []
-        
+
         for line in lines:
             line = line.strip()
             if not line:
                 continue
-            
+
             # Try to parse as a header entry
             try:
                 key, value = line.split(":", 1)
@@ -138,11 +145,11 @@ class POFile(object):
                 # If we can't split on ':', this might be a continuation of the previous value
                 if current_key:
                     current_value.append(line)
-        
+
         # Save last entry
         if current_key:
             headers[current_key] = "".join(current_value).strip()
-        
+
         return headers
 
     def load(self, file=None):
@@ -174,7 +181,7 @@ class POFile(object):
         with codecs.open(file, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
-                
+
                 # Skip empty lines
                 if not line:
                     if current_message is not None:
@@ -267,18 +274,18 @@ class POFile(object):
 
     def _add_current_message(self, message):
         """Helper method to add the current message to translations.
-        
+
         Args:
             message: Message object to add
         """
         if not message:
             return
-            
+
         if not message.msgid and message.msgstr:
             # Parse header metadata
             metadata = self.parse_header(message.msgstr)
             self.update_metadata(metadata)
-            
+
             # Store the header message in translations with empty msgid
             key = self._get_key("", None)
             self.translations[key] = message
@@ -299,15 +306,15 @@ class POFile(object):
         text = text.strip()
         if not text:
             return ""
-            
+
         # Handle multiline strings
         if text.startswith('msgid "') or text.startswith('msgstr "'):
             text = text[7:]  # Remove msgid/msgstr prefix
-            
+
         # Handle quoted strings
         if text.startswith('"') and text.endswith('"'):
             text = text[1:-1]  # Remove outer quotes
-            
+
         # Unescape special characters
         return self._unescape_string(text)
 
@@ -390,11 +397,11 @@ class POFile(object):
         header_key = self._get_key("", None)
         if header_key not in self.translations:
             self.translations[header_key] = Message(msgid="", msgstr="")
-        
+
         # Update header message with current metadata
         header_lines = []
         for key, value in self.metadata.items():
-            header_lines.append("%s: %s\n" % (key, value))  # Use \n instead of \\n
+            header_lines.append("%s: %s\\n" % (key, value))  # Use \n instead of \\n
         self.translations[header_key].msgstr = "".join(header_lines)  # Don't add extra \n
 
         return obsolete
@@ -501,17 +508,17 @@ class POFile(object):
                 "Generated-By",
                 "Copyright-Holder",
             ]
-            
+
             # First write ordered metadata
             for key in ordered_metadata:
                 if self.metadata.get(key):
                     metadata_lines.append('"%s: %s\\n"' % (key, self.metadata[key]))
-            
+
             # Then write any remaining metadata
             for key, value in self.metadata.items():
                 if key not in ordered_metadata and value:
                     metadata_lines.append('"%s: %s\\n"' % (key, value))
-            
+
             f.write("\n".join(metadata_lines))
             f.write("\n\n")
 
@@ -523,10 +530,10 @@ class POFile(object):
 
     def _normalize_path(self, path):
         """Normalize a file path for writing to PO file.
-        
+
         Args:
             path: The file path to normalize
-            
+
         Returns:
             str: The normalized path
         """
@@ -580,7 +587,7 @@ class POFile(object):
         """Generate the header string with metadata."""
         # First generate an empty msgid
         header = 'msgid ""\n'
-        
+
         # Then add metadata
         metadata_lines = []
         # 使用OrderedDict去重并保持顺序
@@ -590,21 +597,21 @@ class POFile(object):
                 unique_metadata[key] = value
         for key, value in unique_metadata.items():
             metadata_lines.append("%s: %s\\n" % (key, value))
-        
+
         # Join metadata lines and wrap in quotes
         header += 'msgstr ""\n'
         if metadata_lines:
             header += '"%s"' % "".join(metadata_lines)
-        
+
         return header
 
     def get_message(self, msgid, context=None):
         """Get a message by its ID and optional context.
-        
+
         Args:
             msgid: The message ID
             context: Optional message context
-            
+
         Returns:
             Message: The message object if found, None otherwise
         """
@@ -664,7 +671,7 @@ class POFile(object):
         """Merge duplicate messages by combining their locations and comments."""
         # Create a temporary dict to store merged messages
         merged = {}
-        
+
         for key, message in self.translations.items():
             if key in merged:
                 # Merge locations and comments
@@ -673,14 +680,14 @@ class POFile(object):
                 existing.auto_comments.extend(message.auto_comments)
                 existing.user_comments.extend(message.user_comments)
                 existing.flags.update(message.flags)
-                
+
                 # Remove duplicates while preserving order
                 existing.locations = list(dict.fromkeys(existing.locations))
                 existing.auto_comments = list(dict.fromkeys(existing.auto_comments))
                 existing.user_comments = list(dict.fromkeys(existing.user_comments))
             else:
                 merged[key] = message
-        
+
         # Update translations with merged messages
         self.translations = merged
 
@@ -720,35 +727,35 @@ class POFile(object):
 
     def _preserve_placeholders(self, text):
         """Preserve format placeholders during translation.
-        
+
         Args:
             text: Text containing format placeholders
-            
+
         Returns:
             tuple: (processed_text, placeholders)
             where placeholders is a dict mapping temp markers to original placeholders
         """
         placeholders = {}
-        
+
         # Handle both {name} and ${name} style placeholders
         pattern = r"(\$?\{[^}]+\})"
-        
+
         def replace(match):
             placeholder = match.group(1)
             marker = "__PH%d__" % len(placeholders)
             placeholders[marker] = placeholder
             return marker
-            
+
         processed = re.sub(pattern, replace, text)
         return processed, placeholders
-        
+
     def _restore_placeholders(self, text, placeholders):
         """Restore format placeholders after translation.
-        
+
         Args:
             text: Text with placeholder markers
             placeholders: Dict mapping markers to original placeholders
-            
+
         Returns:
             str: Text with original placeholders restored
         """
@@ -759,17 +766,17 @@ class POFile(object):
 
     def _preserve_special_chars(self, text):
         """Preserve special characters and escape sequences during translation.
-        
+
         Args:
             text: Text containing special characters
-            
+
         Returns:
             tuple: (processed_text, special_chars)
             where special_chars is a dict mapping temp markers to original chars
         """
         special_chars = {}
         processed = text
-        
+
         # Define patterns for special characters and sequences
         patterns = [
             (r'\\[\\"]', "ESCAPED"),      # Escaped backslash and quotes: \\ \"
@@ -782,80 +789,80 @@ class POFile(object):
             (r"&quot;.*?&quot;", "QUOTED"),  # HTML quotes: &quot;hello&quot;
             (r"\$?\{[^}]+\}", "PLACEHOLDER"),  # Format placeholders: {name} or ${name}
         ]
-        
+
         for pattern, type_ in patterns:
-            def replace(match):
+            def replace(match, current_type=type_):
                 original = match.group(0)
-                marker = "__%s%d__" % (type_, len(special_chars))
+                marker = "__%s%d__" % (current_type, len(special_chars))
                 special_chars[marker] = original
                 return marker
-                
+
             processed = re.sub(pattern, replace, processed)
-            
+
         return processed, special_chars
-        
+
     def _restore_special_chars(self, text, special_chars):
         """Restore special characters after translation.
-        
+
         Args:
             text: Text with special character markers
             special_chars: Dict mapping markers to original chars
-            
+
         Returns:
             str: Text with original special characters restored
         """
         result = text
-        
+
         # Sort markers by length (longest first) to avoid partial replacements
         markers = sorted(special_chars.keys(), key=len, reverse=True)
-        
+
         for marker in markers:
             result = result.replace(marker, special_chars[marker])
-            
+
         return result
 
     def translate_messages(self, translator, target_lang=None):
         """Translate untranslated messages using the provided translator.
-        
+
         Args:
             translator: Translator instance to use
             target_lang: Target language code. If None, uses metadata language
-            
+
         Returns:
             int: Number of messages translated
         """
         if not target_lang:
             target_lang = self.metadata.get("Language", "en")
-            
+
         translated_count = 0
-        
+
         for message in self.translations.values():
             if not message.msgstr and message.msgid:  # Skip empty msgid
                 try:
                     # Preserve special characters and placeholders
                     text_to_translate, special_chars = self._preserve_special_chars(message.msgid)
-                    
+
                     # Translate text with preserved characters
                     translated = translator.translate(
                         text_to_translate,
                         source_lang="auto",
                         target_lang=target_lang
                     )
-                    
+
                     if translated:
                         # Restore special characters
                         message.msgstr = self._restore_special_chars(translated, special_chars)
                         translated_count += 1
-                        
+
                 except Exception as e:
                     self.logger.error("Failed to translate '%s': %s", message.msgid, str(e))
                     continue
-                    
+
         return translated_count
 
     def __enter__(self):
         """Context manager entry point.
-        
+
         Returns:
             POFile: The POFile instance with loaded translations
         """
