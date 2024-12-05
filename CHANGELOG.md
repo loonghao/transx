@@ -1,3 +1,17 @@
+## v0.3.0 (2024-12-05)
+
+### Feat
+
+- **cli**: Add list command to display available locales
+- **translator**: Add French locale messages.mo file
+- **core,docs**: Add available_locales property and update README with usage example
+- **translator**: Use centralized language list for translation workflows
+- **cli**: Enhance command line interface with improved examples and default values
+
+### Refactor
+
+- **api**: Refactor header comment and request headers usage
+
 ## v0.2.2 (2024-12-04)
 
 ### Refactor
