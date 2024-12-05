@@ -1,0 +1,129 @@
+# Translations template for PROJECT.
+# Copyright (C) 2024 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+
+msgid ""
+msgstr ""
+"Project-Id-Version: TransX Demo 1.0\n"
+"Report-Msgid-Bugs-To: transx@example.com\n"
+"POT-Creation-Date: 2024-12-05 20:44\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: en_US <LL@li.org>\n"
+"Language: en_US\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: TransX\n"
+"Copyright-Holder: TransX Team\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:28
+msgctxt "login"
+msgid "Hello"
+msgstr "Hello"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:29
+msgid "Welcome {name}"
+msgstr "Welcome {name}"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:30
+#: G:/PycharmProjects/github/transx/examples/demo.py:37
+msgid "Hello~"
+msgstr "Hello~"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:31
+msgid "Current username: $username"
+msgstr "Current username: $username"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:32
+msgid "Current language is {lang}"
+msgstr "Current language is {lang}"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:38
+msgid "Starting workflow"
+msgstr "Starting workflow"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:39
+msgid "Processing file {filename}"
+msgstr "Processing file {filename}"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:40
+msgid "Workflow completed"
+msgstr "Workflow completed"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:41
+msgid "Validating input data"
+msgstr "Validating input data"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:42
+msgid "Analyzing results"
+msgstr "Analyzing results"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:43
+msgid "Task completed successfully"
+msgstr "Task completed successfully"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:48
+msgid "Error: File not found"
+msgstr "Error: File not found"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:49
+msgid "Warning: Low disk space"
+msgstr "Warning: Low disk space"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:50
+msgid "Invalid input: {input}"
+msgstr "Invalid input: {input}"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:51
+msgid "Operation failed: {reason}"
+msgstr "Operation failed: {reason}"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:56
+msgid "Hello"
+msgstr "Hello"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:57
+msgid "Hello\\nWorld"
+msgstr "Hello\\nWorld"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:58
+msgid "Tab\\there"
+msgstr "Tab\\there"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:59
+msgid "Tab\\there!"
+msgstr "Tab\\there!"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:60
+msgid "Path to the file: \"C:\\Program Files\\MyApp\""
+msgstr "Path to the file: \"C:\\Program Files\\MyApp\""
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:69
+msgid "如果出现错误，显示找不到 DCF_updateViewportList,或者找不到 CgAbBlastPanelOptChangeCallback，说明你的文件存在病毒，请运行一下打开优化工具，执行 remove unknown node and plugin 和 remove callback 两个按钮，然后保存一下文件"
+msgstr "If an error occurs, showing that DCF_updateViewportList cannot be found, or CgAbBlastPanelOptChangeCallback cannot be found, it means that your file has a virus. Please run the optimization tool, execute the remove unknown node and plugin and remove callback buttons, and then save the file."
+
+
