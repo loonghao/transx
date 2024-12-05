@@ -261,18 +261,32 @@ class GoogleTranslator(Translator):
 
         Raises:
             TranslationError: If translation fails after all retries
+            ValueError: If language codes are invalid
         """
         # Handle empty or invalid input
-        if not text or not isinstance(text, string_types):
-            return text
+        if text is None:
+            return text_type("")
+        if not isinstance(text, string_types):
+            text = text_type(str(text))
+        if not text:
+            return text_type("")
+
+        # Handle None language codes
+        source_lang = "auto" if source_lang is None else source_lang
+        target_lang = "en" if target_lang is None else target_lang
+
+        # Validate language codes
+        if source_lang != "auto":
+            source_lang = self.language_code_map.get(source_lang, source_lang)
+            if not isinstance(source_lang, string_types) or len(source_lang.strip()) < 2:
+                return text  # Return original text for invalid source language
+
+        target_lang = self.language_code_map.get(target_lang, target_lang)
+        if not isinstance(target_lang, string_types) or len(target_lang.strip()) < 2:
+            return text  # Return original text for invalid target language
 
         # Escape special characters
         escaped_text = self._escape_special_chars(text)
-
-        # Convert language codes
-        target_lang = self.language_code_map.get(target_lang, target_lang)
-        if source_lang != "auto":
-            source_lang = self.language_code_map.get(source_lang, source_lang)
 
         # Build request parameters
         params = {

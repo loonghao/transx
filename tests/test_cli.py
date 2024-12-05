@@ -196,3 +196,123 @@ def test_no_command():
     with pytest.raises(SystemExit) as exc:
         run_cli()
     assert exc.value.code != 0
+
+
+def test_list_command(tmpdir):
+    """Test the list command for showing available locales."""
+    # Create example locale directories with PO files
+    locales = ["en_US", "zh_CN", "ja_JP"]
+    for locale in locales:
+        po_dir = os.path.join(str(tmpdir), normalize_language_code(locale), "LC_MESSAGES")
+        os.makedirs(po_dir)
+        po_file = os.path.join(po_dir, DEFAULT_MESSAGES_DOMAIN + PO_FILE_EXTENSION)
+        write_file(po_file, """msgid ""
+msgstr ""
+"Content-Type: text/plain; charset={}\\n"
+"Language: {}\\n"
+""".format(DEFAULT_CHARSET, locale))
+
+    # Run list command
+    exit_code = run_cli("list", "-d", str(tmpdir))
+    assert exit_code == 0
+
+    # Test with empty directory
+    empty_dir = os.path.join(str(tmpdir), "empty")
+    os.makedirs(empty_dir)
+    exit_code = run_cli("list", "-d", empty_dir)
+    assert exit_code == 0
+
+    # Test with non-existent directory
+    exit_code = run_cli("list", "-d", os.path.join(str(tmpdir), "nonexistent"))
+    assert exit_code == 1
+
+
+def test_extract_with_empty_source(tmpdir):
+    """Test extract command with empty source files."""
+    source_dir = os.path.join(str(tmpdir), "empty_src")
+    os.makedirs(source_dir)
+
+    # Create empty Python file
+    empty_py = os.path.join(source_dir, "empty.py")
+    write_file(empty_py, "")
+
+    output_pot = os.path.join(str(tmpdir), "messages.pot")
+    exit_code = run_cli("extract", source_dir, "-o", output_pot)
+    assert exit_code == 0
+    assert os.path.exists(output_pot)
+
+
+def test_compile_multiple_files(tmpdir):
+    """Test compile command with multiple PO files."""
+    # Create multiple PO files
+    files = []
+    for locale in ["en_US", "zh_CN"]:
+        po_dir = os.path.join(str(tmpdir), normalize_language_code(locale), "LC_MESSAGES")
+        os.makedirs(po_dir)
+        po_file = os.path.join(po_dir, DEFAULT_MESSAGES_DOMAIN + PO_FILE_EXTENSION)
+        write_file(po_file, """msgid ""
+msgstr ""
+"Content-Type: text/plain; charset={}\\n"
+"Language: {}\\n"
+""".format(DEFAULT_CHARSET, locale))
+        files.append(po_file)
+
+    # Run compile command with multiple files
+    exit_code = run_cli("compile", *files)
+    assert exit_code == 0
+
+    # Verify all MO files were created
+    for po_file in files:
+        mo_file = po_file.replace(PO_FILE_EXTENSION, MO_FILE_EXTENSION)
+        assert os.path.exists(mo_file)
+
+
+def test_update_with_existing_translations(tmpdir):
+    """Test update command with existing translations."""
+    # Create POT file
+    messages_pot = os.path.join(str(tmpdir), "messages.pot")
+    pot_content = """msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\\n"
+"POT-Creation-Date: 2024-01-01 00:00+0000\\n"
+"Content-Type: text/plain; charset={}\\n"
+
+msgid "Hello"
+msgstr ""
+
+msgid "Welcome"
+msgstr ""
+
+msgid "Old Message"
+msgstr ""
+""".format(DEFAULT_CHARSET)
+    write_file(messages_pot, pot_content)
+
+    # Create existing PO file with translations
+    po_dir = os.path.join(str(tmpdir), "zh_CN", "LC_MESSAGES")
+    os.makedirs(po_dir)
+    po_file = os.path.join(po_dir, DEFAULT_MESSAGES_DOMAIN + PO_FILE_EXTENSION)
+    po_content = """msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\\n"
+"Language: zh_CN\\n"
+"Content-Type: text/plain; charset={}\\n"
+"Plural-Forms: nplurals=1; plural=0;\\n"
+
+msgid "Hello"
+msgstr "你好"
+
+msgid "Old Message"
+msgstr "旧消息"
+""".format(DEFAULT_CHARSET)
+    write_file(po_file, po_content)
+
+    # Run update command
+    exit_code = run_cli("update", messages_pot, "-l", "zh_CN", "-o", str(tmpdir))
+    assert exit_code == 0
+
+    # Verify updated PO file content
+    content = read_file(po_file)
+    assert 'msgstr "你好"' in content  # Existing translation preserved
+    assert 'msgid "Welcome"' in content  # New message added
+    assert 'msgstr "旧消息"' in content  # Old translation preserved
