@@ -10,14 +10,17 @@ import sys
 from transx.api.mo import compile_po_file
 from transx.api.pot import PotExtractor
 from transx.api.pot import PotUpdater
+from transx.api.translate import GoogleTranslator
+from transx.api.translate import translate_po_file
+from transx.api.translate import translate_po_files
 from transx.constants import DEFAULT_LANGUAGES
 from transx.constants import DEFAULT_LOCALES_DIR
 from transx.constants import DEFAULT_MESSAGES_DOMAIN
 from transx.constants import MO_FILE_EXTENSION
 from transx.constants import POT_FILE_EXTENSION
+from transx.internal.filesystem import walk_with_gitignore
 from transx.internal.logging import get_logger
 from transx.internal.logging import setup_logging
-from transx.internal.filesystem import walk_with_gitignore
 
 
 def create_parser():
@@ -195,57 +198,49 @@ def extract_command(args):
     """Execute extract command."""
     logger = get_logger(__name__)
 
-    # Find Python source files
-    source_files = []
-    if os.path.isfile(args.source_path):
-        source_files = [args.source_path]
-    else:
-        source_files = walk_with_gitignore(args.source_path, ['*.py'])
-
-    if not source_files:
-        logger.warning("No Python source files found in %s", args.source_path)
+    if not os.path.exists(args.source_path):
+        logger.error("Path does not exist: %s", args.source_path)
         return 1
 
-    # Create output directory if not exists
-    output_dir = os.path.dirname(args.output)
-    if output_dir and not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-
-    # Extract messages
-    extractor = PotExtractor(
-        project=args.project,
-        version=args.version,
-        copyright=args.copyright,
-        bugs_address=args.bugs_address
-    )
-    
-    for source_file in source_files:
-        try:
-            extractor.extract_from_file(source_file)
-        except Exception as e:
-            logger.error("Failed to extract messages from %s: %s", source_file, str(e))
-            return 1
-
-    # Write POT file
+    # Ensure output directory exists
     try:
-        extractor.write_pot_file(args.output)
-        logger.info("Created POT file: %s", args.output)
+        os.makedirs(os.path.dirname(args.output))
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+
+    # Collect source files using walk_with_gitignore
+    if os.path.isdir(args.source_path):
+        source_files = walk_with_gitignore(args.source_path, ["*.py"])
+    else:
+        source_files = [args.source_path]
+
+    try:
+        # Create and use POT extractor
+        with PotExtractor(pot_file=args.output, source_files=source_files) as extractor:
+            logger.info("Extracting messages from %d source files...", len(source_files))
+            extractor.extract_messages()
+            extractor.save_pot(
+                project=args.project,
+                version=args.version,
+                copyright_holder=args.copyright,
+                bugs_address=args.bugs_address
+            )
+
+        # Generate language files
+        languages = args.languages.split(",") if args.languages else DEFAULT_LANGUAGES
+        locales_dir = os.path.abspath(args.output_dir)
+
+        # Create updater for language files
+        updater = PotUpdater(args.output, locales_dir)
+        updater.create_language_catalogs(languages)
+
+        logger.info("POT file created and language files updated: %s", args.output)
+        return 0
+
     except Exception as e:
-        logger.error("Failed to write POT file: %s", str(e))
+        logger.error("Error processing files: %s", str(e))
         return 1
-
-    # Create PO files if languages specified
-    if args.languages:
-        languages = args.languages.split(",")
-        try:
-            updater = PotUpdater(args.output)
-            updater.create_or_update_po_files(languages, args.output_dir)
-            logger.info("Created PO files for languages: %s", ", ".join(languages))
-        except Exception as e:
-            logger.error("Failed to create PO files: %s", str(e))
-            return 1
-
-    return 0
 
 
 def update_command(args):
@@ -283,30 +278,43 @@ def update_command(args):
 
 def compile_command(args):
     """Execute compile command."""
-    po_files = []
-    
-    # If specific files provided
-    if args.po_files:
-        po_files.extend(args.po_files)
-    else:
-        # Find all PO files in directory
-        search_dir = args.directory if args.directory else "."
-        po_files = walk_with_gitignore(search_dir, ['*.po'])
+    logger = get_logger(__name__)
+    success = True
 
-    if not po_files:
-        logger.warning("No PO files found")
-        return 1
+    # If no PO files specified, use default pattern
+    if not args.po_files:
+        base_dir = os.path.abspath(args.directory)
+        pattern = os.path.join(base_dir, "locales", "*", "LC_MESSAGES", "messages.po")
+        po_files = glob.glob(pattern)
+        if not po_files:
+            logger.warning("No .po files found matching pattern: %s", pattern)
+            return 0
+    else:
+        po_files = args.po_files
 
     for po_file in po_files:
-        try:
-            mo_file = os.path.splitext(po_file)[0] + MO_FILE_EXTENSION
-            compile_po_file(po_file, mo_file)
-            logger.info("Compiled %s -> %s", po_file, mo_file)
-        except Exception as e:
-            logger.error("Failed to compile %s: %s", po_file, str(e))
-            return 1
+        if not os.path.exists(po_file):
+            logger.error("PO file not found: %s", po_file)
+            success = False
+            continue
 
-    return 0
+        # Build MO file path (in the same directory as PO file)
+        mo_file = os.path.splitext(po_file)[0] + MO_FILE_EXTENSION
+        logger.info("Compiling %s to %s", po_file, mo_file)
+
+        try:
+            # Ensure the directory exists
+            try:
+                os.makedirs(os.path.dirname(mo_file))
+            except OSError:
+                if not os.path.isdir(os.path.dirname(mo_file)):
+                    raise
+            compile_po_file(po_file, mo_file)
+        except Exception as e:
+            logger.error("Error compiling %s: %s", po_file, e)
+            success = False
+
+    return 0 if success else 1
 
 
 def list_command(args):
@@ -341,51 +349,48 @@ def list_command(args):
 
 def translate_command(args):
     """Execute translate command."""
-    from transx.api.translate import GoogleTranslator, translate_po_files, translate_po_file
-    import os
-
     translator = GoogleTranslator()
-    
+
     # If specific files are provided
     if args.files:
         if not args.target_lang:
             logger.error("Target language (-t/--target-lang) is required when translating specific files")
             return 1
-            
+
         for file_pattern in args.files:
             # Handle glob patterns
             if "*" in file_pattern:
                 files = glob.glob(file_pattern)
             else:
                 files = [file_pattern]
-                
+
             for file_path in files:
                 if not os.path.isfile(file_path):
                     logger.warning("File not found: %s", file_path)
                     continue
-                    
+
                 try:
                     translate_po_file(file_path, args.target_lang, translator=translator)
                     logger.info("Translated %s to %s", file_path, args.target_lang)
                 except Exception as e:
                     logger.error("Failed to translate %s: %s", file_path, str(e))
-    
+
     # If no files provided, translate all PO files in locales directory
     else:
         languages = args.languages.split(",") if args.languages else DEFAULT_LANGUAGES
         pot_file = os.path.join(args.directory, DEFAULT_MESSAGES_DOMAIN + POT_FILE_EXTENSION)
-        
+
         if not os.path.isfile(pot_file):
             logger.error("POT file not found: %s", pot_file)
             return 1
-            
+
         try:
             translate_po_files(pot_file, languages, args.directory, translator=translator)
             logger.info("Successfully translated PO files for languages: %s", ", ".join(languages))
         except Exception as e:
             logger.error("Failed to translate PO files: %s", str(e))
             return 1
-    
+
     return 0
 
 

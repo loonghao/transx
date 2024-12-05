@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Test cases for the transx CLI."""
 # Import built-in modules
 import os
@@ -312,7 +313,7 @@ msgstr "旧消息"
     assert exit_code == 0
 
     # Verify updated PO file content
-    content = read_file(po_file)
-    assert 'msgstr "你好"' in content  # Existing translation preserved
-    assert 'msgid "Welcome"' in content  # New message added
-    assert 'msgstr "旧消息"' in content  # Old translation preserved
+    content = read_file(po_file)  # Already returns unicode
+    assert u'msgstr "你好"' in content  # Existing translation preserved
+    assert u'msgid "Welcome"' in content  # New message added
+    assert u'msgstr "旧消息"' in content  # Old translation preserved
