@@ -103,7 +103,7 @@ print(tx.tr("Open", context="button"))  # 打开
 print(tx.tr("Open", context="menu"))    # 打开文件
 
 # Switch language at runtime
-tx.current_locale = "ja_JP"
+tx.switch_locale("ja_JP")
 print(tx.tr("Hello"))  # Output: こんにちは
 ```
 
