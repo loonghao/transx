@@ -7,7 +7,6 @@
 from __future__ import unicode_literals
 
 # Import built-in modules
-from io import BytesIO
 import os
 
 # fmt: on
@@ -25,6 +24,7 @@ except ImportError:
 from transx.api.message import Message
 from transx.api.po import POFile
 from transx.constants import DEFAULT_ENCODING
+from transx.internal.compat import BytesIO
 from transx.internal.compat import binary_type
 from transx.internal.compat import ensure_unicode
 from transx.internal.compat import text_type
