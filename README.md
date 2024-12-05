@@ -124,6 +124,34 @@ tx.tr("Path: $HOME/documents")  # Supports $var syntax
 tx.tr("Price: $$99.99")  # Outputs: Price: $99.99
 ```
 
+## 🌐 Available Locales
+
+TransX provides a convenient way to get a list of available locales in your project:
+
+```python
+from transx import TransX
+
+tx = TransX(locales_root="./locales")
+
+# Get list of available locales
+print(f"Available locales: {tx.available_locales}")  # e.g. ['en_US', 'zh_CN', 'ja_JP']
+
+# Check if a locale is available before switching
+if "zh_CN" in tx.available_locales:
+    tx.current_locale = "zh_CN"
+```
+
+The `available_locales` property returns a sorted list of locale codes that:
+- Have a valid locale directory structure (`LC_MESSAGES` folder)
+- Contain either `.po` or `.mo` translation files
+- Are ready to use for translation
+
+This is useful for:
+- Building language selection interfaces
+- Validating locale switches
+- Checking translation file completeness
+- Displaying supported languages to users
+
 ## 🛠️ Command Line Interface
 
 TransX provides a powerful CLI for translation management:

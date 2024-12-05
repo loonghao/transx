@@ -192,6 +192,25 @@ class TransX:
         # Set the locale after successfully loading catalog
         self._current_locale = locale
 
+    @property
+    def available_locales(self):
+        """Get a list of available locales.
+
+        Returns:
+            list: List of available locale codes (e.g. ['en_US', 'zh_CN', 'ja_JP'])
+        """
+        locales = []
+        if os.path.exists(self.locales_root):
+            for item in os.listdir(self.locales_root):
+                locale_path = os.path.join(self.locales_root, item)
+                messages_path = os.path.join(locale_path, "LC_MESSAGES")
+                if os.path.isdir(locale_path) and os.path.exists(messages_path):
+                    po_file = os.path.join(messages_path, DEFAULT_MESSAGES_DOMAIN + PO_FILE_EXTENSION)
+                    mo_file = os.path.join(messages_path, DEFAULT_MESSAGES_DOMAIN + MO_FILE_EXTENSION)
+                    if os.path.exists(po_file) or os.path.exists(mo_file):
+                        locales.append(item)
+        return sorted(locales)
+
     def translate(self, msgid, catalog=None, **kwargs):
         """Translate a message.
 
