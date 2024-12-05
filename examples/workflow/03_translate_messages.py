@@ -3,6 +3,7 @@
 """Translate messages in PO files."""
 
 # Import third-party modules
+from common import LANGUAGES
 from common import POT_FILE
 
 # Import local modules
@@ -15,9 +16,8 @@ def translate_messages():
     # Create translator instance
     translator = GoogleTranslator()
 
-    languages = ["zh_CN", "ja_JP", "ko_KR", "fr_FR", "es_ES"]
-    print("\nTranslating PO files for languages:", languages)
-    translate_po_files(POT_FILE, languages, translator=translator)
+    print("\nTranslating PO files for languages:", LANGUAGES)
+    translate_po_files(POT_FILE, LANGUAGES, translator=translator)
 
 if __name__ == "__main__":
     translate_messages()

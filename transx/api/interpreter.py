@@ -7,7 +7,7 @@ import os
 import re
 
 # Import local modules
-# Import internal modules
+from transx.constants import DEFAULT_ENCODING
 from transx.internal.compat import binary_type
 from transx.internal.compat import text_type
 from transx.internal.logging import get_logger
@@ -210,13 +210,13 @@ class TextTypeInterpreter(TextInterpreter):
         try:
             if not isinstance(text, text_type):
                 if isinstance(text, binary_type):
-                    return text.decode("utf-8")
+                    return text.decode(DEFAULT_ENCODING)
                 return text_type(text)
             return text
         except UnicodeDecodeError:
-            # If UTF-8 decode fails, try with error handling
+            # If DEFAULT_ENCODING decode fails, try with error handling
             if isinstance(text, binary_type):
-                return text.decode("utf-8", errors="replace")
+                return text.decode(DEFAULT_ENCODING, errors="replace")
             return text_type(text)
 
 

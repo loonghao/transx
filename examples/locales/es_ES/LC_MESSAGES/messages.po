@@ -3,13 +3,12 @@
 # This file is distributed under the same license as the PROJECT project.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
 #
-#, fuzzy
 
 msgid ""
 msgstr ""
 "Project-Id-Version: TransX Demo 1.0\n"
 "Report-Msgid-Bugs-To: transx@example.com\n"
-"POT-Creation-Date: 2024-12-05 00:55\n"
+"POT-Creation-Date: 2024-12-05 20:44\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: es_ES <LL@li.org>\n"
@@ -125,4 +124,4 @@ msgstr "Ruta al archivo: \"C:\\Program Files\\MyApp\""
 
 #: G:/PycharmProjects/github/transx/examples/demo.py:69
 msgid "如果出现错误，显示找不到 DCF_updateViewportList,或者找不到 CgAbBlastPanelOptChangeCallback，说明你的文件存在病毒，请运行一下打开优化工具，执行 remove unknown node and plugin 和 remove callback 两个按钮，然后保存一下文件"
-msgstr "Si se produce un error y muestra que no se puede encontrar DCF_updateViewportList, o no se puede encontrar CgAbBlastPanelOptChangeCallback, significa que su archivo tiene un virus. Ejecútelo para abrir la herramienta de optimización, ejecute eliminar el nodo y el complemento desconocidos y elimine los botones de devolución de llamada, y. luego guarde el archivo."
+msgstr "Si se produce un error y muestra que no se puede encontrar DCF_updateViewportList, o no se puede encontrar CgAbBlastPanelOptChangeCallback, significa que su archivo tiene un virus. Ejecútelo para abrir la herramienta de optimización, ejecute eliminar nodos y complementos desconocidos y elimine los botones de devolución de llamada, y. luego guarde el archivo."
