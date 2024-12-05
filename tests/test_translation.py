@@ -10,16 +10,13 @@ import pytest
 
 # Import local modules
 from transx.constants import DEFAULT_CHARSET
+from transx.internal.compat import text_type
 
 
 logger = logging.getLogger(__name__)
 
 # Python 2 and 3 compatibility
 PY2 = sys.version_info[0] == 2
-if PY2:
-    text_type = unicode
-else:
-    text_type = str
 
 
 # Basic Translation Tests
@@ -171,3 +168,95 @@ def transx_instance(tmp_path):
     tx = TransX(locales_root=str(tmp_path / "locales"))
     tx.current_locale = "zh_CN"
     return tx
+
+
+def test_basic_translation_api():
+    """Test basic translation functionality."""
+    # Import local modules
+    from transx.api.translate import GoogleTranslator
+    from transx.internal.compat import text_type
+
+    translator = GoogleTranslator()
+
+    # Test simple translation
+    result = translator.translate("Hello", "en", "zh-CN")
+    assert isinstance(result, text_type)
+    assert len(result) > 0
+
+    # Test with context
+    result = translator.translate("Hello", "en", "zh-CN")
+    assert isinstance(result, text_type)
+    assert len(result) > 0
+
+    # Test with unsupported language
+    result = translator.translate("Hello", "en", "xx-XX")
+    assert isinstance(result, text_type)
+    assert result == "Hello"  # Should return source text for unsupported language
+
+    # Test with empty text
+    result = translator.translate("", "en", "zh-CN")
+    assert isinstance(result, text_type)
+    assert result == ""
+
+    # Test with None values
+    result = translator.translate(None, "en", "zh-CN")
+    assert isinstance(result, text_type)
+    assert result == ""
+
+    # Test with None source language (should use "auto" and translate)
+    result = translator.translate("Hello", None, "zh-CN")
+    assert isinstance(result, text_type)
+    assert len(result) > 0  # Translation should occur
+
+    # Test with None target language (should use "en" and translate)
+    result = translator.translate("你好", "zh-CN", None)
+    assert isinstance(result, text_type)
+    assert len(result) > 0  # Translation should occur
+
+
+def test_translation_with_fallback():
+    """Test translation with fallback mechanisms."""
+    # Import local modules
+    from transx.api.translate import GoogleTranslator
+    from transx.internal.compat import text_type
+
+    translator = GoogleTranslator()
+
+    # Test fallback to source text when translation fails
+    result = translator.translate(
+        "Custom message",
+        "en",
+        "zh-CN"
+    )
+    assert isinstance(result, text_type)
+    assert len(result) > 0
+
+    # Test translation to different languages
+    result = translator.translate(
+        "Hello",
+        "en",
+        "ko"
+    )
+    assert isinstance(result, text_type)
+    assert len(result) > 0
+
+
+def test_batch_translation():
+    """Test batch translation functionality."""
+    # Import local modules
+    from transx.api.translate import GoogleTranslator
+    from transx.internal.compat import text_type
+
+    translator = GoogleTranslator()
+    texts = ["Hello", "Goodbye", "Thank you"]
+    results = []
+
+    # Translate texts one by one since we don't have batch translation
+    for text in texts:
+        result = translator.translate(text, "en", "zh-CN")
+        assert isinstance(result, text_type)
+        results.append(result)
+
+    assert len(results) == len(texts)
+    assert all(isinstance(r, text_type) for r in results)
+    assert all(len(r) > 0 for r in results)

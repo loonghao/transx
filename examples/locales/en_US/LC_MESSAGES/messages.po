@@ -125,5 +125,3 @@ msgstr "Path to the file: \"C:\\Program Files\\MyApp\""
 #: G:/PycharmProjects/github/transx/examples/demo.py:69
 msgid "如果出现错误，显示找不到 DCF_updateViewportList,或者找不到 CgAbBlastPanelOptChangeCallback，说明你的文件存在病毒，请运行一下打开优化工具，执行 remove unknown node and plugin 和 remove callback 两个按钮，然后保存一下文件"
 msgstr "If an error occurs, showing that DCF_updateViewportList cannot be found, or CgAbBlastPanelOptChangeCallback cannot be found, it means that your file has a virus. Please run the optimization tool, execute the remove unknown node and plugin and remove callback buttons, and then save the file."
-
-

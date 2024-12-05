@@ -43,6 +43,9 @@ examples:
 
     # Compile specific PO files
     transx compile path/to/file1.po path/to/file2.po
+
+    # List available locales
+    transx list
     """
 
     parser = argparse.ArgumentParser(
@@ -135,6 +138,17 @@ examples:
         help="Base directory to search for PO files (default: current directory)"
     )
 
+    # list command
+    list_parser = subparsers.add_parser(
+        "list",
+        help="List available locales in the project"
+    )
+    list_parser.add_argument(
+        "-d", "--directory",
+        default=DEFAULT_LOCALES_DIR,
+        help="Base directory to search for locales (default: %s)" % DEFAULT_LOCALES_DIR
+    )
+
     return parser
 
 
@@ -177,7 +191,7 @@ def extract_command(args):
             )
 
         # Generate language files
-        languages = args.LANGUAGES.split(",") if args.LANGUAGES else DEFAULT_LANGUAGES
+        languages = args.languages.split(",") if args.languages else DEFAULT_LANGUAGES
         locales_dir = os.path.abspath(args.output_dir)
 
         # Create updater for language files
@@ -204,7 +218,7 @@ def update_command(args):
         updater = PotUpdater(args.pot_file, args.output_dir)
 
         # If no languages specified, discover from locales directory
-        if not args.LANGUAGES:
+        if not args.languages:
             # Import built-in modules
             import glob
             locale_pattern = os.path.join(args.output_dir, "*")
@@ -212,9 +226,9 @@ def update_command(args):
             if not locales:
                 logger.error("No language directories found in %s", args.output_dir)
                 return 1
-            args.LANGUAGES = ",".join(locales)
+            args.languages = ",".join(locales)
 
-        languages = [lang.strip() for lang in args.LANGUAGES.split(",") if lang.strip()]
+        languages = [lang.strip() for lang in args.languages.split(",") if lang.strip()]
 
         # Create language catalogs
         updater.create_language_catalogs(languages)
@@ -262,6 +276,36 @@ def compile_command(args):
     return 0 if success else 1
 
 
+def list_command(args):
+    """Execute list command."""
+    logger = get_logger(__name__)
+
+    # Check if directory exists first
+    if not os.path.exists(args.directory):
+        logger.error("Directory not found: %s", args.directory)
+        return 1
+
+    # Import local modules
+    from transx import TransX
+
+    try:
+        tx = TransX(locales_root=args.directory)
+        locales = tx.available_locales
+
+        if not locales:
+            logger.info("No locales found in: %s", args.directory)
+            return 0
+
+        logger.info("Available locales (%d):", len(locales))
+        for locale in locales:
+            logger.info("  - %s", locale)
+        return 0
+
+    except Exception as e:
+        logger.error("Error listing locales: %s", str(e))
+        return 1
+
+
 def main():
     """Main entry function."""
     # Setup logging
@@ -280,6 +324,8 @@ def main():
         return update_command(args)
     elif args.command == "compile":
         return compile_command(args)
+    elif args.command == "list":
+        return list_command(args)
     else:
         parser.print_help()
         return 1

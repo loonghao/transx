@@ -161,26 +161,56 @@ TransX provides a powerful CLI for translation management:
 # Extract from a single file
 transx extract app.py -o messages.pot
 
-# Extract from a directory
+# Extract from a directory with project info
 transx extract ./src -o messages.pot -p "MyProject" -v "1.0"
+
+# Extract and specify languages
+transx extract ./src -l "en_US,zh_CN,ja_JP"
 ```
 
 ### Update PO Files
 ```bash
 # Update or create PO files for specific languages
-transx update messages.pot -l zh_CN ja_JP ko_KR
+transx update messages.pot -l "zh_CN,ja_JP,ko_KR"
 
-# Auto-translate during update
-transx update messages.pot -l zh_CN ja_JP ko_KR --translate
+# Auto-discover and update all language files
+transx update messages.pot
+
+# Update with custom output directory
+transx update messages.pot -o ./locales
 ```
 
 ### Compile MO Files
 ```bash
 # Compile a single PO file
-transx compile locales/zh_CN/LC_MESSAGES/messages.po
+transx compile path/to/messages.po
 
 # Compile all PO files in a directory
-transx compile locales
+transx compile -d ./locales
+
+# Compile multiple specific files
+transx compile file1.po file2.po
+```
+
+### List Available Locales
+```bash
+# List all available locales in default directory
+transx list
+
+# List locales in a specific directory
+transx list -d /path/to/locales
+```
+
+### Common Options
+- `-d, --directory`: Specify working directory
+- `-o, --output`: Specify output file/directory
+- `-l, --languages`: Comma-separated list of language codes
+- `-p, --project`: Project name (for POT generation)
+- `-v, --version`: Project version (for POT generation)
+
+For detailed help on any command:
+```bash
+transx <command> --help
 ```
 
 ## 🎯 Advanced Features
