@@ -82,7 +82,7 @@ def main():
         print("==================================================")
 
         # Switch language
-        tx.current_locale = lang
+        tx.switch_locale(lang)
 
         # Run all tests
         test_basic_translations(tx)

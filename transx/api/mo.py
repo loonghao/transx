@@ -7,6 +7,9 @@
 from __future__ import unicode_literals
 
 # Import built-in modules
+from io import BytesIO
+import os
+
 # fmt: on
 import re
 import struct
@@ -25,17 +28,21 @@ from transx.constants import DEFAULT_ENCODING
 from transx.internal.compat import binary_type
 from transx.internal.compat import ensure_unicode
 from transx.internal.compat import text_type
+from transx.internal.filesystem import read_file
 
 
 class MOFile(object):
     """Class representing a MO file."""
 
-    def __init__(self, fileobj=None):
+    def __init__(self, path=None, locale=None):
         """Initialize a new MO file handler.
 
         Args:
-            fileobj: Optional file object to read from
+            path: Path to the MO file or a file-like object
+            locale: Locale code (e.g., 'en_US', 'zh_CN')
         """
+        self.path = path if isinstance(path, (str, text_type)) else None
+        self.locale = locale
         self.magic = 0x950412de  # Little endian magic
         self.version = 0
         self.num_strings = 0
@@ -46,8 +53,29 @@ class MOFile(object):
         self.translations = OrderedDict()
         self.metadata = OrderedDict()
 
-        if fileobj is not None:
-            self._parse(fileobj)
+        if path is not None:
+            if isinstance(path, (str, text_type)):
+                if os.path.exists(path):
+                    self.load()
+            else:
+                self._parse(path)
+
+    def load(self, file=None):
+        """Load messages from a MO file.
+
+        Args:
+            file: Optional file path to load from. If not provided, uses self.path
+
+        Raises:
+            ValueError: If no file path specified or if the file format is invalid
+        """
+        if file is None:
+            file = self.path
+        if file is None:
+            raise ValueError("No file path specified")
+
+        content = read_file(file, binary=True)
+        self._parse(BytesIO(content))
 
     def _parse(self, fileobj):
         """Parse MO file format.
@@ -130,8 +158,26 @@ class MOFile(object):
             s = s.encode(DEFAULT_ENCODING)
         return s
 
-    def save(self, fileobj):
+    def save(self, fileobj=None):
         """Save MO file.
+
+        Args:
+            fileobj: File object to write to. If not provided, uses self.path
+
+        Raises:
+            IOError: If the output file cannot be written
+            ValueError: If no file path specified and no file object provided
+        """
+        if fileobj is None:
+            if self.path is None:
+                raise ValueError("No file path specified")
+            with open(self.path, "wb") as fileobj:
+                self._save(fileobj)
+        else:
+            self._save(fileobj)
+
+    def _save(self, fileobj):
+        """Internal method to save MO file to a file object.
 
         Args:
             fileobj: File object to write to
@@ -266,17 +312,15 @@ def compile_po_file(po_file_path, mo_file_path):
     """
     try:
         # Load PO file
-        po = POFile(po_file_path)
+        po = POFile(path=po_file_path)
         po.load()
 
-        # Create MO file
-        mo = MOFile()
+        # Create and save MO file
+        mo = MOFile(path=mo_file_path)
         mo.translations = po.translations
         mo.metadata = po.metadata
+        mo.save()
 
-        # Save MO file
-        with open(mo_file_path, "wb") as f:
-            mo.save(f)
     except (IOError, OSError) as e:
         raise IOError("Failed to compile PO file: %s" % str(e))
     except Exception as e:
