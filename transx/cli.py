@@ -2,7 +2,7 @@
 # Import built-in modules
 import argparse
 import errno
-import logging
+import glob
 import os
 import sys
 
@@ -10,26 +10,45 @@ import sys
 from transx.api.mo import compile_po_file
 from transx.api.pot import PotExtractor
 from transx.api.pot import PotUpdater
+from transx.constants import DEFAULT_LANGUAGES
 from transx.constants import DEFAULT_LOCALES_DIR
 from transx.constants import DEFAULT_MESSAGES_DOMAIN
 from transx.constants import MO_FILE_EXTENSION
 from transx.constants import POT_FILE_EXTENSION
-
-
-def setup_logging():
-    """Setup logging configuration."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(levelname)s: %(message)s"
-    )
-    return logging.getLogger(__name__)
+from transx.internal.logging import get_logger
+from transx.internal.logging import setup_logging
 
 
 def create_parser():
     """Create command line argument parser."""
+    examples = """
+examples:
+    # Extract messages from source files (default: current directory)
+    transx extract
+
+    # Extract messages from specific source
+    transx extract src/myapp -o locales/messages.pot -p "My App" -v "1.0"
+
+    # Update PO files in default locations (locales/*)
+    transx update
+
+    # Update PO files with specific POT file
+    transx update path/to/messages.pot -l "en,zh_CN,ja_JP"
+
+    # Compile all PO files in default locations
+    transx compile
+
+    # Compile PO files from specific directory
+    transx compile -d /path/to/project
+
+    # Compile specific PO files
+    transx compile path/to/file1.po path/to/file2.po
+    """
+
     parser = argparse.ArgumentParser(
         description="TransX - Translation Management Tool",
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=examples
     )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
@@ -40,7 +59,9 @@ def create_parser():
     )
     extract_parser.add_argument(
         "source_path",
-        help="Source file or directory to extract messages from"
+        nargs="?",
+        default=".",
+        help="Source file or directory to extract messages from (default: current directory)"
     )
     extract_parser.add_argument(
         "-o", "--output",
@@ -69,7 +90,7 @@ def create_parser():
     )
     extract_parser.add_argument(
         "-l", "--languages",
-        help="Comma-separated list of languages to generate (default: en,zh_CN,ja_JP,ko_KR)"
+        help="Comma-separated list of languages to generate (default: %s)" % ",".join(DEFAULT_LANGUAGES)
     )
     extract_parser.add_argument(
         "-d", "--output-dir",
@@ -84,11 +105,13 @@ def create_parser():
     )
     update_parser.add_argument(
         "pot_file",
-        help="Path to the POT file"
+        nargs="?",
+        default=os.path.join(DEFAULT_LOCALES_DIR, DEFAULT_MESSAGES_DOMAIN + POT_FILE_EXTENSION),
+        help="Path to the POT file (default: locales/messages.pot)"
     )
     update_parser.add_argument(
         "-l", "--languages",
-        help="Comma-separated list of languages to update (default: en,zh_CN,ja_JP,ko_KR)"
+        help="Comma-separated list of languages to update (default: %s)" % ",".join(DEFAULT_LANGUAGES)
     )
     update_parser.add_argument(
         "-o", "--output-dir",
@@ -103,8 +126,13 @@ def create_parser():
     )
     compile_parser.add_argument(
         "po_files",
-        nargs="+",
-        help="PO files to compile"
+        nargs="*",
+        help="PO files to compile (default: locales/*/LC_MESSAGES/messages.po)"
+    )
+    compile_parser.add_argument(
+        "-d", "--directory",
+        default=".",
+        help="Base directory to search for PO files (default: current directory)"
     )
 
     return parser
@@ -112,7 +140,7 @@ def create_parser():
 
 def extract_command(args):
     """Execute extract command."""
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
 
     if not os.path.exists(args.source_path):
         logger.error("Path does not exist: %s", args.source_path)
@@ -149,7 +177,7 @@ def extract_command(args):
             )
 
         # Generate language files
-        languages = args.languages.split(",") if args.languages else ["en", "zh_CN", "ja_JP", "ko_KR"]
+        languages = args.LANGUAGES.split(",") if args.LANGUAGES else DEFAULT_LANGUAGES
         locales_dir = os.path.abspath(args.output_dir)
 
         # Create updater for language files
@@ -166,18 +194,31 @@ def extract_command(args):
 
 def update_command(args):
     """Execute update command."""
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
 
-    if not os.path.exists(args.pot_file):
-        logger.error("POT file not found: %s", args.pot_file)
-        return 1
-
-    # Create POT updater
     try:
+        if not os.path.exists(args.pot_file):
+            logger.error("POT file not found: %s", args.pot_file)
+            return 1
+
         updater = PotUpdater(args.pot_file, args.output_dir)
-        languages = args.languages.split(",") if args.languages else ["en", "zh_CN", "ja_JP", "ko_KR"]
+
+        # If no languages specified, discover from locales directory
+        if not args.LANGUAGES:
+            # Import built-in modules
+            import glob
+            locale_pattern = os.path.join(args.output_dir, "*")
+            locales = [os.path.basename(p) for p in glob.glob(locale_pattern) if os.path.isdir(p)]
+            if not locales:
+                logger.error("No language directories found in %s", args.output_dir)
+                return 1
+            args.LANGUAGES = ",".join(locales)
+
+        languages = [lang.strip() for lang in args.LANGUAGES.split(",") if lang.strip()]
+
+        # Create language catalogs
         updater.create_language_catalogs(languages)
-        logger.info("Language files updated.")
+
         return 0
     except Exception as e:
         logger.error("Error updating language files: %s", e)
@@ -186,10 +227,21 @@ def update_command(args):
 
 def compile_command(args):
     """Execute compile command."""
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
     success = True
 
-    for po_file in args.po_files:
+    # If no PO files specified, use default pattern
+    if not args.po_files:
+        base_dir = os.path.abspath(args.directory)
+        pattern = os.path.join(base_dir, "locales", "*", "LC_MESSAGES", "messages.po")
+        po_files = glob.glob(pattern)
+        if not po_files:
+            logger.warning("No .po files found matching pattern: %s", pattern)
+            return 0
+    else:
+        po_files = args.po_files
+
+    for po_file in po_files:
         if not os.path.exists(po_file):
             logger.error("PO file not found: %s", po_file)
             success = False
@@ -200,6 +252,8 @@ def compile_command(args):
         logger.info("Compiling %s to %s", po_file, mo_file)
 
         try:
+            # Ensure the directory exists
+            os.makedirs(os.path.dirname(mo_file), exist_ok=True)
             compile_po_file(po_file, mo_file)
         except Exception as e:
             logger.error("Error compiling %s: %s", po_file, e)
