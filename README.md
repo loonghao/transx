@@ -107,6 +107,64 @@ tx.current_locale = "ja_JP"
 print(tx.tr("Hello"))  # Output: こんにちは
 ```
 
+### 🔄 Translation API
+
+TransX provides two main methods for translation with different levels of functionality:
+
+#### tr() - High-Level Translation API
+
+The `tr()` method is the recommended high-level API that provides all translation features:
+
+```python
+# Basic translation
+tx.tr("Hello")  # 你好
+
+# Translation with parameters
+tx.tr("Hello {name}!", name="张三")  # 你好 张三！
+
+# Context-based translation
+tx.tr("Open", context="button")  # 打开
+tx.tr("Open", context="menu")    # 打开文件
+
+# Environment variable expansion
+tx.tr("Home: $HOME")  # Home: /Users/username
+
+# Dollar sign escaping
+tx.tr("Price: $$99.99")  # Price: $99.99
+
+# Complex parameter substitution
+tx.tr("Welcome to ${city}, {country}!", city="北京", country="中国")
+```
+
+#### translate() - Low-Level Translation API
+
+The `translate()` method is a lower-level API that provides basic translation and parameter substitution:
+
+```python
+# Basic translation
+tx.translate("Hello")  # 你好
+
+# Translation with context
+tx.translate("Open", context="button")  # 打开
+
+# Simple parameter substitution
+tx.translate("Hello {name}!", name="张三")  # 你好 张三！
+```
+
+The main differences between `tr()` and `translate()`:
+
+| Feature | tr() | translate() |
+|---------|------|------------|
+| Basic Translation | ✅ | ✅ |
+| Context Support | ✅ | ✅ |
+| Parameter Substitution | ✅ | ✅ |
+| Environment Variables | ✅ | ❌ |
+| ${var} Style Variables | ✅ | ❌ |
+| $$ Escaping | ✅ | ❌ |
+| Interpreter Chain | ✅ | ❌ |
+
+Choose `tr()` for full functionality or `translate()` for simpler use cases where you only need basic translation and parameter substitution.
+
 ### 🔄 Advanced Parameter Substitution
 
 ```python
@@ -253,14 +311,13 @@ except TranslationError as e:
     print(f"❌ Translation failed: {e.message}")
 ```
 
-
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
 ### 📁 Project Structure
 
-```
+```bash
 transx/
 ├── transx/                 # Main package directory
 │   ├── api/               # Public API modules
@@ -287,7 +344,6 @@ transx/
 - 🔒 Thread-safe for concurrent access
 - 📉 Minimal memory footprint
 - 🔄 Automatic PO to MO compilation
-
 
 ### 🔧 Development Setup
 

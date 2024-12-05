@@ -4,7 +4,6 @@
 
 # Import built-in modules
 import os
-from string import Template
 
 # Import local modules
 from transx.api.interpreter import InterpreterFactory
@@ -20,8 +19,6 @@ from transx.constants import MO_FILE_EXTENSION
 from transx.constants import PO_FILE_EXTENSION
 from transx.exceptions import CatalogNotFoundError
 from transx.exceptions import LocaleNotFoundError
-from transx.internal.compat import string_types
-from transx.internal.filesystem import read_file
 from transx.internal.logging import get_logger
 
 
@@ -100,9 +97,8 @@ class TransX:
         # First try loading .mo file
         if os.path.exists(mo_file):
             try:
-                content = read_file(mo_file, binary=True)
-                mo = MOFile()
-                mo._parse(content)
+                mo = MOFile(path=mo_file, locale=locale)
+                mo.load()
                 self._translations[locale] = mo
                 self._catalogs[locale] = TranslationCatalog(translations=mo.translations, locale=locale)
                 self.logger.debug("Loaded MO file: %s" % mo_file)
@@ -162,9 +158,14 @@ class TransX:
         """Get current locale."""
         return self._current_locale
 
-    @current_locale.setter
-    def current_locale(self, locale):
-        """Set current locale and load translations.
+    def switch_locale(self, locale):
+        """Switch to a new locale and load its translations.
+
+        This function performs a complete locale switch by:
+        1. Validating the new locale
+        2. Checking for translation files
+        3. Loading the translation catalog if not already loaded
+        4. Activating the new locale
 
         Args:
             locale: Locale code (e.g. 'en_US', 'zh_CN')
@@ -211,52 +212,46 @@ class TransX:
                         locales.append(item)
         return sorted(locales)
 
-    def translate(self, msgid, catalog=None, **kwargs):
-        """Translate a message.
+    def _get_translation(self, msgid, context=None):
+        """Get translation for the specified msgid and context.
 
         Args:
-            msgid: Message ID to translate
-            catalog: Optional catalog to use. If None, uses current locale's catalog
-            **kwargs: Format arguments
+            msgid (str): Message ID to translate.
+            context (str, optional): Message context.
 
         Returns:
-            Translated string
-
-        Raises:
-            CatalogNotFoundError: If no catalog is available
+            str: Translated text.
         """
-        # Use a unique marker that's unlikely to appear in normal text
-        DOLLAR_MARKER = "__DOUBLE_DOLLAR_SIGN_8A7B6C5D__"
+        if context:
+            msgid = context + "\x04" + msgid
+        catalog = self._catalogs.get(self.current_locale)
+        if catalog:
+            return catalog.get_message(msgid)
+        return None
 
+    def translate(self, msgid, context=None, **kwargs):
+        """Translate a message with optional context and parameter substitution.
+
+        Args:
+            msgid (str): Message ID to translate.
+            context (str, optional): Message context.
+            **kwargs: Parameters for string formatting.
+
+        Returns:
+            str: Translated text with parameters substituted.
+        """
         try:
-            if catalog is None:
-                if not self._catalogs:
-                    raise CatalogNotFoundError("No catalogs available")
-                catalog = self._catalogs.get(self.current_locale)
-                if catalog is None:
-                    raise CatalogNotFoundError(
-                        "No catalog found for locale: %s" % self.current_locale)
-
             # Get translation
-            message = catalog.get_message(msgid)
-            if not message:
-                return msgid
-
-            # Handle both string and Message object returns
-            msgstr = message if isinstance(message, string_types) else message.msgstr
+            msgstr = self._get_translation(msgid, context)
             if not msgstr:
                 return msgid
 
-            # First handle parameter substitution using Template
-            # Temporarily replace $$ with the marker
-            msgstr = msgstr.replace(u"$$", DOLLAR_MARKER)
-            template = Template(msgstr)
-            result = template.safe_substitute(kwargs) if kwargs else msgstr
-            # Handle environment variables
-            result = os.path.expandvars(result)
-            # Restore $$ last
-            result = result.replace(DOLLAR_MARKER, u"$$")
-            return result
+            # If we have kwargs, use parameter-only chain
+            if kwargs:
+                executor = InterpreterFactory.create_parameter_only_chain()
+                return executor.execute_safe(msgstr, kwargs)
+
+            return msgstr
 
         except Exception as e:
             self.logger.warning("Translation substitution failed: %s", str(e))
