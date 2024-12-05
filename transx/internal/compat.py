@@ -20,9 +20,9 @@ try:
 except ImportError:
     from io import BytesIO
 
-
 # Import local modules
 from transx.constants import DEFAULT_CHARSET
+from transx.constants import DEFAULT_ENCODING
 
 
 # Python 2 and 3 compatibility
@@ -98,11 +98,18 @@ def safe_eval_string(token_string):
     return None
 
 def tokenize_source(content):
-    """Tokenize source code content."""
+    """Tokenize source code string.
+
+    Args:
+        content (str): Source code string
+
+    Returns:
+        list: List of tokens
+    """
     if PY2:
-        return list(tokenize.generate_tokens(BytesIO(content.encode("utf-8")).readline))
+        return list(tokenize.generate_tokens(BytesIO(content.encode(DEFAULT_ENCODING)).readline))
     else:
-        return list(tokenize.tokenize(BytesIO(content.encode("utf-8")).readline))
+        return list(tokenize.tokenize(BytesIO(content.encode(DEFAULT_ENCODING)).readline))
 
 def decompress_gzip(data):
     """Decompress gzipped data.

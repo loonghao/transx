@@ -25,7 +25,7 @@ def read_file(file_path, encoding=DEFAULT_ENCODING, binary=False):
 
     Args:
         file_path: Path to the file
-        encoding: File encoding (default: utf-8)
+        encoding: File encoding (default: DEFAULT_ENCODING)
         binary: If True, read file in binary mode (default: False)
 
     Returns:
@@ -45,7 +45,7 @@ def write_file(file_path, content, encoding=DEFAULT_ENCODING):
     Args:
         file_path: Path to the file
         content: Content to write
-        encoding: File encoding (default: utf-8)
+        encoding: File encoding (default: DEFAULT_ENCODING)
     """
     # Create directory if it doesn't exist
     directory = os.path.dirname(file_path)

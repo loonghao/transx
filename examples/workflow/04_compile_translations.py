@@ -6,6 +6,7 @@
 import os
 
 # Import third-party modules
+from common import LANGUAGES
 from common import LOCALES_DIR
 
 # Import local modules
@@ -16,9 +17,7 @@ from transx.api.mo import compile_po_file
 def compile_translations():
     """Compile PO files to MO files for all supported languages."""
     # Use standardized full language codes
-    languages = ["zh_CN", "ja_JP", "ko_KR", "fr_FR", "es_ES"]
-
-    for lang in languages:
+    for lang in LANGUAGES:
         # Normalize language code
         normalized_lang = normalize_language_code(lang)
 

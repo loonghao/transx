@@ -5,6 +5,7 @@
 # Import built-in modules
 
 # Import third-party modules
+from common import LANGUAGES
 from common import LOCALES_DIR
 from common import POT_FILE
 
@@ -17,9 +18,7 @@ def update_translations():
     # Create PO updater
     updater = PotUpdater(pot_file=POT_FILE, locales_dir=LOCALES_DIR)
 
-    # Update PO files for all languages
-    languages = ["zh", "ja_JP", "ko_KR", "fr_FR", "es_ES"]
-    updater.create_language_catalogs(languages)
+    updater.create_language_catalogs(LANGUAGES)
 
     print("Language catalogs updated.")
 
