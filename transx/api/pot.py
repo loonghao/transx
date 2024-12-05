@@ -18,7 +18,9 @@ from transx.api.message import Message
 from transx.api.translate import POFile
 from transx.constants import DEFAULT_CHARSET
 from transx.constants import DEFAULT_KEYWORDS
+from transx.constants import HEADER_COMMENT
 from transx.constants import LANGUAGE_CODES
+from transx.constants import LANGUAGE_NAMES
 from transx.constants import METADATA_KEYS
 from transx.internal.compat import PY2
 from transx.internal.compat import safe_eval_string
@@ -72,12 +74,7 @@ class POTFile(object):
         })
 
         # Create header comment
-        self.header_comment = (
-            "# Translations template for PROJECT.\n"
-            "# Copyright (C) {} ORGANIZATION\n"
-            "# This file is distributed under the same license as the PROJECT project.\n"
-            "# FIRST AUTHOR <EMAIL@ADDRESS>, {}."
-        ).format(year, year)
+        self.header_comment = HEADER_COMMENT.format(year, year)
 
         # Create metadata message
         metadata_str = []
@@ -625,13 +622,7 @@ class PotExtractor(object):
         creation_date = now.strftime("%Y-%m-%d %H:%M%z")
 
         # Add header comments
-        self.catalog.header_comment = (
-            "# Translations template for PROJECT.\n"
-            "# Copyright (C) {} ORGANIZATION\n"
-            "# This file is distributed under the same license as the PROJECT project.\n"
-            "# FIRST AUTHOR <EMAIL@ADDRESS>, {}.\n"
-            "#\n"
-        ).format(year, year)
+        self.catalog.header_comment = HEADER_COMMENT.format(year, year)
 
         self.catalog.metadata.update({
             "Project-Id-Version": "PROJECT VERSION",
@@ -966,15 +957,7 @@ class PotUpdater(object):
         revision_date = now.strftime("%Y-%m-%d %H:%M%z")
 
         # Get language display name
-        language_name = {
-            "en_US": "English (United States)",
-            "zh_CN": "Chinese (Simplified)",
-            "zh_TW": "Chinese (Traditional)",
-            "ja_JP": "Japanese",
-            "ko_KR": "Korean",
-            "fr_FR": "French",
-            "es_ES": "Spanish",
-        }.get(language, language)
+        language_name = LANGUAGE_NAMES.get(language, language)
 
         # Set language-specific metadata
         metadata.update({
@@ -1009,22 +992,8 @@ class PotUpdater(object):
             language: Language code for the PO file
         """
         # Get language display name
-        language_name = {
-            "en_US": "English (United States)",
-            "zh_CN": "Chinese (Simplified)",
-            "zh_TW": "Chinese (Traditional)",
-            "ja_JP": "Japanese",
-            "ko_KR": "Korean",
-            "fr_FR": "French",
-            "es_ES": "Spanish",
-        }.get(language, language)
+        language_name = LANGUAGE_NAMES.get(language, language)
 
         # Add header comments with fuzzy flag
         year = datetime.datetime.now().year
-        po_catalog.header_comment = (
-            "# {} translations for PROJECT.\n"
-            "# Copyright (C) {} ORGANIZATION\n"
-            "# This file is distributed under the same license as the PROJECT project.\n"
-            "# FIRST AUTHOR <EMAIL@ADDRESS>, {}.\n"
-            "#\n"
-        ).format(language_name, year, year)
+        po_catalog.header_comment = HEADER_COMMENT.format(language_name, year, year)

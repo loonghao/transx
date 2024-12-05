@@ -30,6 +30,7 @@ except ImportError:
 # Import local modules
 from transx.api.locale import normalize_language_code
 from transx.api.po import POFile
+from transx.constants import REQUEST_HEADERS
 from transx.exceptions import TranslationError
 from transx.internal.compat import PY2
 from transx.internal.compat import binary_type
@@ -293,18 +294,6 @@ class GoogleTranslator(Translator):
         self.logger.debug("Making request to URL: %s", url)
         self.logger.debug("Request params: %s", params)
 
-        # Set request headers to mimic a mobile browser
-        headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/119.0.0.0 Mobile Safari/537.36"
-            ),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "Accept-Encoding": "gzip, deflate",
-            "Accept-Language": "*",
-            "Connection": "keep-alive"
-        }
 
         for _attempt in range(self.max_retries):
             try:
@@ -312,7 +301,7 @@ class GoogleTranslator(Translator):
                 self._wait_for_rate_limit()
 
                 # Create and send request
-                request = Request(url, headers=headers)
+                request = Request(url, headers=REQUEST_HEADERS)
                 response = urlopen(request)
 
                 # Reset rate limit state after successful request

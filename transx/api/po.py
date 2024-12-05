@@ -26,6 +26,7 @@ except ImportError:
 
 # Import local modules
 from transx.api.message import Message
+from transx.constants import HEADER_COMMENT
 
 
 class POFile(object):
@@ -64,14 +65,7 @@ class POFile(object):
         year = now.year
 
         # Set default header comment
-        self.header_comment = (
-            "# Translations template for PROJECT.\n"
-            "# Copyright (C) {} ORGANIZATION\n"
-            "# This file is distributed under the same license as the PROJECT project.\n"
-            "# FIRST AUTHOR <EMAIL@ADDRESS>, {}.\n"
-            "#\n"
-            "#, fuzzy"
-        ).format(year, year)
+        self.header_comment = HEADER_COMMENT.format(year, year)
 
         # Set default metadata
         self.metadata.update({
