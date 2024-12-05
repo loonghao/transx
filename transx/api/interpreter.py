@@ -334,6 +334,7 @@ class InterpreterFactory(object):
             DollarSignInterpreter(),
             DollarVariableInterpreter(),
             ParameterSubstitutionInterpreter(),
+            EnvironmentVariableInterpreter(),
             DollarSignRestoreInterpreter(),
             TextTypeInterpreter()
         ])
@@ -350,6 +351,7 @@ class InterpreterFactory(object):
             DollarSignInterpreter(),
             DollarVariableInterpreter(),
             ParameterSubstitutionInterpreter(),
+            EnvironmentVariableInterpreter(),
             DollarSignRestoreInterpreter(),
             TextTypeInterpreter()
         ])
