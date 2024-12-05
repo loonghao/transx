@@ -350,6 +350,7 @@ def list_command(args):
 def translate_command(args):
     """Execute translate command."""
     translator = GoogleTranslator()
+    logger = get_logger(__name__)
 
     # If specific files are provided
     if args.files:
