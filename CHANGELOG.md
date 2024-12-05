@@ -1,3 +1,13 @@
+## v0.4.0 (2024-12-05)
+
+### Feat
+
+- **cli**: Add translate command with support for multiple languages and specific files
+
+### Refactor
+
+- **filesystem**: Update file read/write functions to use explicit encoding and add gitignore handling
+
 ## v0.3.0 (2024-12-05)
 
 ### Feat
