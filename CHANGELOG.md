@@ -1,3 +1,10 @@
+## v0.5.1 (2024-12-06)
+
+### Refactor
+
+- **core, api**: Update variable names and string decoding methods
+- **core**: Refactor translation loading and MO file handling - Use explicit encoding and updated logging - Optimize MO file reading and add hash table for faster lookups
+
 ## v0.5.0 (2024-12-06)
 
 ### Feat
