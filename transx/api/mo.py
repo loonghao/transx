@@ -93,15 +93,15 @@ class MOFile(object):
             self.magic = magic
         else:
             raise ValueError("Bad magic number: 0x%x" % magic)
-        
+
         # Use a unified unpacking function
         def unpack(fmt):
             return struct.unpack(byte_order + fmt, fileobj.read(struct.calcsize(byte_order + fmt)))[0]
-        
+
         self.version = unpack("I")
         if self.version not in (0, 1):
             raise ValueError("Bad version number: %d" % self.version)
-        
+
         self.num_strings = unpack("I")
         self.orig_table_offset = unpack("I")
         self.trans_table_offset = unpack("I")
@@ -114,12 +114,12 @@ class MOFile(object):
             fileobj.seek(self.orig_table_offset + i * 8)
             length = unpack("I")
             offset = unpack("I")
-            
+
             # Read translation
             fileobj.seek(self.trans_table_offset + i * 8)
             trans_length = unpack("I")
             trans_offset = unpack("I")
-            
+
             # Read string data
             msgid = self._read_string(fileobj, offset, length)
             msgstr = self._read_string(fileobj, trans_offset, trans_length)
@@ -131,7 +131,7 @@ class MOFile(object):
             # Parse metadata from empty msgid
             if not msgid and msgstr:
                 self._parse_metadata(msgstr)
-                
+
         # Initialize hash table for faster lookups
         self._init_hash_table()
 
@@ -141,16 +141,16 @@ class MOFile(object):
         data = fileobj.read(length)
         try:
             # Try UTF-8 first
-            return ensure_unicode(data.decode('utf-8'))
+            return ensure_unicode(data.decode("utf-8"))
         except UnicodeDecodeError:
             # Fall back to configured charset
-            return ensure_unicode(data.decode(DEFAULT_ENCODING, errors='replace'))
+            return ensure_unicode(data.decode(DEFAULT_ENCODING, errors="replace"))
 
     def _init_hash_table(self):
         """Initialize hash table for faster lookups."""
         self._hash_table = {}
         if self.hash_table_size:
-            for msgid, message in self.translations.items():
+            for msgid, _message in self.translations.items():
                 h = hash(msgid) % self.hash_table_size
                 self._hash_table[h] = msgid
 
@@ -208,7 +208,7 @@ class MOFile(object):
         # Calculate optimal hash table size
         n = len(self.translations)
         hash_size = max(n * 4 // 3, 3)
-        
+
         # Sort messages by msgid
         messages = sorted(self.translations.values(), key=lambda m: m.msgid)
 
@@ -232,7 +232,7 @@ class MOFile(object):
         # Calculate offsets
         keystart = 7 * 4 + 8 * len(messages) * 2
         valuestart = keystart + sum(len(s) + 1 for s in ids_data)
-        
+
         # Calculate string offsets
         koffsets = []
         voffsets = []
@@ -283,16 +283,16 @@ class MOFile(object):
             return msgid
 
         msgid = ensure_unicode(msgid)
-        
+
         # Try hash table lookup first
-        if hasattr(self, '_hash_table') and self.hash_table_size:
+        if hasattr(self, "_hash_table") and self.hash_table_size:
             h = hash(msgid) % self.hash_table_size
             lookup_msgid = self._hash_table.get(h)
             if lookup_msgid == msgid:
                 message = self.translations.get(lookup_msgid)
                 if message and message.msgstr:
                     return message.msgstr
-                
+
         # Fall back to direct lookup
         message = self.translations.get(msgid)
         return message.msgstr if message and message.msgstr else msgid
