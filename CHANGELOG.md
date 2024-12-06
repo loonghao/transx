@@ -1,3 +1,15 @@
+## v0.5.0 (2024-12-06)
+
+### Feat
+
+- **translator**: Add setter for current locale and update tr method with context parameter
+- **interpreter**: Add EnvironmentVariableInterpreter to support environment variables
+
+### Refactor
+
+- **api**: Refactor import statements in mo.py
+- **core**: Refactor locale switching and translation loading logic
+
 ## v0.4.0 (2024-12-05)
 
 ### Feat
