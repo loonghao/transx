@@ -158,6 +158,11 @@ class TransX:
         """Get current locale."""
         return self._current_locale
 
+    @current_locale.setter
+    def current_locale(self, value):
+        """Set current locale."""
+        self.switch_locale(value)
+
     def switch_locale(self, locale):
         """Switch to a new locale and load its translations.
 
@@ -244,7 +249,7 @@ class TransX:
             # Get translation
             msgstr = self._get_translation(msgid, context)
             if not msgstr:
-                return msgid
+                msgstr = msgid
 
             # If we have kwargs, use parameter-only chain
             if kwargs:
@@ -257,11 +262,12 @@ class TransX:
             self.logger.warning("Translation substitution failed: %s", str(e))
             return msgid
 
-    def tr(self, text, **kwargs):
+    def tr(self, text, context=None, **kwargs):
         """Translate a text with optional parameter substitution.
 
         Args:
             text (str): Text to translate.
+            context (str, optional): Message context for disambiguation.
             **kwargs: Parameters for string formatting.
 
         Returns:
