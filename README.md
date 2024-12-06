@@ -1,5 +1,7 @@
 # 🌏 TransX
 
+English | [简体中文](README_zh.md)
+
 🚀 A lightweight, zero-dependency Python internationalization library that supports Python 2.7 through 3.12.
 
 The API is designed to be [DCC](https://en.wikipedia.org/wiki/Digital_content_creation)-friendly, for example, works with [Maya](https://www.autodesk.com/products/maya/overview), [3DsMax](https://www.autodesk.com/products/3ds-max/overview), [Houdini](https://www.sidefx.com/products/houdini/), etc.
@@ -43,38 +45,27 @@ TransX provides a comprehensive set of features for internationalization:
 - 🔌 **Extensible**: Pluggable custom text interpreters system
 - 🎨 **Flexible Formatting**: Support for various string format styles
 - 🔄 **Runtime Switching**: Dynamic locale switching at runtime
+- 📦 **GNU gettext**: Full compatibility with GNU gettext standard and tools
 
-## 🌍 Language Code Support
+## GNU gettext Compatibility
 
-TransX provides flexible language code handling with automatic normalization. The library supports multiple formats for language codes, making it easy to use in different contexts.
+TransX is fully compatible with the GNU gettext standard, providing seamless integration with existing translation workflows:
 
-#### Supported Language Codes
+- **Standard Formats**: Full support for `.po` and `.mo` file formats according to GNU gettext specifications
+- **File Structure**: Follows the standard locale directory structure (`LC_MESSAGES/domain.{po,mo}`)
+- **Header Support**: Complete support for gettext headers and metadata
+- **Plural Forms**: Compatible with gettext plural form expressions and handling
+- **Context Support**: Full support for msgctxt (message context) using gettext standard separators
+- **Encoding**: Proper handling of character encodings as specified in PO/MO headers
+- **Tools Integration**: Works with standard gettext tools (msgfmt, msginit, msgmerge, etc.)
+- **Binary Format**: Implements the official MO file format specification with both little and big endian support
 
-| Language | Standard Code | Alternative Formats |
-|----------|--------------|-------------------|
-| Chinese (Simplified) | `zh_CN` | `zh-CN`, `zh_Hans`, `Chinese`, `Chinese Simplified` |
-| Japanese | `ja_JP` | `ja`, `Japanese` |
-| Korean | `ko_KR` | `ko`, `Korean` |
-| English | `en_US` | `en`, `English` |
-| French | `fr_FR` | `fr`, `French` |
-| Spanish | `es_ES` | `es`, `Spanish` |
-| German | `de_DE` | `de`, `German` |
-| Italian | `it_IT` | `it`, `Italian` |
-| Russian | `ru_RU` | `ru`, `Russian` |
-
-For a complete list of supported languages, refer to the [language code documentation](https://cloud.google.com/translate/docs/languages).
-
-```python
-from transx import TransX
-
-tx = TransX()
-
-# All these formats are valid:
-tx.current_locale = "zh-CN"    # Hyphen format
-tx.current_locale = "zh_CN"    # Underscore format
-tx.current_locale = "zh"       # Language only
-tx.current_locale = "Chinese"  # Language name
-```
+This means you can:
+- Use existing PO editors like Poedit, Lokalize, or GTranslator
+- Integrate with established translation workflows
+- Migrate existing gettext-based translations seamlessly
+- Use standard gettext tools alongside TransX
+- Maintain compatibility with other gettext-based systems
 
 ## 🚀 Quick Start
 
@@ -111,9 +102,11 @@ print(tx.tr("Hello"))  # Output: こんにちは
 
 TransX provides two main methods for translation with different levels of functionality:
 
+
 #### tr() - High-Level Translation API
 
 The `tr()` method is the recommended high-level API that provides all translation features:
+
 
 ```python
 # Basic translation
@@ -136,9 +129,11 @@ tx.tr("Price: $$99.99")  # Price: $99.99
 tx.tr("Welcome to ${city}, {country}!", city="北京", country="中国")
 ```
 
+
 #### translate() - Low-Level Translation API
 
 The `translate()` method is a lower-level API that provides basic translation and parameter substitution:
+
 
 ```python
 # Basic translation
@@ -151,7 +146,9 @@ tx.translate("Open", context="button")  # 打开
 tx.translate("Hello {name}!", name="张三")  # 你好 张三！
 ```
 
+
 The main differences between `tr()` and `translate()`:
+
 
 | Feature | tr() | translate() |
 |---------|------|------------|
@@ -163,9 +160,12 @@ The main differences between `tr()` and `translate()`:
 | $$ Escaping | ✅ | ❌ |
 | Interpreter Chain | ✅ | ❌ |
 
+
 Choose `tr()` for full functionality or `translate()` for simpler use cases where you only need basic translation and parameter substitution.
 
+
 ### 🔄 Advanced Parameter Substitution
+
 
 ```python
 # Named parameters
@@ -182,9 +182,11 @@ tx.tr("Path: $HOME/documents")  # Supports $var syntax
 tx.tr("Price: $$99.99")  # Outputs: Price: $99.99
 ```
 
+
 ## 🌐 Available Locales
 
 TransX provides a convenient way to get a list of available locales in your project:
+
 
 ```python
 from transx import TransX
@@ -199,10 +201,12 @@ if "zh_CN" in tx.available_locales:
     tx.current_locale = "zh_CN"
 ```
 
+
 The `available_locales` property returns a sorted list of locale codes that:
 - Have a valid locale directory structure (`LC_MESSAGES` folder)
 - Contain either `.po` or `.mo` translation files
 - Are ready to use for translation
+
 
 This is useful for:
 - Building language selection interfaces
@@ -210,9 +214,11 @@ This is useful for:
 - Checking translation file completeness
 - Displaying supported languages to users
 
+
 ## 🛠️ Command Line Interface
 
 TransX provides a powerful CLI for translation management:
+
 
 ### Extract Messages
 ```bash
@@ -226,6 +232,7 @@ transx extract ./src -o messages.pot -p "MyProject" -v "1.0"
 transx extract ./src -l "en_US,zh_CN,ja_JP"
 ```
 
+
 ### Update PO Files
 ```bash
 # Update or create PO files for specific languages
@@ -237,6 +244,7 @@ transx update messages.pot
 # Update with custom output directory
 transx update messages.pot -o ./locales
 ```
+
 
 ### Compile MO Files
 ```bash
@@ -250,6 +258,7 @@ transx compile -d ./locales
 transx compile file1.po file2.po
 ```
 
+
 ### List Available Locales
 ```bash
 # List all available locales in default directory
@@ -259,6 +268,7 @@ transx list
 transx list -d /path/to/locales
 ```
 
+
 ### Common Options
 - `-d, --directory`: Specify working directory
 - `-o, --output`: Specify output file/directory
@@ -266,14 +276,17 @@ transx list -d /path/to/locales
 - `-p, --project`: Project name (for POT generation)
 - `-v, --version`: Project version (for POT generation)
 
+
 For detailed help on any command:
 ```bash
 transx <command> --help
 ```
 
+
 ## 🎯 Advanced Features
 
 ### Context-Based Translations
+
 
 ```python
 # UI Context
@@ -289,9 +302,11 @@ print(tx.tr("Welcome", context="login")) # 欢迎登录
 print(tx.tr("Welcome", context="home"))  # 欢迎回来
 ```
 
+
 ### Error Handling
 
 TransX provides comprehensive error handling with fallback mechanisms:
+
 
 ```python
 from transx import TransX
@@ -311,11 +326,14 @@ except TranslationError as e:
     print(f"❌ Translation failed: {e.message}")
 ```
 
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+
 ### 📁 Project Structure
+
 
 ```bash
 transx/
@@ -337,6 +355,7 @@ transx/
 └── noxfile.py           # Test automation configuration
 ```
 
+
 ## ⚡ Performance Features
 
 - 🚀 Uses compiled MO files for optimal speed
@@ -344,6 +363,7 @@ transx/
 - 🔒 Thread-safe for concurrent access
 - 📉 Minimal memory footprint
 - 🔄 Automatic PO to MO compilation
+
 
 ### 🔧 Development Setup
 
@@ -358,9 +378,11 @@ cd transx
 pip install -r requirements-dev.txt
 ```
 
+
 ### 🔄 Development Workflow
 
 We use [Nox](https://nox.thea.codes/) to automate development tasks. Here are the main commands:
+
 
 ```bash
 # Run linting
@@ -373,15 +395,19 @@ nox -s lint-fix
 nox -s pytest
 ```
 
+
 ### 🧪 Running Tests
 
 Tests are written using pytest and can be run using nox:
+
 
 ```bash
 nox -s pytest
 ```
 
+
 For running specific tests:
+
 
 ```bash
 # Run a specific test file
@@ -391,9 +417,11 @@ nox -s pytest -- tests/test_core.py
 nox -s pytest -- -m "not integration"
 ```
 
+
 ### 🔍 Code Quality
 
 We maintain high code quality standards using various tools:
+
 
 - **Linting**: We use ruff and isort for code linting and formatting
 - **Type Checking**: Static type checking with mypy
@@ -401,12 +429,14 @@ We maintain high code quality standards using various tools:
 - **Coverage**: Code coverage tracking with coverage.py
 - **CI/CD**: Automated testing and deployment with GitHub Actions
 
+
 ### 📝 Documentation
 
 Documentation is written in Markdown and is available in:
 - README.md: Main documentation
 - examples/: Example code and usage
 - API documentation in source code
+
 
 ### 🤝 Contributing Guidelines
 
@@ -416,11 +446,13 @@ Documentation is written in Markdown and is available in:
 4. Run tests and linting
 5. Submit a pull request
 
+
 Please ensure your PR:
 - Passes all tests
 - Includes appropriate documentation
 - Follows our code style
 - Includes test coverage for new features
+
 
 ## 📄 License
 
