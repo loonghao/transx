@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """Core translation functionality."""
-
+import logging
 # Import built-in modules
 import os
 
@@ -17,16 +17,16 @@ from transx.constants import DEFAULT_LOCALES_DIR
 from transx.constants import DEFAULT_MESSAGES_DOMAIN
 from transx.constants import MO_FILE_EXTENSION
 from transx.constants import PO_FILE_EXTENSION
+from transx.constants import DEFAULT_CHARSET
 from transx.exceptions import CatalogNotFoundError
 from transx.exceptions import LocaleNotFoundError
-from transx.internal.logging import get_logger
 
 
 class TransX:
     """Main translation class for handling translations."""
 
     # Class-level logger
-    logger = get_logger(__name__)
+    logger = logging.getLogger(__name__)
 
     def __init__(self, locales_root=None, default_locale=None, strict_mode=False, auto_compile=True):
         """Initialize translator.
@@ -76,10 +76,9 @@ class TransX:
             LocaleNotFoundError: If locale directory not found (only in strict mode)
             ValueError: If locale is None
         """
-        if locale is None:
+        if not locale:
             raise ValueError("Locale cannot be None")
-
-        # Get paths
+            
         locale_dir = os.path.join(self.locales_root, locale, "LC_MESSAGES")
         if not os.path.exists(locale_dir):
             msg = "Locale directory not found: %s" % locale_dir
@@ -87,51 +86,62 @@ class TransX:
                 raise LocaleNotFoundError(msg)
             self.logger.debug(msg)
             return False
-
+            
         mo_file = os.path.join(locale_dir, DEFAULT_MESSAGES_DOMAIN + MO_FILE_EXTENSION)
         po_file = os.path.join(locale_dir, DEFAULT_MESSAGES_DOMAIN + PO_FILE_EXTENSION)
 
         self.logger.debug("Checking MO file: %s" % mo_file)
         self.logger.debug("Checking PO file: %s" % po_file)
-
-        # First try loading .mo file
-        if os.path.exists(mo_file):
-            try:
-                mo = MOFile(path=mo_file, locale=locale)
-                mo.load()
-                self._translations[locale] = mo
-                self._catalogs[locale] = TranslationCatalog(translations=mo.translations, locale=locale)
-                self.logger.debug("Loaded MO file: %s" % mo_file)
-                self.logger.debug("Translations loaded: %d" % len(mo.translations))
+        
+        try:
+            if os.path.exists(mo_file):
+                # Use optimized MOFile reader
+                mo = MOFile(mo_file, locale)
+                catalog = TranslationCatalog(
+                    locale=locale,
+                    charset=mo.metadata.get("Content-Type", "").split("charset=")[-1] or DEFAULT_CHARSET
+                )
+                
+                # Add all translations
+                for msgid, message in mo.translations.items():
+                    if msgid:  # Skip metadata
+                        catalog.add_message(msgid, message.msgstr)
+                        
+                self._catalogs[locale] = catalog
                 return True
-            except Exception as e:
-                msg = "Failed to load MO file %s: %s" % (mo_file, str(e))
-                self.logger.debug(msg)
-                # Don't raise error here, try PO file next
-
-        # If .mo file doesn't exist or failed to load, try .po file
-        if os.path.exists(po_file):
-            try:
-                catalog = POFile(path=po_file, locale=locale)
-                catalog.load()
-                self._translations[locale] = catalog
-                self._catalogs[locale] = TranslationCatalog(translations=catalog.translations, locale=locale)
-                self.logger.debug("Loaded PO file: %s" % po_file)
-                self.logger.debug("Translations loaded: %d" % len(catalog.translations))
+                
+            elif os.path.exists(po_file):
+                # Load PO file
+                po = POFile(po_file)
+                po.load()
+                
+                catalog = TranslationCatalog(
+                    locale=locale,
+                    charset=po.metadata.get("Content-Type", "").split("charset=")[-1] or DEFAULT_CHARSET
+                )
+                
+                # Add all translations
+                for key, message in po.translations.items():
+                    if message.msgid:  # Skip metadata
+                        catalog.add_message(message.msgid, message.msgstr, message.context)
+                        
+                self._catalogs[locale] = catalog
+                
                 if self.auto_compile:
-                    # Try to compile PO to MO for better performance next time
+                    # Try to compile PO to MO for better performance
                     try:
                         compile_po_file(po_file, mo_file)
                         self.logger.debug("Compiled PO file to MO: %s" % mo_file)
                     except Exception as e:
                         self.logger.warning("Failed to compile PO to MO: %s" % str(e))
                 return True
-            except Exception as e:
-                msg = "Failed to load PO file %s: %s" % (po_file, str(e))
-                if self.strict_mode:
-                    raise CatalogNotFoundError(msg)
-                self.logger.debug(msg)
-                return False
+                
+        except Exception as e:
+            msg = "Failed to load catalog: %s" % str(e)
+            if self.strict_mode:
+                raise CatalogNotFoundError(msg)
+            self.logger.debug(msg)
+            return False
 
         msg = "No translation files found for locale: %s" % locale
         if self.strict_mode:
