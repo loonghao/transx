@@ -161,12 +161,23 @@ class Message(object):
             metadata=self.metadata.copy()
         )
 
+    def __hash__(self):
+        """Get hash of the message.
+
+        Returns:
+            int: Hash value based on msgid and context
+        """
+        return hash((self.msgid, self.context))
+
     def __eq__(self, other):
-        """Compare this message with another for equality."""
+        """Compare two messages for equality.
+
+        Args:
+            other: Another Message instance
+
+        Returns:
+            bool: True if messages are equal
+        """
         if not isinstance(other, Message):
-            return NotImplemented
-        return (self.msgid == other.msgid and
-                self.msgid_plural == other.msgid_plural and
-                self.msgstr == other.msgstr and
-                self.msgstr_plural == other.msgstr_plural and
-                self.context == other.context)
+            return False
+        return (self.msgid, self.context) == (other.msgid, other.context)
