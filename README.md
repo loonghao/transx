@@ -18,6 +18,7 @@ The API is designed to be [DCC](https://en.wikipedia.org/wiki/Digital_content_cr
 [![License](https://img.shields.io/pypi/l/transx)](https://pypi.org/project/transx/)
 [![PyPI Format](https://img.shields.io/pypi/format/transx)](https://pypi.org/project/transx/)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/loonghao/transx/graphs/commit-activity)
+![Codecov](https://img.shields.io/codecov/c/github/loonghao/transx)
 
 </div>
 
