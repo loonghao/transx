@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """Test translation functionality."""
+import os.path
+
 # Import built-in modules
 
 # Import third-party modules
@@ -139,7 +141,6 @@ def transx_instance(tmp_path):
     po_dir = tmp_path / "locales" / "zh_CN" / "LC_MESSAGES"
     po_dir.mkdir(parents=True, exist_ok=True)
     po_file = po_dir / "messages.po"
-
     po = POFile(path=str(po_file), locale="zh_CN")
     # Add test translations
     po.add(msgid="Hello", msgstr="Hello")
@@ -161,7 +162,8 @@ def transx_instance(tmp_path):
 
     # Initialize TransX
     tx = TransX(locales_root=str(tmp_path / "locales"))
-    tx.current_locale = "zh_CN"
+    tx.switch_locale("zh_CN")
+    assert     os.path.exists(str(po_file))
     return tx
 
 
