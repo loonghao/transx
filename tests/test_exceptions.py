@@ -1,15 +1,18 @@
 """Test cases for custom exceptions."""
+# Import future modules
 from __future__ import unicode_literals
+
+# Import built-in modules
 import unittest
-from transx.exceptions import (
-    TransXError,
-    CatalogNotFoundError,
-    LocaleNotFoundError,
-    InvalidFormatError,
-    TranslationError,
-    ParserError,
-    ValidationError
-)
+
+# Import local modules
+from transx.exceptions import CatalogNotFoundError
+from transx.exceptions import InvalidFormatError
+from transx.exceptions import LocaleNotFoundError
+from transx.exceptions import ParserError
+from transx.exceptions import TransXError
+from transx.exceptions import TranslationError
+from transx.exceptions import ValidationError
 
 
 class TestExceptions(unittest.TestCase):
@@ -61,7 +64,7 @@ class TestExceptions(unittest.TestCase):
         self.assertEqual(error1.file_path, "/path/to/file.po")
         self.assertIsNone(error1.line_number)
         self.assertIsNone(error1.reason)
-        
+
         # Test with all arguments
         error2 = ParserError(
             "/path/to/file.po",

@@ -50,7 +50,7 @@ def test_get_instance_with_kwargs(manager):
         default_locale="ja_JP",
     )
     assert instance.app_name == "test_app"
-    assert instance._context._default_locale == "ja_JP"
+    assert instance.context.default_locale == "ja_JP"  # Use property instead
 
 def test_get_config(manager):
     """Test configuration management."""
@@ -97,6 +97,6 @@ def test_manager_instance_reuse(manager):
 
     # Should reuse existing instance and ignore new kwargs
     assert instance1 is instance2
-    assert instance1._context._default_locale == "en_US"
+    assert instance1.context.default_locale == "en_US"  # Use property instead
     instance3 = manager.get_instance("test_app")
-    assert instance3._context._default_locale == "en_US"
+    assert instance3.context.default_locale == "en_US"

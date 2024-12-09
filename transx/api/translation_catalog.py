@@ -26,8 +26,8 @@ class TranslationCatalog:
         self.locale = locale
         self.domain = domain
         self.charset = charset
-        self._messages = {}  # {msgid: (msgstr, context, is_plural)}
-        self._variants = {}  # {normalized_key: [msgid1, msgid2, ...]}
+        self._messages = {}  # {(msgid, context): Message object}
+        self._variants = {}  # {normalized_key: [(msgid, context), ...]}
 
         # Initialize from existing translations if provided
         if translations:
@@ -60,14 +60,43 @@ class TranslationCatalog:
         if context:
             msgid = context + "\x04" + msgid
 
-        self._messages[msgid] = (msgstr, context, is_plural)
+        self._messages[(msgid, context)] = msgstr  # Changed here
 
         # Add to variants index
         norm_key = self._normalize_key(msgid)
         if norm_key not in self._variants:
             self._variants[norm_key] = []
-        if msgid not in self._variants[norm_key]:
-            self._variants[norm_key].append(msgid)
+        if (msgid, context) not in self._variants[norm_key]:  # Changed here
+            self._variants[norm_key].append((msgid, context))  # Changed here
+
+    def get_translation(self, msgid, context=None):
+        """Get translation for a message.
+
+        Args:
+            msgid: Message ID to translate
+            context: Optional context for the message
+
+        Returns:
+            str: Translated text or original text if not found
+        """
+        if not isinstance(msgid, text_type):
+            msgid = text_type(msgid)
+
+        key = (msgid, context)
+        message = self._messages.get(key)
+        if message:
+            return text_type(message) if message else msgid
+
+        # Try to find a variant match
+        normalized = self._normalize_key(msgid)
+        variants = self._variants.get(normalized, [])
+        for variant_key in variants:
+            if variant_key[1] == context:  # Match context
+                message = self._messages.get(variant_key)
+                if message:
+                    return text_type(message)
+
+        return msgid
 
     def get_message(self, msgid, context=None):
         """Get a message from the catalog.
@@ -86,8 +115,8 @@ class TranslationCatalog:
         if context:
             msgid = context + "\x04" + msgid
 
-        if msgid in self._messages:
-            msgstr, msg_context, is_plural = self._messages[msgid]
+        if (msgid, context) in self._messages:
+            msgstr = self._messages[(msgid, context)]
             return msgstr
         return None
 

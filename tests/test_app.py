@@ -40,7 +40,7 @@ def test_get_transx_instance_with_kwargs():
         strict_mode=True
     )
     assert instance.app_name == "test_app"
-    assert instance._context._default_locale == "ja_JP"
+    assert instance.context.default_locale == "ja_JP"  # Use property instead
 
 def test_get_transx_instance_invalid_app_name():
     """Test error handling for invalid app names."""
@@ -111,11 +111,11 @@ def test_instance_persistence():
 
     # Get same instance again
     instance2 = get_transx_instance("test_app")
-    assert instance2._context.current_locale == "ja_JP"
+    assert instance2.context.current_locale == "ja_JP"
 
     # Settings should persist even with new instance
     instance3 = get_transx_instance("test_app", default_locale="en_US")
-    assert instance3._context._default_locale == "en_US"  # Previous setting should win
+    assert instance3.context.default_locale == "en_US"  # Use property instead
 
 @pytest.fixture
 def cleanup_instances():

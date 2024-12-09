@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: TransX Demo 1.0\n"
 "Report-Msgid-Bugs-To: transx@example.com\n"
-"POT-Creation-Date: 2024-12-06 01:47\n"
+"POT-Creation-Date: 2024-12-09 20:52\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: fr_FR <LL@li.org>\n"
@@ -20,108 +20,71 @@ msgstr ""
 "Copyright-Holder: TransX Team\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:28
+#: G:/PycharmProjects/github/transx/examples/demo.py:127
 msgctxt "login"
 msgid "Hello"
 msgstr "Bonjour"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:29
+#: G:/PycharmProjects/github/transx/examples/demo.py:88
+#: G:/PycharmProjects/github/transx/examples/demo.py:190
 msgid "Welcome {name}"
 msgstr "Bienvenue {name}"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:30
-#: G:/PycharmProjects/github/transx/examples/demo.py:37
-msgid "Hello~"
-msgstr "Bonjour~"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:31
-msgid "Current username: $username"
-msgstr "Nom d&#39;utilisateur actuel : $username"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:32
-msgid "Current language is {lang}"
-msgstr "La langue actuelle est {lang}"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:38
-msgid "Starting workflow"
-msgstr "Démarrage du flux de travail"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:39
-msgid "Processing file {filename}"
-msgstr "Traitement du fichier {filename}"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:40
-msgid "Workflow completed"
-msgstr "Flux de travail terminé"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:41
-msgid "Validating input data"
-msgstr "Validation des données d&#39;entrée"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:42
-msgid "Analyzing results"
-msgstr "Analyse des résultats"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:43
-msgid "Task completed successfully"
-msgstr "Tâche accomplie avec succès"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:48
-msgid "Error: File not found"
-msgstr "Erreur : fichier non trouvé"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:49
-msgid "Warning: Low disk space"
-msgstr "Attention : espace disque faible"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:50
-msgid "Invalid input: {input}"
-msgstr "Entrée non valide : {input}"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:51
-msgid "Operation failed: {reason}"
-msgstr "Opération échouée : {reason}"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:56
+#: G:/PycharmProjects/github/transx/examples/demo.py:89
+#: G:/PycharmProjects/github/transx/examples/demo.py:189
 msgid "Hello"
 msgstr "Bonjour"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:57
+#: G:/PycharmProjects/github/transx/examples/demo.py:128
 msgid "Hello\\nWorld"
 msgstr "Bonjour\\nMonde"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:58
+#: G:/PycharmProjects/github/transx/examples/demo.py:129
 msgid "Tab\\there"
 msgstr "Tab\\tici"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:59
+#: G:/PycharmProjects/github/transx/examples/demo.py:130
 msgid "Tab\\there!"
 msgstr "Tab\\tici !"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:60
+#: G:/PycharmProjects/github/transx/examples/demo.py:131
 msgid "Path to the file: \"C:\\Program Files\\MyApp\""
 msgstr "Chemin d&#39;accès au fichier : \"C:\\Program Files\\MyApp\""
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:69
+#: G:/PycharmProjects/github/transx/examples/demo.py:140
 msgid "如果出现错误，显示找不到 DCF_updateViewportList,或者找不到 CgAbBlastPanelOptChangeCallback，说明你的文件存在病毒，请运行一下打开优化工具，执行 remove unknown node and plugin 和 remove callback 两个按钮，然后保存一下文件"
 msgstr "Si une erreur se produit et indique que DCF_updateViewportList est introuvable, ou que CgAbBlastPanelOptChangeCallback est introuvable, cela signifie que votre fichier contient un virus. Veuillez l&#39;exécuter pour ouvrir l&#39;outil d&#39;optimisation, exécuter la suppression du nœud et du plugin inconnus et supprimer les boutons de rappel, et. puis enregistrez le fichier."
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:86
+msgctxt "greeting"
+msgid "Hello"
+msgstr "Bonjour"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:87
+msgctxt "morning"
+msgid "Hello"
+msgstr "Bonjour"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:100
+msgid "Hello: $USERNAME"
+msgstr "Bonjour : $USERNAME"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:101
+msgid "Hello: $USERNAME -> $USER"
+msgstr "Bonjour : $USERNAME -&gt; $USER"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:191
+msgid "Settings"
+msgstr "Paramètres"

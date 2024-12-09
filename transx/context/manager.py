@@ -38,14 +38,14 @@ class TransXContextManager(object):
         """
         if app_name in self._instances:
             instance = self._instances[app_name]
+            # Update instance settings if provided
             default_locale = kwargs.get("default_locale")
             if default_locale:
                 default_locale = normalize_language_code(default_locale)
-                # Only log if the requested locale is different
-                if default_locale != instance._context.default_locale:
-                    self.logger.debug("Ignoring default_locale=%s for existing instance with locale %s",
-                               default_locale, instance._context.default_locale)
-                instance._context.default_locale =  default_locale
+                instance._context.default_locale = default_locale  # Use property setter
+                instance._context.current_locale = default_locale  # Set current locale too
+                self.logger.debug("Updated instance %s default locale to %s",
+                                app_name, default_locale)
             return instance
 
         # Get locales root from environment with None as default
@@ -55,6 +55,11 @@ class TransXContextManager(object):
         # Create new instance with locales root and app name
         instance = TransX(locales_root=locales_root, app_name=app_name, **kwargs)
         self._instances[app_name] = instance
+
+        # Initialize config with default locale from instance
+        self._config[app_name] = {
+            "locale": normalize_language_code(instance._context.default_locale or DEFAULT_LOCALE)
+        }
 
         return instance
 

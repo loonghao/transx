@@ -97,6 +97,9 @@ def test_basic_translations(tx):
     print("Direct message: {0}".format(catalog.get_message("Goodbye")))
     print("Direct with context: {0}".format(catalog.get_message("Thanks", context="greeting")))
 
+    print(tx.tr("Hello: $USERNAME"))
+    print(tx.tr("Hello: $${USERNAME} -> %USERNAME%"))
+
 
 def test_locale_persistence():
     """Test locale persistence across instances."""
@@ -192,6 +195,9 @@ def test_multiple_languages(tx):
         print("Simple greeting:", strings["hello"])
         print("Welcome message:", strings["welcome"])
         print("Settings menu:", strings["settings"])
+        test_basic_translations(tx)
+        test_unicode_handling(tx)
+        test_multiline_strings(tx)
 
 
 def main():
@@ -201,12 +207,8 @@ def main():
 
     # Run all tests
     test_instance_management()
-    test_basic_translations(tx)
     test_locale_persistence()
-    test_unicode_handling(tx)
-    test_multiline_strings(tx)
     test_multiple_languages(tx)
-
 
 if __name__ == "__main__":
     main()

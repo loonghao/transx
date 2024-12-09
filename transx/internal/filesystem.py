@@ -279,7 +279,7 @@ def get_config_file_path(app_name=None, filename="config.json"):
     """
     paths = [
         os.path.expanduser(os.path.join("~", ".transx", app_name if app_name else "", filename)),
-        os.path.join(os.getcwd(), ".transx_{}_config.json".format(app_name if app_name else "")), 
+        os.path.join(os.getcwd(), ".transx_{}_config.json".format(app_name if app_name else "")),
     ]
 
     # 在 Windows 上添加 APPDATA 路径
