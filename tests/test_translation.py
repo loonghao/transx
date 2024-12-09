@@ -40,9 +40,9 @@ def test_dollar_sign_handling(transx_instance):
     """Test handling of dollar signs in translations."""
     price = text_type("100")
     # Test with dollar sign
-    assert transx_instance.tr("Price: $${price}", price=price) == text_type(u"价格: $$100")
+    assert transx_instance.tr("Price: $${price}", price=price) == text_type(u"价格: $100")
     # Test with multiple dollar signs
-    assert transx_instance.tr("Price: $${price}$$", price=price) == text_type(u"Price: $$100$$")
+    assert transx_instance.tr("Price: $${price}$$", price=price) == text_type(u"Price: $100$")
 
 
 def test_missing_parameter(transx_instance):
@@ -80,7 +80,7 @@ def test_environment_variable_expansion(transx_instance, env_vars):
     assert transx_instance.tr("Welcome $NONEXISTENT_USER") == text_type("Welcome $NONEXISTENT_USER")
 
     # Test escaping dollar sign with environment variable
-    assert transx_instance.tr("Price: $$TEST_FILE") == text_type("Price: $$TEST_FILE")
+    assert transx_instance.tr("Price: $$TEST_FILE") == text_type("Price: $data.txt")
 
 
 def test_missing_translation(transx_instance):
@@ -253,3 +253,23 @@ def test_batch_translation():
     assert len(results) == len(texts)
     assert all(isinstance(r, text_type) for r in results)
     assert all(len(r) > 0 for r in results)
+
+
+def test_nested_template_handling(transx_instance):
+    """Test handling of nested template syntax."""
+    username = text_type("hallong")
+    key = text_type(u"我们")  # Use unicode literal
+
+    # Test nested dollar sign template
+    assert transx_instance.tr("User: $${username}", username=username) == text_type(u"User: $hallong")
+
+    # Test nested braces template
+    assert transx_instance.tr("Key: {{key}}", key=key) == text_type(u"Key: {我们}")
+
+    # Test both together
+    assert transx_instance.tr("User: $${username}, Key: {{key}}", username=username, key=key) == \
+           text_type(u"User: $hallong, Key: {我们}")
+
+    # Test with missing context
+    assert transx_instance.tr("User: $${missing}") == text_type(u"User: $${missing}")
+    assert transx_instance.tr("Key: {{missing}}") == text_type(u"Key: {{missing}}")

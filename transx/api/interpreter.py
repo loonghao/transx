@@ -58,28 +58,107 @@ class TranslationInterpreter(TextInterpreter):
 
 
 class DollarSignInterpreter(TextInterpreter):
-    """Interpreter for handling dollar sign escaping."""
+    """Interpreter for handling dollar signs."""
     name = "dollar_sign"
-    description = "Handles $$ escaping in text"
+    description = "Handles dollar sign escaping"
 
     def __init__(self):
-        self._dollar_pattern = re.compile(r"\$\$")
+        """Initialize patterns."""
+        self._pattern = re.compile(r"\$\$(?!\{)(\w+|\$)?")  # Match $$ not followed by { and optionally followed by word or $
         self._placeholder = "__DOLLAR_SIGN_PLACEHOLDER_9527__"
 
     def interpret(self, text, context=None):
-        """Interpret text by handling $$ escaping.
+        """Interpret text by handling dollar signs.
 
         Args:
             text: Text to process
-            context: Not used
+            context: Dictionary of parameters to substitute (unused)
 
         Returns:
-            Text with $$ preserved
+            Text with dollar signs processed
         """
-        if "$$" not in text:
+        if not text:
             return text
-        print(text)
-        return text.replace("$$", self._placeholder)
+
+        # Replace $$ with placeholder
+        def repl(match):
+            suffix = match.group(1) or ""
+            return self._placeholder + suffix
+
+        result = self._pattern.sub(repl, text)
+        return result
+
+
+class DollarSignRestoreInterpreter(TextInterpreter):
+    """Interpreter for restoring dollar signs."""
+    name = "dollar_sign_restore"
+    description = "Restores escaped dollar signs"
+
+    def __init__(self):
+        """Initialize patterns."""
+        self._placeholder = "__DOLLAR_SIGN_PLACEHOLDER_9527__"
+
+    def interpret(self, text, context=None):
+        """Interpret text by restoring dollar signs.
+
+        Args:
+            text: Text to process
+            context: Dictionary of parameters to substitute (unused)
+
+        Returns:
+            Text with dollar signs restored
+        """
+        if not text:
+            return text
+
+        # Replace placeholder with $
+        result = text.replace(self._placeholder, "$")
+        return result
+
+
+class EnvironmentVariableInterpreter(TextInterpreter):
+    """Interpreter for environment variable expansion."""
+    name = "environment_variable"
+    description = "Handles environment variable expansion"
+
+    def __init__(self):
+        """Initialize patterns."""
+        self._pattern = re.compile(r"(?:__DOLLAR_SIGN_PLACEHOLDER_9527__|\$)(?!\$|\{)(\w+)")  # Match placeholder or $ not followed by $ or {
+        self._placeholder = "__DOLLAR_SIGN_PLACEHOLDER_9527__"
+
+    def interpret(self, text, context=None):
+        """Interpret text by expanding environment variables.
+
+        Args:
+            text: Text to process
+            context: Dictionary of parameters to substitute (unused)
+
+        Returns:
+            Text with environment variables expanded
+        """
+        if not text:
+            return text
+
+        result = text
+        matches = list(self._pattern.finditer(text))
+        for match in matches:
+            var_name = match.group(1)
+
+            # Get environment variable value, keep original if not found
+            value = os.environ.get(var_name)
+            if value is None:
+                continue
+
+            if isinstance(value, str):
+                value = text_type(value)
+
+            # Replace in text
+            if match.group(0).startswith(self._placeholder):
+                result = result.replace(match.group(0), self._placeholder + value)
+            else:
+                result = result.replace(match.group(0), value)
+
+        return result
 
 
 class DollarVariableInterpreter(TextInterpreter):
@@ -152,46 +231,56 @@ class ParameterSubstitutionInterpreter(TextInterpreter):
             return text
 
 
-class DollarSignRestoreInterpreter(TextInterpreter):
-    """Interpreter for restoring $$ placeholders."""
-    name = "dollar_restore"
-    description = "Restores $$ placeholders back to $$"
+class NestedTemplateInterpreter(TextInterpreter):
+    """Interpreter for handling nested template syntax."""
+    name = "nested_template"
+    description = "Handles nested template syntax like $${var} and {{var}}"
 
     def __init__(self):
-        self._placeholder = "__DOLLAR_SIGN_PLACEHOLDER_9527__"
+        """Initialize patterns."""
+        self._nested_dollar_pattern = re.compile(r"\$\${(\w+)}")
+        self._nested_brace_pattern = re.compile(r"\{\{(\w+)\}\}")
 
     def interpret(self, text, context=None):
-        """Interpret text by restoring $$ placeholders.
+        """Interpret text by handling nested template syntax.
 
         Args:
             text: Text to process
-            context: Not used
+            context: Dictionary of parameters to substitute
 
         Returns:
-            Text with $$ placeholders restored
+            Text with nested templates processed
         """
-        if self._placeholder not in text:
+        if not text or not context:
             return text
 
-        return text.replace(self._placeholder, "$$")
+        result = text
 
+        # Handle $${var} -> $value
+        if "$${" in result:
+            def dollar_repl(match):
+                key = match.group(1)
+                if key not in context:
+                    return match.group(0)  # Keep original if key not found
+                value = context[key]
+                if isinstance(value, str):
+                    value = text_type(value)
+                return text_type("$") + text_type(value)
+            result = self._nested_dollar_pattern.sub(dollar_repl, result)
 
-class EnvironmentVariableInterpreter(TextInterpreter):
-    """Interpreter for environment variable expansion."""
-    name = "env"
-    description = "Expands environment variables in text"
+        # Handle {{var}} -> {value}
+        if "{{" in result:
+            def brace_repl(match):
+                key = match.group(1)
+                if key not in context:
+                    return match.group(0)  # Keep original if key not found
+                value = context[key]
+                if isinstance(value, str):
+                    value = text_type(value)
+                return text_type("{") + text_type(value) + text_type("}")
+            result = self._nested_brace_pattern.sub(brace_repl, result)
 
-    def interpret(self, text, context=None):
-        """Interpret text by expanding environment variables.
-
-        Args:
-            text: Text to process
-            context: Not used
-
-        Returns:
-            Text with environment variables expanded
-        """
-        return os.path.expandvars(text)
+        return result
 
 
 class TextTypeInterpreter(TextInterpreter):
@@ -331,11 +420,12 @@ class InterpreterFactory(object):
         return InterpreterExecutor([
             TextTypeInterpreter(),
             TranslationInterpreter(translator),
-            DollarSignInterpreter(),
-            DollarVariableInterpreter(),
-            ParameterSubstitutionInterpreter(),
-            EnvironmentVariableInterpreter(),
-            DollarSignRestoreInterpreter(),
+            NestedTemplateInterpreter(),  # First handle nested templates
+            DollarSignInterpreter(),  # Then handle $$ -> placeholder
+            EnvironmentVariableInterpreter(),  # Then expand environment variables
+            DollarVariableInterpreter(),  # Then handle regular variables
+            ParameterSubstitutionInterpreter(),  # Finally do parameter substitution
+            DollarSignRestoreInterpreter(),  # Restore $ from placeholder
             TextTypeInterpreter()
         ])
 
@@ -348,10 +438,11 @@ class InterpreterFactory(object):
         """
         return InterpreterExecutor([
             TextTypeInterpreter(),
-            DollarSignInterpreter(),
-            DollarVariableInterpreter(),
-            ParameterSubstitutionInterpreter(),
-            EnvironmentVariableInterpreter(),
-            DollarSignRestoreInterpreter(),
+            NestedTemplateInterpreter(),  # First handle nested templates
+            DollarSignInterpreter(),  # Then handle $$ -> placeholder
+            EnvironmentVariableInterpreter(),  # Then expand environment variables
+            DollarVariableInterpreter(),  # Then handle regular variables
+            ParameterSubstitutionInterpreter(),  # Finally do parameter substitution
+            DollarSignRestoreInterpreter(),  # Restore $ from placeholder
             TextTypeInterpreter()
         ])

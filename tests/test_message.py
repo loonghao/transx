@@ -1,6 +1,11 @@
 """Test cases for Message class."""
+# Import future modules
 from __future__ import unicode_literals
+
+# Import built-in modules
 import unittest
+
+# Import local modules
 from transx.api.message import Message
 
 
@@ -43,7 +48,7 @@ class TestMessage(unittest.TestCase):
         """Test message locations."""
         msg = Message("Test", locations=[("file.py", 10)])
         self.assertEqual(msg.locations, [("file.py", 10)])
-        
+
         # Test adding locations
         msg.add_location("other.py", 20)
         self.assertEqual(msg.locations, [("file.py", 10), ("other.py", 20)])

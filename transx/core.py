@@ -65,22 +65,31 @@ class TransX:
 
             @property
             def default_locale(self):
-                return self._default_locale
+                """Get default locale."""
+                return self._default_locale or DEFAULT_LOCALE
 
             @default_locale.setter
             def default_locale(self, value):
-                self._default_locale = value
+                """Set default locale."""
+                if value:
+                    self._default_locale = normalize_language_code(value)
 
             @property
             def current_locale(self):
-                return self._current_locale
+                """Get current locale."""
+                return self._current_locale or self.default_locale
 
             @current_locale.setter
             def current_locale(self, value):
-                self._current_locale = value
+                """Set current locale."""
+                if value:
+                    self._current_locale = normalize_language_code(value)
 
             def switch_locale(self, locale):
-                self._current_locale = locale
+                """Switch to a new locale."""
+                if not locale:
+                    raise ValueError("Locale cannot be empty")
+                self._current_locale = normalize_language_code(locale)
 
         self._context = Context(self)
         self._translations = {}  # {locale: gettext.GNUTranslations}
@@ -119,6 +128,15 @@ class TransX:
     @current_locale.setter
     def current_locale(self, value):
         self._context.current_locale = value
+
+    @property
+    def context(self):
+        """Get the context object.
+
+        Returns:
+            Context: The context object
+        """
+        return self._context
 
     def switch_locale(self, locale):
         """Switch to a new locale and load its translations.

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: TransX Demo 1.0\n"
 "Report-Msgid-Bugs-To: transx@example.com\n"
-"POT-Creation-Date: 2024-12-09 18:09\n"
+"POT-Creation-Date: 2024-12-09 20:52\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -29,40 +29,48 @@ msgid "Hello"
 msgstr ""
 
 #: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:88
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:187
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:190
 msgid "Welcome {name}"
 msgstr ""
 
 #: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:89
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:186
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:189
 msgid "Hello"
 msgstr ""
 
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:124
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:100
+msgid "Hello: $USERNAME"
+msgstr ""
+
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:101
+msgid "Hello: $USERNAME -> $USER"
+msgstr ""
+
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:127
 msgctxt "login"
 msgid "Hello"
 msgstr ""
 
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:125
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:128
 msgid "Hello\\nWorld"
 msgstr ""
 
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:126
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:129
 msgid "Tab\\there"
 msgstr ""
 
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:127
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:130
 msgid "Tab\\there!"
 msgstr ""
 
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:128
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:131
 msgid "Path to the file: \"C:\\Program Files\\MyApp\""
 msgstr ""
 
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:137
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:140
 msgid "如果出现错误，显示找不到 DCF_updateViewportList,或者找不到 CgAbBlastPanelOptChangeCallback，说明你的文件存在病毒，请运行一下打开优化工具，执行 remove unknown node and plugin 和 remove callback 两个按钮，然后保存一下文件"
 msgstr ""
 
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:188
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:191
 msgid "Settings"
 msgstr ""
