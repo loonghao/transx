@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: TransX Demo 1.0\n"
 "Report-Msgid-Bugs-To: transx@example.com\n"
-"POT-Creation-Date: 2024-12-06 01:47\n"
+"POT-Creation-Date: 2024-12-09 18:09\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,89 +18,51 @@ msgstr ""
 "Generated-By: TransX\n"
 "Copyright-Holder: TransX Team\n"
 
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:28
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:86
+msgctxt "greeting"
+msgid "Hello"
+msgstr ""
+
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:87
+msgctxt "morning"
+msgid "Hello"
+msgstr ""
+
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:88
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:187
+msgid "Welcome {name}"
+msgstr ""
+
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:89
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:186
+msgid "Hello"
+msgstr ""
+
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:124
 msgctxt "login"
 msgid "Hello"
 msgstr ""
 
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:29
-msgid "Welcome {name}"
-msgstr ""
-
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:30
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:37
-msgid "Hello~"
-msgstr ""
-
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:31
-msgid "Current username: $username"
-msgstr ""
-
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:32
-msgid "Current language is {lang}"
-msgstr ""
-
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:38
-msgid "Starting workflow"
-msgstr ""
-
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:39
-msgid "Processing file {filename}"
-msgstr ""
-
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:40
-msgid "Workflow completed"
-msgstr ""
-
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:41
-msgid "Validating input data"
-msgstr ""
-
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:42
-msgid "Analyzing results"
-msgstr ""
-
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:43
-msgid "Task completed successfully"
-msgstr ""
-
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:48
-msgid "Error: File not found"
-msgstr ""
-
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:49
-msgid "Warning: Low disk space"
-msgstr ""
-
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:50
-msgid "Invalid input: {input}"
-msgstr ""
-
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:51
-msgid "Operation failed: {reason}"
-msgstr ""
-
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:56
-msgid "Hello"
-msgstr ""
-
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:57
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:125
 msgid "Hello\\nWorld"
 msgstr ""
 
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:58
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:126
 msgid "Tab\\there"
 msgstr ""
 
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:59
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:127
 msgid "Tab\\there!"
 msgstr ""
 
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:60
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:128
 msgid "Path to the file: \"C:\\Program Files\\MyApp\""
 msgstr ""
 
-#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:69
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:137
 msgid "如果出现错误，显示找不到 DCF_updateViewportList,或者找不到 CgAbBlastPanelOptChangeCallback，说明你的文件存在病毒，请运行一下打开优化工具，执行 remove unknown node and plugin 和 remove callback 两个按钮，然后保存一下文件"
 msgstr ""
 
+#: G:/PycharmProjects/github/transx/examples/workflow/../demo.py:188
+msgid "Settings"
+msgstr ""

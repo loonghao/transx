@@ -42,10 +42,12 @@ TransX provides a comprehensive set of features for internationalization:
 - 🧪 **Testing**: 100% test coverage with extensive cases
 - 🌐 **Auto Translation**: Built-in Google Translate API support
 - 🎥 **DCC Support**: Tested with Maya, 3DsMax, Houdini, etc.
-- 🔌 **Extensible**: Pluggable custom text interpreters system
-- 🎨 **Flexible Formatting**: Support for various string format styles
+- 🔌 **Extensible**: Pluggable custom text interpreters
+- 🎨 **Flexible Formatting**: Multiple string formatting styles
 - 🔄 **Runtime Switching**: Dynamic locale switching at runtime
-- 📦 **GNU gettext**: Full compatibility with GNU gettext standard and tools
+- 🔧 **Qt Integration**: Built-in support for Qt translations
+- 📝 **Message Extraction**: Advanced source code message extraction with context
+- 🌐 **Multi-App Support**: Multiple translation instances for different apps
 
 ## GNU gettext Compatibility
 
@@ -217,8 +219,45 @@ This is useful for:
 
 ## 🛠️ Command Line Interface
 
-TransX provides a powerful CLI for translation management:
+TransX provides a command-line interface for common translation tasks. When no arguments are provided for commands, TransX will use the `./locales` directory in your current working directory as the default path.
 
+```bash
+# Extract messages from source files
+# Default: Will look for source files in current directory and output to ./locales
+transx extract
+
+# Same as:
+transx extract . --output ./locales/messages.pot
+
+# Update .po files with new translations
+# Default: Will update .po files in ./locales
+transx update
+
+# Same as:
+transx update ./locales
+
+# Compile .po files to .mo files
+# Default: Will compile .po files from ./locales
+transx compile
+
+# Same as:
+transx compile ./locales
+```
+
+The default working directory structure:
+```
+./
+└── locales/           # Default translation directory
+    ├── messages.pot   # Extracted messages template
+    ├── en/           # English translations
+    │   └── LC_MESSAGES/
+    │       ├── messages.po
+    │       └── messages.mo
+    └── zh_CN/        # Chinese translations
+        └── LC_MESSAGES/
+            ├── messages.po
+            └── messages.mo
+```
 
 ### Extract Messages
 ```bash
@@ -283,10 +322,143 @@ transx <command> --help
 ```
 
 
-## 🎯 Advanced Features
+## 🚀 Advanced Features
 
-### Context-Based Translations
+### 🖥️ Qt Usage
 
+TransX can be used with Qt applications in two ways:
+
+#### Basic Integration
+
+Use TransX directly in your Qt application:
+
+```python
+from PySide2.QtWidgets import QMainWindow
+from transx import get_transx_instance
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.tx = get_transx_instance("myapp")
+
+        # Translate window title
+        self.setWindowTitle(self.tx.tr("My Application"))
+
+        # Translate menu items
+        file_menu = self.menuBar().addMenu(self.tx.tr("&File"))
+        file_menu.addAction(self.tx.tr("&Open"))
+        file_menu.addAction(self.tx.tr("&Save"))
+```
+
+#### Qt Translator Integration
+
+For Qt's built-in translation system, you'll need to:
+1. First convert your .po files to .qm format using Qt's lrelease tool
+2. Install the .qm files using TransX's Qt extension
+
+```python
+from PySide2.QtWidgets import QApplication, QMainWindow
+from PySide2.QtCore import QTranslator
+from transx.extensions.qt import install_qt_translator
+
+app = QApplication([])
+translator = QTranslator()
+
+# Install translator for specific locale
+# Make sure qt_zh_CN.qm exists in ./translations directory
+install_qt_translator(app, translator, "zh_CN", "./translations")
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        # Note: Qt's tr() will only work with .qm files
+        # For Python strings, use TransX's tr() function
+        self.setWindowTitle("My Application")  # This won't be translated
+```
+
+Converting .po to .qm files:
+```bash
+# Using Qt's lrelease tool
+lrelease translations/zh_CN/LC_MESSAGES/messages.po -qm translations/qt_zh_CN.qm
+```
+
+> Note: The `lrelease` tool is part of Qt's Linguist tools:
+> - Windows: Install with Qt installer from [qt.io](https://www.qt.io/download) (Look for Qt Linguist under Tools)
+> - Linux: Install via package manager
+>   ```bash
+>   # Ubuntu/Debian
+>   sudo apt-get install qttools5-dev-tools
+>
+>   # Fedora
+>   sudo dnf install qt5-linguist
+>
+>   # Arch Linux
+>   sudo pacman -S qt5-tools
+>   ```
+> - macOS: Install via Homebrew
+>   ```bash
+>   brew install qt5
+>   ```
+
+The Qt integration supports:
+- Loading .qm format translation files
+- Multiple translator instances
+- Note: Qt's built-in tr() function requires .qm files and won't work with .mo files
+
+### 🔍 Message Extraction
+
+Extract translatable messages from your source code with powerful context support:
+
+```python
+from transx.api.pot import PotExtractor
+
+# Initialize extractor with output file
+extractor = PotExtractor(pot_file="messages.pot")
+
+# Add source files or directories to scan
+extractor.add_source_file("app.py")
+extractor.add_source_file("utils.py")
+# Or scan entire directories
+extractor.add_source_directory("src")
+
+# Extract messages with project info
+extractor.save_pot(
+    project="MyApp",
+    version="1.0.0",
+    copyright_holder="Your Name",
+    bugs_address="your.email@example.com"
+)
+```
+
+### 🌐 Multi-App Support
+
+Manage multiple translation instances for different applications or components:
+
+```python
+from transx import get_transx_instance
+
+# Create instances for different apps or components
+app1 = get_transx_instance("app1", default_locale="en_US")
+app2 = get_transx_instance("app2", default_locale="zh_CN")
+
+# Each instance has its own:
+# - Translation catalog
+# - Locale settings
+# - Message domains
+app1.tr("Hello")  # Uses app1's translations
+app2.tr("Hello")  # Uses app2's translations
+
+# Switch locales independently
+app1.switch_locale("ja_JP")
+app2.switch_locale("ko_KR")
+```
+
+Multi-app support features:
+- Independent translation catalogs
+- Separate locale settings per instance
+- Thread-safe operation
+
+### 🔤 Context-Based Translations
 
 ```python
 # UI Context
@@ -302,11 +474,9 @@ print(tx.tr("Welcome", context="login")) # 欢迎登录
 print(tx.tr("Welcome", context="home"))  # 欢迎回来
 ```
 
-
-### Error Handling
+### ⚠️ Error Handling
 
 TransX provides comprehensive error handling with fallback mechanisms:
-
 
 ```python
 from transx import TransX
@@ -326,46 +496,9 @@ except TranslationError as e:
     print(f"❌ Translation failed: {e.message}")
 ```
 
+## 🛠️ Development
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-
-### 📁 Project Structure
-
-
-```bash
-transx/
-├── transx/                 # Main package directory
-│   ├── api/               # Public API modules
-│   │   ├── locale.py      # Locale handling
-│   │   ├── mo.py         # MO file operations
-│   │   ├── po.py         # PO file operations
-│   │   └── translate.py   # Translation services
-│   ├── core.py           # Core functionality
-│   ├── cli.py            # Command-line interface
-│   ├── constants.py       # Constants and configurations
-│   └── exceptions.py      # Custom exceptions
-├── tests/                 # Test directory
-├── examples/              # Example code and usage
-├── nox_actions/          # Nox automation scripts
-├── docs/                 # Documentation
-├── pyproject.toml        # Project configuration
-└── noxfile.py           # Test automation configuration
-```
-
-
-## ⚡ Performance Features
-
-- 🚀 Uses compiled MO files for optimal speed
-- 💾 Automatic translation caching
-- 🔒 Thread-safe for concurrent access
-- 📉 Minimal memory footprint
-- 🔄 Automatic PO to MO compilation
-
-
-### 🔧 Development Setup
+### 🔧 Environment Setup
 
 1. Clone the repository:
 ```bash
@@ -378,6 +511,50 @@ cd transx
 pip install -r requirements-dev.txt
 ```
 
+
+### 📦 Project Structure
+
+TransX follows a well-organized package structure:
+
+```
+transx/
+├── transx/                  # Main package directory
+│   ├── __init__.py         # Package initialization
+│   ├── __version__.py      # Version information
+│   ├── api/                # Public API modules
+│   │   ├── __init__.py
+│   │   ├── mo.py          # MO file operations
+│   │   ├── po.py          # PO file operations
+│   │   └── pot.py         # POT file operations
+│   ├── app.py             # Application management
+│   ├── cli.py             # Command-line interface
+│   ├── constants.py        # Constants and configurations
+│   ├── context/           # Translation context management
+│   │   ├── __init__.py
+│   │   └── manager.py    # Context manager implementation
+│   ├── core.py            # Core functionality
+│   ├── exceptions.py       # Custom exceptions
+│   ├── extensions/        # Framework integrations
+│   │   ├── __init__.py
+│   │   └── qt.py         # Qt support
+│   └── internal/          # Internal implementation details
+│       ├── __init__.py
+│       ├── compat.py     # Python 2/3 compatibility
+│       ├── filesystem.py # File system operations
+│       └── logging.py    # Logging utilities
+├── examples/              # Example code
+├── locales/              # Translation files
+├── tests/                # Test suite
+├── nox_actions/          # Nox automation scripts
+├── CHANGELOG.md          # Version history
+├── LICENSE              # MIT License
+├── README.md            # English documentation
+├── README_zh.md         # Chinese documentation
+├── noxfile.py           # Test automation config
+├── pyproject.toml       # Project configuration
+├── requirements.txt     # Production dependencies
+└── requirements-dev.txt # Development dependencies
+```
 
 ### 🔄 Development Workflow
 
@@ -418,7 +595,7 @@ nox -s pytest -- -m "not integration"
 ```
 
 
-### 🔍 Code Quality
+### 📊 Code Quality
 
 We maintain high code quality standards using various tools:
 
@@ -456,4 +633,4 @@ Please ensure your PR:
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
