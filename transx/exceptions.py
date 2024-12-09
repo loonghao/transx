@@ -13,8 +13,12 @@ class TransXError(Exception):
             message: Error message
             *args: Additional arguments
         """
-        super(TransXError, self).__init__(message, *args)
+        super(TransXError, self).__init__(message)
         self.message = message
+
+    def __str__(self):
+        """Return string representation."""
+        return self.message
 
 
 class CatalogNotFoundError(TransXError):
@@ -50,20 +54,18 @@ class LocaleNotFoundError(TransXError):
 class InvalidFormatError(TransXError):
     """Raised when a file format is invalid."""
 
-    def __init__(self, file_path, reason=None, *args):
+    def __init__(self, format, file_path, *args):
         """Initialize the exception.
 
         Args:
-            file_path: Path to the invalid file
-            reason: Optional reason for the invalid format
+            format: The invalid format
+            file_path: Path to the file with invalid format
             *args: Additional arguments
         """
-        message = "Invalid file format: %s" % file_path
-        if reason:
-            message += " (%s)" % reason
+        message = "Invalid format '%s' for file: %s" % (format, file_path)
         super(InvalidFormatError, self).__init__(message, *args)
+        self.format = format
         self.file_path = file_path
-        self.reason = reason
 
 
 class TranslationError(TransXError):

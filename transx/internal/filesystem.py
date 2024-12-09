@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """File system utilities for TransX.
 
 This module provides file system utilities with proper encoding handling
@@ -275,10 +277,9 @@ def get_config_file_path(app_name=None, filename="config.json"):
     Returns:
         str: Path to configuration file
     """
-    # 尝试多个位置存储配置
     paths = [
-        os.path.expanduser(os.path.join("~", ".transx", app_name if app_name else "", filename)),  # 用户目录
-        os.path.join(os.getcwd(), f".transx_{app_name if app_name else ''}_config.json"),  # 当前目录
+        os.path.expanduser(os.path.join("~", ".transx", app_name if app_name else "", filename)),
+        os.path.join(os.getcwd(), ".transx_{}_config.json".format(app_name if app_name else "")), 
     ]
 
     # 在 Windows 上添加 APPDATA 路径
@@ -297,4 +298,4 @@ def get_config_file_path(app_name=None, filename="config.json"):
         elif os.access(directory, os.W_OK):
             return path
 
-    return paths[0]  # 默认返回第一个路径
+    return paths[0]

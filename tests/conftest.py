@@ -167,7 +167,7 @@ def setup_env_vars(locales_dir):
 
     # Set up test environment
     for app in test_apps:
-        env_var = f"TRANSX_{app}_LOCALES_ROOT"
+        env_var = "TRANSX_{}_LOCALES_ROOT".format(app)
         old_env[env_var] = os.environ.get(env_var)
         os.environ[env_var] = locales_dir
 

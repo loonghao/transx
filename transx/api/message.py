@@ -58,8 +58,10 @@ class Message(object):
     def __repr__(self):
         """Return a string representation of the message."""
         if self.msgid_plural:
-            return "<Message(%r, %r, plural=%r)>" % (self.msgid, self.msgstr, self.msgid_plural)
-        return "<Message(%r, %r)>" % (self.msgid, self.msgstr)
+            return str("<Message(%r, %r, plural=%r)>" % (
+                str(self.msgid), str(self.msgstr), str(self.msgid_plural)
+            ))
+        return str("<Message(%r, %r)>" % (str(self.msgid), str(self.msgstr)))
 
     def __str__(self):
         """Return the translated string."""
