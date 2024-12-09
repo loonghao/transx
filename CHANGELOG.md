@@ -1,3 +1,15 @@
+## v0.6.0 (2024-12-09)
+
+### Feat
+
+- **transx**: Add context management and instance caching for TransX
+- **transx**: Add context management and instance caching for TransX
+
+### Refactor
+
+- **core**: Improve locale handling and add new interpreters for nested templates and environment variables
+- **core**: Refactor string formatting and exception handling
+
 ## v0.5.1 (2024-12-06)
 
 ### Refactor
