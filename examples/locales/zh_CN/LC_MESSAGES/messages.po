@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: TransX Demo 1.0\n"
 "Report-Msgid-Bugs-To: transx@example.com\n"
-"POT-Creation-Date: 2024-12-06 01:47\n"
+"POT-Creation-Date: 2024-12-09 18:11\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: zh_CN <LL@li.org>\n"
@@ -20,110 +20,61 @@ msgstr ""
 "Copyright-Holder: TransX Team\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:28
+#: G:/PycharmProjects/github/transx/examples/demo.py:88
+#: G:/PycharmProjects/github/transx/examples/demo.py:187
+msgid "Welcome {name}"
+msgstr "欢迎 {name}"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:89
+#: G:/PycharmProjects/github/transx/examples/demo.py:186
+msgid "Hello"
+msgstr "你好"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:137
+msgid "如果出现错误，显示找不到 DCF_updateViewportList,或者找不到 CgAbBlastPanelOptChangeCallback，说明你的文件存在病毒，请运行一下打开优化工具，执行 remove unknown node and plugin 和 remove callback 两个按钮，然后保存一下文件"
+msgstr "如果出现错误，显示找不到 DCF_updateViewportList,或者找不到 CgAbBlastPanelOptChangeCallback，说明你的文件存在病毒，请运行一下打开优化工具，执行 remove unknown node and plugin 和 remove callback 两个按钮，然后保存一下文件"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:188
+msgid "Settings"
+msgstr "设置"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:86
+msgctxt "greeting"
+msgid "Hello"
+msgstr "你好"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:87
+msgctxt "morning"
+msgid "Hello"
+msgstr "你好"
+
+
+#: G:/PycharmProjects/github/transx/examples/demo.py:124
 msgctxt "login"
 msgid "Hello"
 msgstr "你好"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:29
-msgid "Welcome {name}"
-msgstr "欢迎 {name}"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:30
-#: G:/PycharmProjects/github/transx/examples/demo.py:37
-msgid "Hello~"
-msgstr "你好~"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:31
-msgid "Current username: $username"
-msgstr "当前用户名：$username"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:32
-msgid "Current language is {lang}"
-msgstr "当前语言是 {lang}"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:38
-msgid "Starting workflow"
-msgstr "启动工作流程"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:39
-msgid "Processing file {filename}"
-msgstr "正在处理文件 {filename}"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:40
-msgid "Workflow completed"
-msgstr "工作流程已完成"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:41
-msgid "Validating input data"
-msgstr "验证输入数据"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:42
-msgid "Analyzing results"
-msgstr "分析结果"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:43
-msgid "Task completed successfully"
-msgstr "任务已成功完成"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:48
-msgid "Error: File not found"
-msgstr "错误：未找到文件"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:49
-msgid "Warning: Low disk space"
-msgstr "警告：磁盘空间不足"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:50
-msgid "Invalid input: {input}"
-msgstr "无效输入：{input}"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:51
-msgid "Operation failed: {reason}"
-msgstr "操作失败：{reason}"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:56
-msgid "Hello"
-msgstr "你好"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:57
+#: G:/PycharmProjects/github/transx/examples/demo.py:125
 msgid "Hello\\nWorld"
 msgstr "你好\\n世界"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:58
+#: G:/PycharmProjects/github/transx/examples/demo.py:126
 msgid "Tab\\there"
 msgstr "Tab\\t此处"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:59
+#: G:/PycharmProjects/github/transx/examples/demo.py:127
 msgid "Tab\\there!"
 msgstr "Tab\\t这里！"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:60
+#: G:/PycharmProjects/github/transx/examples/demo.py:128
 msgid "Path to the file: \"C:\\Program Files\\MyApp\""
 msgstr "文件路径：\"C:\\Program Files\\MyApp\""
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:69
-msgid "如果出现错误，显示找不到 DCF_updateViewportList,或者找不到 CgAbBlastPanelOptChangeCallback，说明你的文件存在病毒，请运行一下打开优化工具，执行 remove unknown node and plugin 和 remove callback 两个按钮，然后保存一下文件"
-msgstr "如果出现错误，显示找不到 DCF_updateViewportList,或者找不到 CgAbBlastPanelOptChangeCallback，说明你的文件存在病毒，请运行一下打开优化工具，执行 remove unknown node and plugin 和 remove callback 两个按钮，然后保存一下文件"
-
-

@@ -2,21 +2,14 @@
 # -*- coding: utf-8 -*-
 """Test translation functionality."""
 # Import built-in modules
-import logging
-import sys
 
 # Import third-party modules
 import pytest
 
 # Import local modules
 from transx.constants import DEFAULT_CHARSET
+from transx.internal.compat import PY2
 from transx.internal.compat import text_type
-
-
-logger = logging.getLogger(__name__)
-
-# Python 2 and 3 compatibility
-PY2 = sys.version_info[0] == 2
 
 
 # Basic Translation Tests
@@ -75,7 +68,9 @@ def env_vars(monkeypatch):
 def test_environment_variable_expansion(transx_instance, env_vars):
     """Test environment variable expansion in translations."""
     filename = text_type("test.txt")
-
+    print(transx_instance.current_locale)
+    transx_instance.switch_locale("zh_CN")
+    print(transx_instance.locales_root)
     # Test environment variable expansion with translation
     assert transx_instance.tr("File $TEST_FILE saved") == text_type(u"文件 data.txt 已保存")
 

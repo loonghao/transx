@@ -703,24 +703,37 @@ class PotExtractor(object):
                             break
 
                         # Handle keyword arguments
-                        if token_type == tokenize.NAME and i + 1 < len(tokens) and tokens[i + 1][1] == "=":
-                            if current_string:
-                                string_content = "".join(current_string)
-                                if string_content:
-                                    args.append(string_content)
-                                current_string = []
-                            kwarg_name = token_string
-                            i += 2  # Skip '=' token
-                            if i < len(tokens) and tokens[i][0] == tokenize.STRING:
-                                kwargs[kwarg_name] = safe_eval_string(tokens[i][1])
-                            i += 1
-                            continue
+                        if token_type == tokenize.NAME and i + 1 < len(tokens):
+                            next_token = tokens[i + 1]
+                            if next_token[1] == "=":
+                                if current_string:
+                                    string_content = "".join(current_string)
+                                    if string_content:
+                                        args.append(string_content)
+                                    current_string = []
+                                kwarg_name = token_string
+                                i += 2  # Skip '=' token
+                                if i < len(tokens):
+                                    if tokens[i][0] == tokenize.STRING:
+                                        kwargs[kwarg_name] = safe_eval_string(tokens[i][1])
+                                    elif tokens[i][0] == tokenize.NAME:
+                                        # For variable references in f-strings
+                                        kwargs[kwarg_name] = "{" + tokens[i][1] + "}"
+                                i += 1
+                                continue
 
-                        # Handle string concatenation
+                        # Handle string concatenation and f-strings
                         if token_type == tokenize.STRING:
-                            string_value = safe_eval_string(token_string)
-                            if string_value is not None:
-                                current_string.append(string_value)
+                            # Check for f-string prefix
+                            if token_string.startswith(('f"', "f'", 'F"', "F'")):
+                                # Extract the string content without the f-prefix
+                                raw_string = token_string[2:-1]  # Remove f-prefix and quotes
+                                # For now, we just keep the placeholders as they are
+                                current_string.append(raw_string)
+                            else:
+                                string_value = safe_eval_string(token_string)
+                                if string_value is not None:
+                                    current_string.append(string_value)
 
                         # Skip commas
                         if token_type == tokenize.OP and token_string == ",":
@@ -742,27 +755,14 @@ class PotExtractor(object):
                             if not self._should_skip_string(msgid):
                                 msg = Message(msgid=msgid, context=context)
                                 self._add_message(msg, start[0])
-                    elif func_name == "tr":
+                    elif func_name == "tr" and args:
                         # tr(msgid, context=context)
-                        if args:
-                            msgid = args[0]
-                            context = kwargs.get("context")  # Get context from kwargs
-                            if not self._should_skip_string(msgid):
-                                msg = Message(msgid=msgid, context=context)
-                                self._add_message(msg, start[0])
-                    elif func_name in ("ngettext", "ungettext", "dngettext", "npgettext"):
-                        # Handle plural forms
-                        if len(args) >= 2:
-                            singular, plural = args[0], args[1]
-                            context = args[2] if len(args) > 2 and func_name == "npgettext" else None
-                            if not self._should_skip_string(singular):
-                                msg = Message(msgid=singular, msgid_plural=plural, context=context)
-                                self._add_message(msg, start[0])
-                    else:
-                        # Handle simple gettext functions
-                        if args and not self._should_skip_string(args[0]):
-                            msg = Message(msgid=args[0])
+                        msgid = args[0]
+                        context = kwargs.get("context")  # Get context from kwargs
+                        if not self._should_skip_string(msgid):
+                            msg = Message(msgid=msgid, context=context)
                             self._add_message(msg, start[0])
+
             i += 1
 
     def _should_skip_string(self, string):

@@ -70,9 +70,21 @@ class TranslationCatalog:
             self._variants[norm_key].append(msgid)
 
     def get_message(self, msgid, context=None):
-        """Get a message from the catalog."""
+        """Get a message from the catalog.
+
+        Args:
+            msgid: The message ID to look up
+            context: Optional context for the message
+
+        Returns:
+            The translated message if found, None otherwise
+        """
         if isinstance(msgid, binary_type):
             msgid = msgid.decode(self.charset)
+
+        # If context is provided, prepend it to msgid
+        if context:
+            msgid = context + "\x04" + msgid
 
         if msgid in self._messages:
             msgstr, msg_context, is_plural = self._messages[msgid]

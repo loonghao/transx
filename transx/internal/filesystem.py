@@ -263,3 +263,38 @@ def walk_with_gitignore(root_dir, file_patterns=None):
                 matched_files.append(filepath)
 
     return matched_files
+
+
+def get_config_file_path(app_name=None, filename="config.json"):
+    """Get configuration file path with proper directory creation handling.
+
+    Args:
+        app_name: Optional application name for app-specific config
+        filename: Configuration file name (default: config.json)
+
+    Returns:
+        str: Path to configuration file
+    """
+    # 尝试多个位置存储配置
+    paths = [
+        os.path.expanduser(os.path.join("~", ".transx", app_name if app_name else "", filename)),  # 用户目录
+        os.path.join(os.getcwd(), f".transx_{app_name if app_name else ''}_config.json"),  # 当前目录
+    ]
+
+    # 在 Windows 上添加 APPDATA 路径
+    if os.name == "nt" and "APPDATA" in os.environ:
+        paths.insert(0, os.path.join(os.environ["APPDATA"], "TransX",
+                                   app_name if app_name else "", filename))
+
+    for path in paths:
+        directory = os.path.dirname(path)
+        if not os.path.exists(directory):
+            try:
+                os.makedirs(directory)
+                return path
+            except (IOError, OSError):
+                continue
+        elif os.access(directory, os.W_OK):
+            return path
+
+    return paths[0]  # 默认返回第一个路径
