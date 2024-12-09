@@ -49,7 +49,7 @@ class TransXContextManager(object):
             return instance
 
         # Get locales root from environment with None as default
-        env_var = f"TRANSX_{app_name.upper()}_LOCALES_ROOT"
+        env_var = "TRANSX_{}_LOCALES_ROOT".format(app_name.upper())
         locales_root = os.getenv(env_var)
 
         # Create new instance with locales root and app name
