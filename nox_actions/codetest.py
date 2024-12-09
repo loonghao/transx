@@ -14,4 +14,5 @@ def pytest(session: nox.Session) -> None:
     session.run("pytest", f"--cov={PACKAGE_NAME}",
                 "--cov-report=xml:coverage.xml",
                 f"--rootdir={test_root}",
+                "--cov-report=term-missing",
                 env={"PYTHONPATH": THIS_ROOT.as_posix()})
