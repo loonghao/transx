@@ -39,45 +39,65 @@ jobs:
       run: |
         nox -s benchmark
 
-    - name: Store benchmark result in main repo
+    - name: Store benchmark result
       uses: benchmark-action/github-action-benchmark@v1
       with:
         name: TransX Performance Benchmarks (Python ${{ matrix.python-version }})
         tool: 'pytest'
         output-file-path: output.json
         github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-        auto-push: false  # Must be false when using external-data-json-path
+        auto-push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        gh-repository: 'github.com/loonghao/transx-benchmarks'
         gh-pages-branch: gh-pages
-        alert-threshold: '200%'
+        benchmark-data-dir-path: data/${{ matrix.python-version }}
+        alert-threshold: '150%'
         comment-on-alert: true
         fail-on-alert: true
         alert-comment-cc-users: '@loonghao'
         comment-always: true
         summary-always: true
-        external-data-json-path: ./benchmark/benchmark-data-py${{ matrix.python-version }}.json
+        max-items-in-chart: 100
 
-    - name: Push benchmark result
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      run: |
-        git config --global user.name 'github-actions[bot]'
-        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-        git add ./benchmark/benchmark-data-py${{ matrix.python-version }}.json
-        git commit -m "Update benchmark result for Python ${{ matrix.python-version }}"
-        git push
-
-    - name: Store benchmark result in separate repo
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      uses: benchmark-action/github-action-benchmark@v1
+  update-index:
+    needs: benchmark
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
       with:
-        name: TransX Performance Benchmarks (Python ${{ matrix.python-version }})
-        tool: 'pytest'
-        output-file-path: output.json
-        github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-        auto-push: true
-        gh-repository: 'github.com/loonghao/transx-benchmarks'
-        gh-pages-branch: main
-        alert-threshold: '200%'
-        comment-on-alert: true
-        fail-on-alert: true
-        alert-comment-cc-users: '@loonghao'
-        summary-always: true
+        repository: 'loonghao/transx-benchmarks'
+        ref: gh-pages
+        token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        
+    - name: Generate index page
+      run: |
+        echo "<!DOCTYPE html>" > index.html
+        echo "<html><head>" >> index.html
+        echo "<title>TransX Performance Benchmarks</title>" >> index.html
+        echo "<style>" >> index.html
+        echo "body { font-family: Arial, sans-serif; margin: 40px; }" >> index.html
+        echo "h1 { color: #333; }" >> index.html
+        echo "h2 { color: #666; }" >> index.html
+        echo "ul { list-style-type: none; padding: 0; }" >> index.html
+        echo "li { margin: 10px 0; }" >> index.html
+        echo "a { color: #0366d6; text-decoration: none; }" >> index.html
+        echo "a:hover { text-decoration: underline; }" >> index.html
+        echo "</style>" >> index.html
+        echo "</head><body>" >> index.html
+        echo "<h1>TransX Performance Benchmarks</h1>" >> index.html
+        echo "<h2>Python Versions</h2>" >> index.html
+        echo "<ul>" >> index.html
+        for version in 3.7 3.8 3.9 3.10 3.11 3.12; do
+          echo "<li><a href='./data/${version}/'>Python ${version} Benchmarks</a></li>" >> index.html
+        done
+        echo "</ul>" >> index.html
+        echo "<p>Last updated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')</p>" >> index.html
+        echo "</body></html>" >> index.html
+
+    - name: Commit and push index
+      run: |
+        git config user.name 'github-actions[bot]'
+        git config user.email 'github-actions[bot]@users.noreply.github.com'
+        git add index.html
+        git commit -m "chore: Update benchmark index page" || exit 0
+        git push
