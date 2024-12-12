@@ -68,31 +68,60 @@ jobs:
         repository: 'loonghao/transx-benchmarks'
         ref: gh-pages
         token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-        
+
     - name: Generate index page
+      shell: pwsh
       run: |
-        echo "<!DOCTYPE html>" > index.html
-        echo "<html><head>" >> index.html
-        echo "<title>TransX Performance Benchmarks</title>" >> index.html
-        echo "<style>" >> index.html
-        echo "body { font-family: Arial, sans-serif; margin: 40px; }" >> index.html
-        echo "h1 { color: #333; }" >> index.html
-        echo "h2 { color: #666; }" >> index.html
-        echo "ul { list-style-type: none; padding: 0; }" >> index.html
-        echo "li { margin: 10px 0; }" >> index.html
-        echo "a { color: #0366d6; text-decoration: none; }" >> index.html
-        echo "a:hover { text-decoration: underline; }" >> index.html
-        echo "</style>" >> index.html
-        echo "</head><body>" >> index.html
-        echo "<h1>TransX Performance Benchmarks</h1>" >> index.html
-        echo "<h2>Python Versions</h2>" >> index.html
-        echo "<ul>" >> index.html
-        for version in 3.7 3.8 3.9 3.10 3.11 3.12; do
-          echo "<li><a href='./data/${version}/'>Python ${version} Benchmarks</a></li>" >> index.html
-        done
-        echo "</ul>" >> index.html
-        echo "<p>Last updated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')</p>" >> index.html
-        echo "</body></html>" >> index.html
+        $versions = @('3.7', '3.8', '3.9', '3.10', '3.11', '3.12')
+        $content = @"
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>TransX Performance Benchmarks</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 40px; }
+                h1 { color: #333; }
+                h2 { color: #666; }
+                ul { list-style-type: none; padding: 0; }
+                li { margin: 10px 0; }
+                a { color: #0366d6; text-decoration: none; }
+                a:hover { text-decoration: underline; }
+                .version-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+                .version-card {
+                    border: 1px solid #e1e4e8;
+                    border-radius: 6px;
+                    padding: 16px;
+                    background: #f6f8fa;
+                    transition: transform 0.2s;
+                }
+                .version-card:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                }
+            </style>
+        </head>
+        <body>
+            <h1>TransX Performance Benchmarks</h1>
+            <h2>Python Versions</h2>
+            <div class="version-list">
+        "@
+
+        foreach ($version in $versions) {
+            $content += @"
+                <div class="version-card">
+                    <h3><a href="./data/$version/">Python $version Benchmarks</a></h3>
+                </div>
+        "@
+        }
+
+        $content += @"
+            </div>
+            <p>Last updated: $((Get-Date).ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss UTC"))</p>
+        </body>
+        </html>
+        "@
+
+        $content | Out-File -FilePath index.html -Encoding UTF8
 
     - name: Commit and push index
       run: |
