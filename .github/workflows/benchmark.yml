@@ -51,17 +51,17 @@ jobs:
         alert-threshold: '200%'
         comment-on-alert: true
         fail-on-alert: true
-        alert-comment-cc-users: '@longhao'
+        alert-comment-cc-users: '@loonghao'
         comment-always: true
         summary-always: true
-        external-data-json-path: ./gh-pages/benchmark-data-py${{ matrix.python-version }}.json
+        external-data-json-path: ./benchmark/benchmark-data-py${{ matrix.python-version }}.json
 
     - name: Push benchmark result
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: |
         git config --global user.name 'github-actions[bot]'
         git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-        git add ./gh-pages/benchmark-data-py${{ matrix.python-version }}.json
+        git add ./benchmark/benchmark-data-py${{ matrix.python-version }}.json
         git commit -m "Update benchmark result for Python ${{ matrix.python-version }}"
         git push
 
@@ -74,10 +74,10 @@ jobs:
         output-file-path: output.json
         github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         auto-push: true
-        gh-repository: 'github.com/longhao/transx-benchmarks'
+        gh-repository: 'github.com/loonghao/transx-benchmarks'
         gh-pages-branch: main
         alert-threshold: '200%'
         comment-on-alert: true
         fail-on-alert: true
-        alert-comment-cc-users: '@longhao'
+        alert-comment-cc-users: '@loonghao'
         summary-always: true
