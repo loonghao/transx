@@ -10,6 +10,7 @@ permissions:
   contents: write
   deployments: write
   pull-requests: write
+
 jobs:
   benchmark:
     name: Run pytest-benchmark (Python ${{ matrix.python-version }})
@@ -45,16 +46,24 @@ jobs:
         tool: 'pytest'
         output-file-path: output.json
         github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-        auto-push: ${{ github.event_name == 'push' }}
+        auto-push: false  # Must be false when using external-data-json-path
         gh-pages-branch: gh-pages
         alert-threshold: '200%'
         comment-on-alert: true
         fail-on-alert: true
         alert-comment-cc-users: '@longhao'
         comment-always: true
-        comment-on-pull-request: true
         summary-always: true
         external-data-json-path: ./gh-pages/benchmark-data-py${{ matrix.python-version }}.json
+
+    - name: Push benchmark result
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+        git add ./gh-pages/benchmark-data-py${{ matrix.python-version }}.json
+        git commit -m "Update benchmark result for Python ${{ matrix.python-version }}"
+        git push
 
     - name: Store benchmark result in separate repo
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -71,3 +80,4 @@ jobs:
         comment-on-alert: true
         fail-on-alert: true
         alert-comment-cc-users: '@longhao'
+        summary-always: true
