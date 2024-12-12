@@ -23,3 +23,4 @@ target/*
 /ref/
 /.venv/
 /locales/
+/transx.egg-info/

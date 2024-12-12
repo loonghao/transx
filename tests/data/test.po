@@ -1,0 +1,12 @@
+# None translations for Test Project 1.0.
+# Copyright (C) 2024 ORGANIZATION
+# This file is distributed under the same license as the Test Project 1.0 project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+
+msgid ""
+msgstr ""
+"Project-Id-Version: Test Project 1.0\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2024-12-12 20:49:58+0000\n"
+"PO-Revision-Date: 2024-12-12 20:49:58+0800\n"
