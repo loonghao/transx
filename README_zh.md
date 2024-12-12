@@ -17,7 +17,8 @@
 [![License](https://img.shields.io/pypi/l/transx)](https://pypi.org/project/transx/)
 [![PyPI Format](https://img.shields.io/pypi/format/transx)](https://pypi.org/project/transx/)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/loonghao/transx/graphs/commit-activity)
-
+![Codecov](https://img.shields.io/codecov/c/github/loonghao/transx)
+[![性能测试](https://img.shields.io/badge/benchmarks-查看性能-blue)](https://loonghao.github.io/transx-benchmarks/)
 </div>
 
 ---
@@ -626,3 +627,18 @@ nox -s pytest -- -m "not integration"
 ## 📄 许可证
 
 本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件。
+
+## 性能
+
+TransX 在设计时就非常注重性能。我们通过自动化基准测试持续监控和优化其性能。
+
+查看我们的性能基准测试：[TransX 性能测试](https://loonghao.github.io/transx-benchmarks/)
+
+我们的基准测试套件包括：
+- 翻译查找性能
+- 参数替换性能
+- 语言切换性能
+- 缓存效率
+- 内存使用
+- 并发操作
+- 以及更多...
