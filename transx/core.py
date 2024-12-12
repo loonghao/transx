@@ -94,16 +94,18 @@ class TransX:
         self._context = Context(self)
         self._translations = {}  # {locale: gettext.GNUTranslations}
         self._catalogs = {}  # {locale: TranslationCatalog}
+        self._translation_cache = {}  # {(locale, msgid, context): translated_text}
+        self._parameter_cache = {}  # {(template, param_hash): formatted_text}
+        self._interpreter_cache = {}  # {param_count: interpreter_chain}
+        self._locale_cache = {}  # {locale: {msgid: translated_text}}
 
         # Create locales directory if it doesn't exist
         if not os.path.exists(self.locales_root):
             os.makedirs(self.locales_root)
-            self.logger.debug("Created locales directory: %s", self.locales_root)
 
         # Set default locale
         if default_locale is None:
             default_locale = get_system_locale() or DEFAULT_LOCALE
-            self.logger.debug("Using system locale: %s", default_locale)
 
         # Set default and current locales
         self._context.default_locale = default_locale
@@ -154,19 +156,21 @@ class TransX:
         if not locale:
             raise ValueError("Locale cannot be empty")
 
-        locale =  normalize_language_code(locale)
-
-        # If same locale, return True
+        locale = normalize_language_code(locale)
         if locale == self._context.current_locale:
             return True
 
-        # Load catalog if not already loaded
-        if locale not in self._catalogs and not self.load_catalog(locale) and self.strict_mode:
+        # Try to load catalog if needed
+        needs_catalog = locale not in self._catalogs
+        if needs_catalog and not self.load_catalog(locale) and self.strict_mode:
             return False
 
-        # Update current locale only (not default)
-        self._context.switch_locale(locale)
+        # Create empty catalog for non-strict mode if needed
+        if needs_catalog and locale not in self._catalogs:
+            self._catalogs[locale] = TranslationCatalog(locale=locale)
 
+        # Update locale using context's switch_locale to handle Python 2.7 property refresh issue
+        self._context.switch_locale(locale)
         return True
 
     def register_qt_translator(self, app, translator, translations_path):
@@ -217,11 +221,27 @@ class TransX:
         Returns:
             str: Translated text.
         """
+        # Get from locale cache first
+        locale = self.current_locale
+        locale_cache = self._locale_cache.get(locale)
+        if locale_cache is None:
+            locale_cache = {}
+            self._locale_cache[locale] = locale_cache
+
+        cache_key = (msgid, context)
+        result = locale_cache.get(cache_key)
+        if result is not None:
+            return result
+
+        # Get from catalog
         if context:
             msgid = context + "\x04" + msgid
-        catalog = self._catalogs.get(self.current_locale)
+        catalog = self._catalogs.get(locale)
         if catalog:
-            return catalog.get_message(msgid)
+            result = catalog.get_message(msgid)
+            if result:
+                locale_cache[cache_key] = result
+                return result
         return None
 
     def translate(self, msgid, context=None, **kwargs):
@@ -235,22 +255,37 @@ class TransX:
         Returns:
             str: Translated text with parameters substituted.
         """
-        try:
-            # Get translation
-            msgstr = self._get_translation(msgid, context)
-            if not msgstr:
-                msgstr = msgid
+        # Get translation
+        msgstr = self._get_translation(msgid, context)
+        if not msgstr:
+            msgstr = msgid
 
-            # If we have kwargs, use parameter-only chain
-            if kwargs:
-                executor = InterpreterFactory.create_parameter_only_chain()
-                return executor.execute_safe(msgstr, kwargs)
-
+        # If no parameters, return directly
+        if not kwargs:
             return msgstr
 
-        except Exception as e:
-            self.logger.warning("Translation substitution failed: %s", str(e))
-            return msgid
+        # Create cache key for parameters
+        cache_key = self._create_cache_key(msgstr, kwargs)
+
+        # Check parameter cache
+        result = self._parameter_cache.get(cache_key)
+        if result is not None:
+            return result
+
+        # Get or create interpreter chain based on parameter count
+        param_count = len(kwargs)
+        interpreter_chain = self._interpreter_cache.get(param_count)
+        if interpreter_chain is None:
+            interpreter_chain = InterpreterFactory.create_parameter_only_chain()
+            self._interpreter_cache[param_count] = interpreter_chain
+
+        try:
+            # Use cached interpreter chain
+            result = interpreter_chain.execute_safe(msgstr, kwargs)
+            self._parameter_cache[cache_key] = result
+            return result
+        except Exception:
+            return msgstr
 
     def tr(self, text, context=None, **kwargs):
         """Translate a text with optional parameter substitution.
@@ -263,11 +298,33 @@ class TransX:
         Returns:
             str: Translated text with parameters substituted.
         """
-        # Create interpreter chain
-        executor = InterpreterFactory.create_translation_chain(self)
-        fallback_chain = InterpreterFactory.create_parameter_only_chain()
+        # Create cache key
+        cache_key = (self.current_locale, text, context, self._create_cache_key(text, kwargs)[1])
 
-        return executor.execute_safe(text, kwargs, fallback_chain.interpreters)
+        # Check cache
+        result = self._parameter_cache.get(cache_key)
+        if result is not None:
+            return result
+
+        # Get or create interpreter chains
+        param_count = len(kwargs) if kwargs else 0
+        interpreter_chains = self._interpreter_cache.get(param_count)
+        if interpreter_chains is None:
+            interpreter_chains = (
+                InterpreterFactory.create_translation_chain(self),
+                InterpreterFactory.create_parameter_only_chain()
+            )
+            self._interpreter_cache[param_count] = interpreter_chains
+
+        # Get cached interpreter chains
+        executor, fallback_chain = interpreter_chains
+
+        try:
+            result = executor.execute_safe(text, kwargs, fallback_chain.interpreters)
+            self._parameter_cache[cache_key] = result
+            return result
+        except Exception:
+            return text
 
     def load_catalog(self, locale):
         """Load translation catalog for the specified locale.
@@ -368,3 +425,26 @@ class TransX:
         if self._context.current_locale not in self._catalogs:
             self._catalogs[self._context.current_locale] = TranslationCatalog(locale=self._context.current_locale)
         self._catalogs[self._context.current_locale].add_message(msgid, msgstr)
+
+    def _create_cache_key(self, template, params):
+        """Create a cache key for template and parameters.
+
+        Args:
+            template (str): Template string
+            params (dict): Parameters for string formatting
+
+        Returns:
+            tuple: Cache key
+        """
+        if not params:
+            return template, None
+
+        # Convert nested dictionaries to tuples
+        def dict_to_tuple(d):
+            if isinstance(d, dict):
+                return tuple(sorted((k, dict_to_tuple(v)) for k, v in d.items()))
+            return d
+
+        # Convert parameters to hashable format
+        hashable_params = dict_to_tuple(params)
+        return template, hash(hashable_params)
