@@ -19,7 +19,7 @@ The API is designed to be [DCC](https://en.wikipedia.org/wiki/Digital_content_cr
 [![PyPI Format](https://img.shields.io/pypi/format/transx)](https://pypi.org/project/transx/)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/loonghao/transx/graphs/commit-activity)
 ![Codecov](https://img.shields.io/codecov/c/github/loonghao/transx)
-
+[![Benchmarks](https://img.shields.io/badge/benchmarks-view%20performance-blue)](https://loonghao.github.io/transx-benchmarks/)
 </div>
 
 ---
@@ -496,6 +496,21 @@ try:
 except TranslationError as e:
     print(f"❌ Translation failed: {e.message}")
 ```
+
+## 📄 Performance
+
+TransX is designed with performance in mind. We continuously monitor and optimize its performance through automated benchmarks.
+
+View our performance benchmarks at: [TransX Benchmarks](https://loonghao.github.io/transx-benchmarks/)
+
+Our benchmark suite includes:
+- Translation lookup performance
+- Parameter substitution performance
+- Locale switching performance
+- Cache efficiency
+- Memory usage
+- Concurrent operations
+- And more...
 
 ## 🛠️ Development
 
