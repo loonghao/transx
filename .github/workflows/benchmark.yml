@@ -68,7 +68,7 @@ jobs:
         repository: 'loonghao/transx-benchmarks'
         ref: gh-pages
         token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-        
+
     - name: Generate index page
       run: |
         echo "<!DOCTYPE html>" > index.html
