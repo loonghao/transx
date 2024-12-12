@@ -1,3 +1,9 @@
+## v0.6.1 (2024-12-12)
+
+### Refactor
+
+- **core**: Add translation and parameter caching for improved performance
+
 ## v0.6.0 (2024-12-09)
 
 ### Feat
