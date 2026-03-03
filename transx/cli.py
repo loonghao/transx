@@ -113,6 +113,15 @@ examples:
         default=DEFAULT_LOCALES_DIR,
         help="Output directory for language files (default: %s)" % DEFAULT_LOCALES_DIR
     )
+    extract_parser.add_argument(
+        "-m", "--methods",
+        action="append",
+        nargs="+",
+        default=[],
+        metavar="METHOD",
+        help="Additional extraction methods (e.g., --methods trm lazy_gettext, or repeat -m)"
+    )
+
 
     # update command
     update_parser = subparsers.add_parser(
@@ -216,8 +225,18 @@ def extract_command(args):
         source_files = [args.source_path]
 
     try:
+        additional_keywords = None
+        if args.methods:
+            additional_keywords = []
+            for methods in args.methods:
+                additional_keywords.extend(methods)
+
         # Create and use POT extractor
-        with PotExtractor(pot_file=args.output, source_files=source_files) as extractor:
+        with PotExtractor(
+            pot_file=args.output,
+            source_files=source_files,
+            additional_keywords=additional_keywords
+        ) as extractor:
             logger.info("Extracting messages from %d source files...", len(source_files))
             extractor.extract_messages()
             extractor.save_pot(
@@ -226,6 +245,7 @@ def extract_command(args):
                 copyright_holder=args.copyright,
                 bugs_address=args.bugs_address
             )
+
 
         # Generate language files
         languages = args.languages.split(",") if args.languages else DEFAULT_LANGUAGES

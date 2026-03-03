@@ -83,8 +83,15 @@ def test_basic_translations(tx):
     tx.add_translation("Hello", "おはよう", context="morning")
     tx.add_translation("Welcome {name}", "ようこそ {name}さん")
 
+
+
+
+    trm = tx.tr
     print("Greeting: {0}".format(tx.tr("Hello", context="greeting")))
+    print("Hello Cutom: {0}".format(trm("Hello", context="yes")))
+
     print("Morning: {0}".format(tx.tr("Hello", context="morning")))
+
     print("Welcome: {0}".format(tx.tr("Welcome {name}", name="Alice")))
     print("Default Hello: {0}".format(tx.tr("Hello")))  # Without context
 

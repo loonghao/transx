@@ -1,5 +1,4 @@
 """Python 2/3 compatibility module."""
-# ruff: noqa: I001, F401
 
 # Import future modules
 from __future__ import absolute_import

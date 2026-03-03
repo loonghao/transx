@@ -2,7 +2,6 @@
 
 # fmt: off
 # isort: skip_file
-# ruff: noqa: I001
 from transx.api.locale import normalize_language_code
 from transx.api.mo import compile_po_file
 from transx.api.po import POFile

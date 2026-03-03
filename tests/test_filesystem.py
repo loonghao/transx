@@ -180,3 +180,17 @@ def test_walk_with_gitignore_no_gitignore(temp_dir):
         os.path.join(temp_dir, "src", "__pycache__", "cache.py")
     }
     assert set(files) == expected_files
+
+
+def test_walk_with_gitignore_returns_sorted_results(temp_dir):
+    """walk_with_gitignore should return deterministic sorted file order."""
+    create_files(temp_dir, [
+        "src/b.py",
+        "src/a.py",
+        "src/sub/c.py",
+        "src/sub/b.py",
+    ])
+
+    files = walk_with_gitignore(temp_dir, ["*.py"])
+    assert files == sorted(files)
+

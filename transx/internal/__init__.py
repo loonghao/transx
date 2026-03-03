@@ -7,7 +7,6 @@ notice between versions.
 
 # fmt: off
 # isort: skip_file
-# ruff: noqa: I001
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function

@@ -1,6 +1,5 @@
 """Logging configuration for TransX.
 """
-# ruff: noqa: I001
 # Import future modules
 from __future__ import absolute_import
 from __future__ import division

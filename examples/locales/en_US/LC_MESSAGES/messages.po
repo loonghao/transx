@@ -1,14 +1,14 @@
 # Translations template for PROJECT.
-# Copyright (C) 2024 ORGANIZATION
+# Copyright (C) 2026 ORGANIZATION
 # This file is distributed under the same license as the PROJECT project.
-# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
 #
 
 msgid ""
 msgstr ""
 "Project-Id-Version: TransX Demo 1.0\n"
 "Report-Msgid-Bugs-To: transx@example.com\n"
-"POT-Creation-Date: 2024-12-09 20:52\n"
+"POT-Creation-Date: 2026-03-03 09:01\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: en_US <LL@li.org>\n"
@@ -20,71 +20,79 @@ msgstr ""
 "Copyright-Holder: TransX Team\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:127
-msgctxt "login"
-msgid "Hello"
-msgstr "Hello"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:88
-#: G:/PycharmProjects/github/transx/examples/demo.py:190
-msgid "Welcome {name}"
-msgstr "Welcome {name}"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:89
-#: G:/PycharmProjects/github/transx/examples/demo.py:189
-msgid "Hello"
-msgstr "Hello"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:128
-msgid "Hello\\nWorld"
-msgstr "Hello\\nWorld"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:129
-msgid "Tab\\there"
-msgstr "Tab\\there"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:130
-msgid "Tab\\there!"
-msgstr "Tab\\there!"
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:131
-msgid "Path to the file: \"C:\\Program Files\\MyApp\""
-msgstr "Path to the file: \"C:\\Program Files\\MyApp\""
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:140
-msgid "如果出现错误，显示找不到 DCF_updateViewportList,或者找不到 CgAbBlastPanelOptChangeCallback，说明你的文件存在病毒，请运行一下打开优化工具，执行 remove unknown node and plugin 和 remove callback 两个按钮，然后保存一下文件"
-msgstr "If an error occurs, showing that DCF_updateViewportList cannot be found, or CgAbBlastPanelOptChangeCallback cannot be found, it means that your file has a virus. Please run the optimization tool, execute the remove unknown node and plugin and remove callback buttons, and then save the file."
-
-
-#: G:/PycharmProjects/github/transx/examples/demo.py:86
+#: examples/demo.py:90
 msgctxt "greeting"
 msgid "Hello"
 msgstr "Hello"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:87
+#: examples/demo.py:91
+msgctxt "yes"
+msgid "Hello"
+msgstr "Hello"
+
+
+#: examples/demo.py:93
 msgctxt "morning"
 msgid "Hello"
 msgstr "Hello"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:100
+#: examples/demo.py:95
+#: examples/demo.py:197
+msgid "Welcome {name}"
+msgstr "Welcome {name}"
+
+
+#: examples/demo.py:96
+#: examples/demo.py:196
+msgid "Hello"
+msgstr "Hello"
+
+
+#: examples/demo.py:107
 msgid "Hello: $USERNAME"
 msgstr "Hello: $USERNAME"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:101
-msgid "Hello: $USERNAME -> $USER"
-msgstr "Hello: $USERNAME -&gt; $USER"
+#: examples/demo.py:108
+msgid "Hello: $${USERNAME} -> %USERNAME%"
+msgstr "Hello: $${USERNAME} -&gt; %USERNAME%"
 
 
-#: G:/PycharmProjects/github/transx/examples/demo.py:191
+#: examples/demo.py:134
+msgctxt "login"
+msgid "Hello"
+msgstr "Hello"
+
+
+#: examples/demo.py:135
+msgid "Hello\\nWorld"
+msgstr "Hello\\nWorld"
+
+
+#: examples/demo.py:136
+msgid "Tab\\there"
+msgstr "Tab\\there"
+
+
+#: examples/demo.py:137
+msgid "Tab\\there!"
+msgstr "Tab\\there!"
+
+
+#: examples/demo.py:138
+msgid "Path to the file: \"C:\\Program Files\\MyApp\""
+msgstr "Path to the file: \"C:\\Program Files\\MyApp\""
+
+
+#: examples/demo.py:147
+msgid "如果出现错误，显示找不到 DCF_updateViewportList,或者找不到 CgAbBlastPanelOptChangeCallback，说明你的文件存在病毒，请运行一下打开优化工具，执行 remove unknown node and plugin 和 remove callback 两个按钮，然后保存一下文件"
+msgstr "If an error occurs, showing that DCF_updateViewportList cannot be found, or CgAbBlastPanelOptChangeCallback cannot be found, it means that your file has a virus. Please run the optimization tool, execute the remove unknown node and plugin and remove callback buttons, and then save the file."
+
+
+#: examples/demo.py:198
 msgid "Settings"
 msgstr "Settings"
+
+

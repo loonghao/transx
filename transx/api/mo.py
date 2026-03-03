@@ -205,9 +205,10 @@ class MOFile(object):
         Args:
             fileobj: File object to write to
         """
-        # Calculate optimal hash table size
-        n = len(self.translations)
-        hash_size = max(n * 4 // 3, 3)
+        # Hash table is optional in GNU MO format.
+        # We currently emit no hash table bytes, so keep size/offset as zero.
+        hash_size = 0
+
 
         # Sort messages by msgid
         messages = sorted(self.translations.values(), key=lambda m: m.msgid)
@@ -252,7 +253,8 @@ class MOFile(object):
         output_data.append(struct.pack("<I", 7 * 4))  # Offset of original strings table
         output_data.append(struct.pack("<I", 7 * 4 + 8 * len(messages)))  # Offset of translation strings table
         output_data.append(struct.pack("<I", hash_size))  # Hash table size
-        output_data.append(struct.pack("<I", 7 * 4 + 16 * len(messages)))  # Hash table offset
+        output_data.append(struct.pack("<I", 0))  # Hash table offset (0 means absent)
+
 
         # Write string tables
         for length, offset in koffsets:
