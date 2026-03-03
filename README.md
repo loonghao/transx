@@ -166,8 +166,19 @@ The main differences between `tr()` and `translate()`:
 
 Choose `tr()` for full functionality or `translate()` for simpler use cases where you only need basic translation and parameter substitution.
 
+#### Custom marker with `tr()` parity
+
+If your project uses a custom marker (for example `trm`) and you want exactly the same runtime behavior as `tr()`, alias it directly to `tx.tr`:
+
+```python
+trm = tx.tr
+trm("Open", context="menu")
+trm("Hello {name}", name="Alice")
+trm("Path: $HOME")
+```
 
 ### 🔄 Advanced Parameter Substitution
+
 
 
 ```python
@@ -270,6 +281,9 @@ transx extract ./src -o messages.pot -p "MyProject" -v "1.0"
 
 # Extract and specify languages
 transx extract ./src -l "en_US,zh_CN,ja_JP"
+
+# Extract with additional custom methods
+transx extract ./src -o messages.pot --methods trm lazy_gettext
 ```
 
 
@@ -414,7 +428,18 @@ Extract translatable messages from your source code with powerful context suppor
 from transx.api.pot import PotExtractor
 
 # Initialize extractor with output file
-extractor = PotExtractor(pot_file="messages.pot")
+extractor = PotExtractor(
+    pot_file="messages.pot",
+    additional_keywords=["trm", "lazy_gettext"]
+)
+
+# Note:
+# - list/tuple/set keywords are treated as tr()-like markers
+#   (supports msgid + context=... extraction)
+# - dict keywords let you define explicit gettext-style specs
+#   e.g. {"my_pgettext": ((1, "c"), 2)}
+
+
 
 # Add source files or directories to scan
 extractor.add_source_file("app.py")

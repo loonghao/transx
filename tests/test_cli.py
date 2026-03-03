@@ -92,8 +92,53 @@ def test_extract_command(tmpdir, sample_source_dir):
     assert os.path.exists(os.path.join(output_dir, normalize_language_code("zh_CN"), "LC_MESSAGES", "messages.po"))
 
 
+def test_extract_command_with_methods(tmpdir):
+    """Test extract command with additional methods."""
+    source_dir = os.path.join(str(tmpdir), "src")
+    os.makedirs(source_dir)
+
+    app_py = os.path.join(source_dir, "app.py")
+    write_file(app_py, """
+def main():
+    print(trm(\"Hello from trm\", context=\"custom_ctx\"))
+    print(lazy_gettext(\"Hello from lazy\"))
+""")
+
+
+    output_pot = os.path.join(str(tmpdir), "messages.pot")
+
+    exit_code = run_cli(
+        "extract",
+        source_dir,
+        "-o", output_pot,
+        "--methods", "trm", "lazy_gettext"
+    )
+
+    assert exit_code == 0
+    content = read_file(output_pot)
+    assert 'msgid "Hello from trm"' in content
+    assert 'msgid "Hello from lazy"' in content
+
+    output_pot_repeat = os.path.join(str(tmpdir), "messages_repeat.pot")
+    exit_code = run_cli(
+        "extract",
+        source_dir,
+        "-o", output_pot_repeat,
+        "-m", "trm",
+        "-m", "lazy_gettext"
+    )
+
+    assert exit_code == 0
+    repeat_content = read_file(output_pot_repeat)
+    assert 'msgid "Hello from trm"' in repeat_content
+    assert 'msgctxt "custom_ctx"' in repeat_content
+    assert 'msgid "Hello from lazy"' in repeat_content
+
+
+
 def test_update_command(tmpdir):
     """Test the update command for creating/updating PO files."""
+
     # Create example POT file
     messages_pot = os.path.join(str(tmpdir), "messages.pot")
     pot_content = """msgid ""

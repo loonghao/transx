@@ -17,7 +17,8 @@ def extract_messages():
     # Initialize extractor
     extractor = PotExtractor(
         source_files=[DEMO_FILE],
-        pot_file=POT_FILE
+        pot_file=POT_FILE,
+        additional_keywords=["trm"]
     )
 
     # Extract messages

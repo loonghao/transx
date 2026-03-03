@@ -158,7 +158,19 @@ tx.translate("Hello {name}!", name="张三")  # 你好 张三！
 
 选择 `tr()` 获取完整功能，或选择 `translate()` 用于仅需基本翻译和参数替换的简单场景。
 
+#### 与 `tr()` 同能力的自定义标记
+
+如果项目里使用自定义标记（例如 `trm`），并且希望它与 `tr()` 在运行时能力完全一致，建议直接把它别名到 `tx.tr`：
+
+```python
+trm = tx.tr
+trm("Open", context="menu")
+trm("Hello {name}", name="Alice")
+trm("Path: $HOME")
+```
+
 ### 🔄 高级参数替换
+
 
 ```python
 # 命名参数
@@ -280,6 +292,9 @@ transx extract ./src -o messages.pot -p "MyProject" -v "1.0"
 
 # 提取并指定语言
 transx extract ./src -l "en_US,zh_CN,ja_JP"
+
+# 使用额外自定义方法提取
+transx extract ./src -o messages.pot --methods trm lazy_gettext
 ```
 
 ### 更新 PO 文件
@@ -418,7 +433,18 @@ Qt 集成功能：
 from transx.api.pot import PotExtractor
 
 # 初始化提取器并指定输出文件
-extractor = PotExtractor(pot_file="messages.pot")
+extractor = PotExtractor(
+    pot_file="messages.pot",
+    additional_keywords=["trm", "lazy_gettext"]
+)
+
+# 说明：
+# - 通过 list/tuple/set 传入的方法会按 tr() 风格提取
+#   （支持 msgid + context=...）
+# - 通过 dict 传入可显式定义 gettext 风格参数规则
+#   例如 {"my_pgettext": ((1, "c"), 2)}
+
+
 
 # 添加要扫描的源文件或目录
 extractor.add_source_file("app.py")

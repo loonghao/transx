@@ -10,6 +10,7 @@ from collections import OrderedDict
 import datetime
 import logging
 import os
+import re
 import tokenize
 
 # Import local modules
@@ -24,6 +25,7 @@ from transx.constants import LANGUAGE_NAMES
 from transx.constants import METADATA_KEYS
 from transx.internal.compat import PY2
 from transx.internal.compat import safe_eval_string
+from transx.internal.compat import string_types
 from transx.internal.compat import tokenize_source
 from transx.internal.filesystem import normalize_path
 from transx.internal.filesystem import read_file
@@ -31,6 +33,7 @@ from transx.internal.filesystem import write_file
 
 
 class POTFile(object):
+
     """Base class for PO/POT file format handling."""
 
     def __init__(self, path=None, locale=None):
@@ -179,18 +182,20 @@ class POTFile(object):
 
         # Write locations one per line, sorted and deduplicated
         if message.locations:
-            # Sort and deduplicate locations
-            unique_locs = set()
+            tuple_locs = set()
+            string_locs = set()
             for loc in message.locations:
                 if isinstance(loc, tuple):
                     filename, lineno = loc
-                    filename = normalize_path(filename)
-                    unique_locs.add("{}:{}".format(filename, lineno))
+                    tuple_locs.add((normalize_path(filename), lineno))
                 else:
-                    unique_locs.add(loc)
+                    string_locs.add(loc)
 
-            for loc in sorted(unique_locs):
+            for filename, lineno in sorted(tuple_locs):
+                file.write("#: {}:{}\n".format(filename, lineno))
+            for loc in sorted(string_locs):
                 file.write("#: {}\n".format(loc))
+
 
         # Write flags
         if message.flags:
@@ -305,10 +310,19 @@ class POTFile(object):
                 ))
         content.append("\n")
 
-        # Write messages
-        for message in self.translations.values():
-            if message.msgid == "":  # Skip metadata message
-                continue
+        # Write messages in deterministic order
+        messages = [m for m in self.translations.values() if m.msgid != ""]
+
+        def _message_sort_key(message):
+            if message.locations:
+                locs = sorted((normalize_path(path), lineno) for path, lineno in message.locations)
+                first_loc = locs[0]
+            else:
+                first_loc = ("~", 0)
+            return (first_loc[0], first_loc[1], message.context or "", message.msgid)
+
+        for message in sorted(messages, key=_message_sort_key):
+
 
             # Write automatic comments
             if message.auto_comments:
@@ -589,19 +603,29 @@ class POTFile(object):
 class PotExtractor(object):
     """Extract translatable strings from Python source files."""
 
-    def __init__(self, source_files=None, pot_file=None):
+    _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+    _TR_LIKE_SPEC = "__transx_tr_like__"
+
+
+    def __init__(self, source_files=None, pot_file=None, additional_keywords=None):
         """Initialize a new PotExtractor instance.
 
         Args:
             source_files: List of source files to extract from
             pot_file: Path to output POT file
+            additional_keywords: Optional extra extraction keywords (list/tuple or dict)
         """
         self.source_files = source_files or []
         self.pot_file = pot_file
         self.catalog = POTFile(path=pot_file)
         self.current_file = None
         self.current_line = 0
+        self.keywords = self._build_keywords(additional_keywords)
+        self._language_codes = self._build_language_code_set()
+        self._skip_literals = {"locales", "LC_MESSAGES", "__main__", "__init__", "__file__"}
         self._init_pot_metadata()
+
+
 
     def __enter__(self):
         """Enter the runtime context for using PotExtractor with 'with' statement."""
@@ -644,7 +668,8 @@ class PotExtractor(object):
 
     def extract_messages(self):
         """Extract translatable strings from source files."""
-        for file_path in self.source_files:
+        for file_path in sorted(self.source_files):
+
             print("Scanning %s for translatable messages..." % file_path)
             self.current_file = file_path
             self.current_line = 0
@@ -661,17 +686,98 @@ class PotExtractor(object):
                 print("Error reading file %s: %s" % (file_path, str(e)))
                 continue
 
+    def _is_valid_keyword_name(self, name):
+        """Check whether a keyword name is a valid Python identifier."""
+        if not isinstance(name, string_types):
+            return False
+        return bool(self._IDENTIFIER_RE.match(name))
+
+
+    def _build_keywords(self, additional_keywords):
+        """Build merged extraction keywords from defaults and user provided values."""
+        keywords = dict(DEFAULT_KEYWORDS)
+        if additional_keywords is None:
+            return keywords
+
+        if isinstance(additional_keywords, dict):
+            items = additional_keywords.items()
+        elif isinstance(additional_keywords, (list, tuple, set)):
+            items = [(name, self._TR_LIKE_SPEC) for name in additional_keywords]
+
+        else:
+            raise ValueError("additional_keywords must be a dict or list/tuple/set")
+
+        for name, spec in items:
+            if not self._is_valid_keyword_name(name):
+                raise ValueError("Invalid keyword name: %r" % (name,))
+            keywords[name] = spec
+
+        return keywords
+
+    def _build_language_code_set(self):
+        """Build fast lookup set for language codes and aliases."""
+        language_codes = set()
+        for code, (_name, aliases) in LANGUAGE_CODES.items():
+            language_codes.add(code)
+            language_codes.update(aliases)
+        return language_codes
+
+    def _extract_by_spec(self, func_name, args, kwargs, spec):
+
+        """Extract message from parsed arguments using keyword spec."""
+        if func_name == "tr" or spec == self._TR_LIKE_SPEC:
+            if not args:
+                return None
+            msgid = args[0]
+            context = kwargs.get("context")
+            if not msgid:
+                return None
+            return Message(msgid=msgid, context=context)
+
+
+        if spec is None:
+            if not args:
+                return None
+            return Message(msgid=args[0])
+
+        if not isinstance(spec, tuple):
+            return None
+
+        context = None
+        message_args = []
+
+        for entry in spec:
+            if isinstance(entry, tuple) and len(entry) == 2 and entry[1] == "c":
+                idx = entry[0] - 1
+                if 0 <= idx < len(args):
+                    context = args[idx]
+            elif isinstance(entry, int):
+                idx = entry - 1
+                if 0 <= idx < len(args):
+                    message_args.append(args[idx])
+
+        if not message_args:
+            return None
+
+        if len(message_args) >= 2:
+            return Message(msgid=(message_args[0], message_args[1]), context=context)
+
+        return Message(msgid=message_args[0], context=context)
+
     def _process_tokens(self, content):
         """Process tokens from source file."""
+
         tokens = tokenize_source(content)
         tokens = list(tokens)  # Convert iterator to list for look-ahead
 
         i = 0
         while i < len(tokens):
-            token_type, token_string, start, end, line = tokens[i]
+            token_type, token_string, start, _end, _line = tokens[i]
+
 
             # Look for translation function calls
-            if token_type == tokenize.NAME and token_string in DEFAULT_KEYWORDS:
+            if token_type == tokenize.NAME and token_string in self.keywords:
+
                 self.current_line = start[0]  # Update current line number
                 func_name = token_string
                 # Skip the function name token
@@ -680,7 +786,8 @@ class PotExtractor(object):
                     break
 
                 # Look for opening parenthesis
-                token_type, token_string, start, end, line = tokens[i]
+                token_type, token_string, start, _end, _line = tokens[i]
+
                 if token_type == tokenize.OP and token_string == "(":
                     # Skip the opening parenthesis
                     i += 1
@@ -692,7 +799,8 @@ class PotExtractor(object):
                     kwargs = {}
                     current_string = []
                     while i < len(tokens):
-                        token_type, token_string, start, end, line = tokens[i]
+                        token_type, token_string, start, _end, _line = tokens[i]
+
 
                         # End of function call
                         if token_type == tokenize.OP and token_string == ")":
@@ -747,21 +855,12 @@ class PotExtractor(object):
 
                         i += 1
 
-                    # Process arguments based on function type
-                    if func_name == "pgettext":
-                        # pgettext(context, msgid)
-                        if len(args) >= 2:
-                            context, msgid = args[0], args[1]
-                            if not self._should_skip_string(msgid):
-                                msg = Message(msgid=msgid, context=context)
-                                self._add_message(msg, start[0])
-                    elif func_name == "tr" and args:
-                        # tr(msgid, context=context)
-                        msgid = args[0]
-                        context = kwargs.get("context")  # Get context from kwargs
-                        if not self._should_skip_string(msgid):
-                            msg = Message(msgid=msgid, context=context)
-                            self._add_message(msg, start[0])
+                    # Process arguments based on keyword spec
+                    spec = self.keywords.get(func_name)
+                    msg = self._extract_by_spec(func_name, args, kwargs, spec)
+                    if msg is not None and not self._should_skip_string(msg.msgid):
+                        self._add_message(msg, start[0])
+
 
             i += 1
 
@@ -778,18 +877,14 @@ class PotExtractor(object):
         if not string or string.isspace():
             return True
 
-        # Skip language codes using the full LANGUAGE_CODES dictionary
-        for code, (_name, aliases) in LANGUAGE_CODES.items():
-            if string in [code] + aliases:
-                return True
-
-        # Skip directory names
-        if string in ("locales", "LC_MESSAGES"):
+        # Skip language codes and aliases
+        if string in self._language_codes:
             return True
 
-        # Skip Python special names
-        if string in ("__main__", "__init__", "__file__"):
+        # Skip known non-translatable literals
+        if string in self._skip_literals:
             return True
+
 
         # Skip strings that are just separators/formatting
         if set(string).issubset({"=", "-", "_", "\n", " ", "."}):

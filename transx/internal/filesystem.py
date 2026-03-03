@@ -7,7 +7,6 @@ and Python 2/3 compatibility.
 """
 # fmt: off
 # isort: skip_file
-# ruff: noqa: I001
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -229,8 +228,13 @@ def walk_with_gitignore(root_dir, file_patterns=None):
         list: List of file paths that match patterns and are not ignored
     """
     matched_files = []
+    root_dir = os.path.abspath(root_dir)
+    ignore_patterns = get_gitignore_patterns(root_dir)
 
     for dirpath, dirnames, filenames in os.walk(root_dir):
+        dirnames.sort()
+        filenames.sort()
+
         # Skip .git directory
         if ".git" in dirnames:
             dirnames.remove(".git")
@@ -239,7 +243,7 @@ def walk_with_gitignore(root_dir, file_patterns=None):
         i = len(dirnames) - 1
         while i >= 0:
             dirpath_full = os.path.join(dirpath, dirnames[i])
-            if should_ignore(dirpath_full):
+            if is_ignored(dirpath_full, root_dir, ignore_patterns):
                 del dirnames[i]
             i -= 1
 
@@ -252,7 +256,7 @@ def walk_with_gitignore(root_dir, file_patterns=None):
             filepath = os.path.join(dirpath, filename)
 
             # Skip ignored files
-            if should_ignore(filepath):
+            if is_ignored(filepath, root_dir, ignore_patterns):
                 continue
 
             # If patterns specified, only include matching files
@@ -265,6 +269,7 @@ def walk_with_gitignore(root_dir, file_patterns=None):
                 matched_files.append(filepath)
 
     return matched_files
+
 
 
 def get_config_file_path(app_name=None, filename="config.json"):

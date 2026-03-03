@@ -516,11 +516,22 @@ class POFile(object):
             f.write("\n".join(metadata_lines))
             f.write("\n\n")
 
-            # Write all other messages
-            for message in self.translations.values():
-                if message.msgid:  # Skip header message
-                    self._write_message(message, f)
-                    f.write("\n")  # Add a newline after each message
+            # Write all other messages in deterministic order
+            messages = [m for m in self.translations.values() if m.msgid]
+
+            def _message_sort_key(message):
+                if message.locations:
+                    first_loc = sorted(
+                        (self._normalize_path(path), lineno) for path, lineno in message.locations
+                    )[0]
+                else:
+                    first_loc = ("~", 0)
+                return (first_loc[0], first_loc[1], message.context or "", message.msgid)
+
+            for message in sorted(messages, key=_message_sort_key):
+                self._write_message(message, f)
+                f.write("\n")  # Add a newline after each message
+
 
     def _normalize_path(self, path):
         """Normalize a file path for writing to PO file.
