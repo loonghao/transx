@@ -1,3 +1,9 @@
+## v0.7.0 (2026-03-03)
+
+### Feat
+
+- improve custom keyword extraction and gettext output stability
+
 ## v0.6.1 (2024-12-12)
 
 ### Refactor
