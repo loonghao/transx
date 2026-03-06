@@ -32,6 +32,12 @@ class TransX:
         >>> result = tx.tr('Open File')  # Returns Japanese translation
         >>> result = tx.tr('Settings')   # Returns Japanese translation
 
+        # Multiple locale roots
+        >>> tx = TransX(
+        ...     locales_root=['./pkg_a/locales', './pkg_b/locales'],
+        ...     default_locale='en_US',
+        ... )
+
         # Qt integration
         >>> tx.register_qt_translator(
         ...     QApplication.instance(),
@@ -45,16 +51,25 @@ class TransX:
         """Initialize translator.
 
         Args:
-            locales_root: Root directory for translation files. Defaults to './locales'
+            locales_root: Root directory (or directories) for translation files.
+                Accepts str, list[str], tuple[str, ...], or None.
+                If None, defaults to './locales'.
+                If a list or tuple is provided, translations from all roots are
+                merged using a first-wins strategy for duplicate msgid entries.
             default_locale: Default locale to use. If None, uses system locale or falls back to 'en_US'
             strict_mode: If True, raise exceptions for missing translations. Defaults to False
             auto_compile: If True, automatically compile PO files to MO files. Defaults to True
             app_name: Optional application name for context
         """
         self.auto_compile = auto_compile
-        self.locales_root = os.path.abspath(locales_root or DEFAULT_LOCALES_DIR)
         self.app_name = app_name
         self.strict_mode = strict_mode
+
+        # Normalize locales_root into a list of absolute paths
+        self._locales_roots = self._normalize_roots(locales_root)
+
+        # Backward-compatible: self.locales_root points to the first valid root
+        self.locales_root = self._locales_roots[0] if self._locales_roots else os.path.abspath(DEFAULT_LOCALES_DIR)
 
         # Create context for compatibility with tests
         class Context:
@@ -99,7 +114,7 @@ class TransX:
         self._interpreter_cache = {}  # {param_count: interpreter_chain}
         self._locale_cache = {}  # {locale: {msgid: translated_text}}
 
-        # Create locales directory if it doesn't exist
+        # Create the first locales directory if it doesn't exist
         if not os.path.exists(self.locales_root):
             os.makedirs(self.locales_root)
 
@@ -114,6 +129,39 @@ class TransX:
         # Load catalog for default locale
         if default_locale:
             self.load_catalog(default_locale)
+
+    @staticmethod
+    def _normalize_roots(locales_root):
+        """Normalize locales_root parameter into a list of absolute paths.
+
+        Args:
+            locales_root: str, list, tuple, or None
+
+        Returns:
+            list[str]: List of absolute paths to locale root directories.
+        """
+        if locales_root is None:
+            return [os.path.abspath(DEFAULT_LOCALES_DIR)]
+
+        if isinstance(locales_root, (list, tuple)):
+            roots = []
+            for path in locales_root:
+                abs_path = os.path.abspath(path)
+                if abs_path not in roots:
+                    roots.append(abs_path)
+            return roots if roots else [os.path.abspath(DEFAULT_LOCALES_DIR)]
+
+        # Single string
+        return [os.path.abspath(locales_root)]
+
+    @property
+    def locales_roots(self):
+        """Get the list of all locale root directories.
+
+        Returns:
+            list[str]: All resolved locale root paths.
+        """
+        return list(self._locales_roots)
 
     @property
     def default_locale(self):
@@ -194,21 +242,23 @@ class TransX:
 
     @property
     def available_locales(self):
-        """Get a list of available locales.
+        """Get a list of available locales from all locale roots.
 
         Returns:
-            list: List of available locale codes (e.g. ['en_US', 'zh_CN', 'ja_JP'])
+            list: Sorted list of available locale codes (e.g. ['en_US', 'zh_CN', 'ja_JP'])
         """
-        locales = []
-        if os.path.exists(self.locales_root):
-            for item in os.listdir(self.locales_root):
-                locale_path = os.path.join(self.locales_root, item)
+        locales = set()
+        for root in self._locales_roots:
+            if not os.path.exists(root):
+                continue
+            for item in os.listdir(root):
+                locale_path = os.path.join(root, item)
                 messages_path = os.path.join(locale_path, "LC_MESSAGES")
                 if os.path.isdir(locale_path) and os.path.exists(messages_path):
                     po_file = os.path.join(messages_path, DEFAULT_MESSAGES_DOMAIN + PO_FILE_EXTENSION)
                     mo_file = os.path.join(messages_path, DEFAULT_MESSAGES_DOMAIN + MO_FILE_EXTENSION)
                     if os.path.exists(po_file) or os.path.exists(mo_file):
-                        locales.append(item)
+                        locales.add(item)
         return sorted(locales)
 
     def _get_translation(self, msgid, context=None):
@@ -327,27 +377,61 @@ class TransX:
             return text
 
     def load_catalog(self, locale):
-        """Load translation catalog for the specified locale.
+        """Load translation catalog for the specified locale from all locale roots.
+
+        When multiple roots are configured, translations are merged using a
+        first-wins strategy: the first root that provides a translation for a
+        given (msgid, context) pair is authoritative. If a later root provides
+        a *different* translation for the same key, a WARNING is logged.
 
         Args:
             locale: Locale to load catalog for
 
         Returns:
-            bool: True if catalog was loaded successfully, False otherwise
+            bool: True if catalog was loaded from at least one root, False otherwise
 
         Raises:
-            LocaleNotFoundError: If locale directory not found (only in strict mode)
+            LocaleNotFoundError: If locale directory not found in any root (only in strict mode)
             ValueError: If locale is None
         """
         if not locale:
             raise ValueError("Locale cannot be None")
 
-        locale_dir = os.path.join(self.locales_root, locale, "LC_MESSAGES")
+        catalog = TranslationCatalog(locale=locale)
+        # Track seen (msgid, context) -> (msgstr, root_path) for conflict detection
+        seen = {}
+        loaded_any = False
+
+        for root in self._locales_roots:
+            success = self._load_catalog_from_root(root, locale, catalog, seen)
+            if success:
+                loaded_any = True
+
+        if loaded_any:
+            self._catalogs[locale] = catalog
+            return True
+
+        msg = "No translation files found for locale '%s' in any root" % locale
+        if self.strict_mode:
+            raise LocaleNotFoundError(msg)
+        self.logger.debug(msg)
+        return False
+
+    def _load_catalog_from_root(self, root, locale, catalog, seen):
+        """Load translations from a single root into the catalog.
+
+        Args:
+            root: Locale root directory path
+            locale: Locale code
+            catalog: TranslationCatalog to merge into
+            seen: Dict mapping (msgid, context) -> (msgstr, root_path) for conflict detection
+
+        Returns:
+            bool: True if translations were loaded from this root
+        """
+        locale_dir = os.path.join(root, locale, "LC_MESSAGES")
         if not os.path.exists(locale_dir):
-            msg = "Locale directory not found: %s" % locale_dir
-            if self.strict_mode:
-                raise LocaleNotFoundError(msg)
-            self.logger.debug(msg)
+            self.logger.debug("Locale directory not found: %s" % locale_dir)
             return False
 
         mo_file = os.path.join(locale_dir, DEFAULT_MESSAGES_DOMAIN + MO_FILE_EXTENSION)
@@ -358,40 +442,26 @@ class TransX:
 
         try:
             if os.path.exists(mo_file):
-                # Use optimized MOFile reader
                 mo = MOFile(mo_file, locale)
-                catalog = TranslationCatalog(
-                    locale=locale,
-                    charset=mo.metadata.get("Content-Type", "").split("charset=")[-1] or DEFAULT_CHARSET
-                )
-
-                # Add all translations
-                for msgid, message in mo.translations.items():
-                    if msgid:  # Skip metadata
-                        catalog.add_message(msgid, message.msgstr)
-
-                self._catalogs[locale] = catalog
+                for raw_msgid, message in mo.translations.items():
+                    if raw_msgid:  # Skip metadata
+                        # MO files may encode context as "context\x04msgid"
+                        if "\x04" in raw_msgid:
+                            ctx, msgid = raw_msgid.split("\x04", 1)
+                        else:
+                            ctx, msgid = None, raw_msgid
+                        self._merge_message(catalog, seen, msgid, message.msgstr, ctx, root, locale)
                 return True
 
             elif os.path.exists(po_file):
-                # Load PO file
                 po = POFile(po_file)
                 po.load()
 
-                catalog = TranslationCatalog(
-                    locale=locale,
-                    charset=po.metadata.get("Content-Type", "").split("charset=")[-1] or DEFAULT_CHARSET
-                )
-
-                # Add all translations
                 for _key, message in po.translations.items():
                     if message.msgid:  # Skip metadata
-                        catalog.add_message(message.msgid, message.msgstr, message.context)
-
-                self._catalogs[locale] = catalog
+                        self._merge_message(catalog, seen, message.msgid, message.msgstr, message.context, root, locale)
 
                 if self.auto_compile:
-                    # Try to compile PO to MO for better performance
                     try:
                         compile_po_file(po_file, mo_file)
                         self.logger.debug("Compiled PO file to MO: %s" % mo_file)
@@ -400,17 +470,58 @@ class TransX:
                 return True
 
         except Exception as e:
-            msg = "Failed to load catalog: %s" % str(e)
+            msg = "Failed to load catalog from root '%s': %s" % (root, str(e))
             if self.strict_mode:
                 raise CatalogNotFoundError(msg)
             self.logger.debug(msg)
             return False
 
-        msg = "No translation files found for locale: %s" % locale
-        if self.strict_mode:
-            raise CatalogNotFoundError(msg)
-        self.logger.debug(msg)
+        self.logger.debug("No translation files found in '%s' for locale: %s" % (root, locale))
         return False
+
+    def _merge_message(self, catalog, seen, msgid, msgstr, context, root, locale):
+        """Merge a single translation message into the catalog with conflict detection.
+
+        Uses first-wins strategy: the first root providing a (msgid, context) pair
+        is authoritative. Conflicting translations from later roots are logged as warnings.
+
+        Args:
+            catalog: TranslationCatalog to merge into
+            seen: Dict mapping (msgid, context) -> (msgstr, root_path)
+            msgid: Message ID (plain, without context prefix)
+            msgstr: Translated string
+            context: Optional message context
+            root: Root path this message came from
+            locale: Locale code (for log messages)
+        """
+        key = (msgid, context)
+
+        if key in seen:
+            existing_msgstr, existing_root = seen[key]
+            if existing_msgstr != msgstr:
+                self.logger.warning(
+                    "Duplicate msgid conflict for locale '%s':\n"
+                    "  msgid   : '%s'\n"
+                    "  context : '%s'\n"
+                    "  kept    : '%s'  (from '%s')\n"
+                    "  ignored : '%s'  (from '%s')",
+                    locale, msgid, context,
+                    existing_msgstr, existing_root,
+                    msgstr, root,
+                )
+            # First-wins: do not overwrite
+            return
+
+        seen[key] = (msgstr, root)
+
+        # Build composite key matching _get_translation's lookup pattern:
+        # _get_translation prepends "context\x04" and calls get_message without context.
+        # So we store with the composite msgid and no separate context parameter.
+        if context:
+            composite_msgid = context + "\x04" + msgid
+        else:
+            composite_msgid = msgid
+        catalog.add_message(composite_msgid, msgstr)
 
     def add_translation(self, msgid, msgstr, context=None):
         """Add a translation entry.
