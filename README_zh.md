@@ -100,7 +100,34 @@ tx.switch_locale("ja_JP")
 print(tx.tr("Hello"))  # 输出：こんにちは
 ```
 
+### 🌳 多翻译根目录（Multiple Locale Roots）
+
+`TransX` 现已支持从多个 `locales_root` 同时加载翻译。
+
+```python
+from transx import TransX
+
+# 若同一 key 在多个根目录重复，按 first-wins（先出现者优先）
+tx = TransX(
+    locales_root=[
+        "./package_a/locales",
+        "./package_b/locales",
+    ],
+    default_locale="zh_CN",
+)
+
+print(tx.locales_root)   # 兼容旧行为：第一个根目录
+print(tx.locales_roots)  # 完整根目录列表
+print(tx.available_locales)
+
+print(tx.tr("Hello"))
+print(tx.tr("Export"))
+```
+
+完整可运行示例见：`examples/multiple_locale_roots.py`。
+
 ### 🔄 翻译 API
+
 
 TransX 提供两种主要的翻译方法，具有不同级别的功能：
 
@@ -629,12 +656,30 @@ nox -s pytest -- -m "not integration"
 - **覆盖率**: 使用 coverage.py 跟踪代码覆盖率
 - **CI/CD**: 使用 GitHub Actions 进行自动化测试和部署
 
+### 🧠 AI Skill（TransX）
+
+仓库内提供了一个可复用的 AI Skill，用于指导 AI 更规范地使用 TransX。
+
+本地安装方式：
+
+```bash
+skills add ./skills/transx
+```
+
+安装后，Skill 会帮助 AI 在以下方面保持最佳实践：
+- 标准 locale 目录结构
+- `tr()` / `translate()` 的使用边界
+- context（`msgctxt`）使用建议
+- 多根目录加载（`locales_root=[...]`）及冲突行为
+- 提取 / 更新 / 编译工作流
+
 ### 📝 文档
 
 文档采用 Markdown 格式编写，包括：
 - README.md：主要文档
 - examples/：示例代码和使用说明
 - 源代码中的 API 文档
+
 
 ### 🤝 贡献指南
 
