@@ -101,7 +101,34 @@ tx.switch_locale("ja_JP")
 print(tx.tr("Hello"))  # Output: こんにちは
 ```
 
+### 🌳 Multiple Locale Roots
+
+`TransX` now supports loading translations from multiple locale roots.
+
+```python
+from transx import TransX
+
+# First root has higher priority on duplicate keys (first-wins)
+tx = TransX(
+    locales_root=[
+        "./package_a/locales",
+        "./package_b/locales",
+    ],
+    default_locale="zh_CN",
+)
+
+print(tx.locales_root)   # backward-compatible: first root
+print(tx.locales_roots)  # full root list
+print(tx.available_locales)
+
+print(tx.tr("Hello"))
+print(tx.tr("Export"))
+```
+
+See `examples/multiple_locale_roots.py` for a full runnable demo.
+
 ### 🔄 Translation API
+
 
 TransX provides two main methods for translation with different levels of functionality:
 
@@ -648,12 +675,30 @@ We maintain high code quality standards using various tools:
 - **CI/CD**: Automated testing and deployment with GitHub Actions
 
 
+### 🧠 AI Skill (TransX)
+
+This repository provides a reusable AI skill for better TransX usage patterns.
+
+Install it locally:
+
+```bash
+skills add ./skills/transx
+```
+
+After installation, the skill guides AI assistants on:
+- standard locale directory layout
+- `tr()` / `translate()` usage boundaries
+- context (`msgctxt`) best practices
+- multi-root loading (`locales_root=[...]`) and conflict behavior
+- extraction/update/compile workflow
+
 ### 📝 Documentation
 
 Documentation is written in Markdown and is available in:
 - README.md: Main documentation
 - examples/: Example code and usage
 - API documentation in source code
+
 
 
 ### 🤝 Contributing Guidelines

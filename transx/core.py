@@ -13,7 +13,7 @@ from transx.api.mo import MOFile
 from transx.api.mo import compile_po_file
 from transx.api.po import POFile
 from transx.api.translation_catalog import TranslationCatalog
-from transx.constants import DEFAULT_CHARSET
+
 from transx.constants import DEFAULT_LOCALE
 from transx.constants import DEFAULT_LOCALES_DIR
 from transx.constants import DEFAULT_MESSAGES_DOMAIN

@@ -5,7 +5,9 @@
 import pytest
 
 # Import local modules
+from transx.api.pot import POTFile
 from transx.api.pot import PotExtractor
+
 from transx.constants import DEFAULT_CHARSET
 from transx.internal.filesystem import read_file
 from transx.internal.filesystem import write_file
@@ -201,5 +203,62 @@ def test_pot_extractor_processes_files_in_deterministic_order(tmp_path):
 
     content = read_file(str(pot_file), encoding=DEFAULT_CHARSET)
     assert content.find('msgid "AAA"') < content.find('msgid "BBB"')
+
+
+def test_pot_parse_header_metadata_round_trip_with_continuation():
+    """Metadata header parsing should keep valid keys and merge continuation lines."""
+    pot = POTFile()
+
+    header = (
+        "Project-Id-Version: Demo 1.0\n"
+        "X-Unknown-Key: should be ignored\n"
+        "Last-Translator: Jane\n"
+        " Doe <jane@example.com>\n"
+        "Content-Type: text/plain; charset=utf-8\n"
+    )
+
+
+    parsed = pot.parse_header(header)
+
+    assert parsed["Project-Id-Version"] == "Demo 1.0"
+    assert parsed["Last-Translator"] == "Jane Doe <jane@example.com>"
+    assert parsed["Content-Type"] == "text/plain; charset=utf-8"
+    assert "X-Unknown-Key" not in parsed
+
+
+def test_readme_pot_extractor_workflow_smoke(tmp_path):
+    """README extractor workflow should be runnable, including add_source_directory()."""
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+
+    app_file = src_dir / "app.py"
+    write_file(
+        str(app_file),
+        """
+from transx import tr
+
+
+def main():
+    print(tr("Open", context="menu"))
+    print(tr("Hello"))
+""",
+        encoding=DEFAULT_CHARSET,
+    )
+
+    pot_file = tmp_path / "messages.pot"
+    extractor = PotExtractor(pot_file=str(pot_file), additional_keywords=["trm"])
+    extractor.add_source_file(str(app_file))
+    extractor.add_source_directory(str(src_dir))
+    extractor.extract_messages()
+    extractor.save_pot(project="SmokeDemo", version="1.0")
+
+    content = read_file(str(pot_file), encoding=DEFAULT_CHARSET)
+    assert 'msgid "Open"' in content
+    assert 'msgctxt "menu"' in content
+    assert 'msgid "Hello"' in content
+    assert "Project-Id-Version: SmokeDemo 1.0" in content
+
+
+
 
 

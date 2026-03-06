@@ -4,7 +4,7 @@
 # Import built-in modules
 import logging
 import os
-import shutil
+
 
 # Import third-party modules
 import pytest
@@ -92,7 +92,7 @@ class TestSingleRoot:
 
 
 # ---------------------------------------------------------------------------
-# T-03 ~ T-06: Multiple roots – merging
+# T-03 ~ T-06: Multiple roots - merging
 # ---------------------------------------------------------------------------
 class TestMultipleRoots:
     """Verify multi-root loading and first-wins merge strategy."""
@@ -128,7 +128,7 @@ class TestMultipleRoots:
         assert tx.tr("World") == u"世界"
 
     def test_first_wins_same_translation(self, multi_root_dir):
-        """T-05: Duplicate msgid with identical msgstr – silently accepted."""
+        """T-05: Duplicate msgid with identical msgstr - silently accepted."""
         root_a, root_b, _root_c = multi_root_dir
 
         _create_locale(root_a, "zh_CN", {(u"OK", None): u"确定"})
@@ -138,7 +138,7 @@ class TestMultipleRoots:
         assert tx.tr("OK") == u"确定"
 
     def test_first_wins_different_translation(self, multi_root_dir, caplog):
-        """T-06: Duplicate msgid with different msgstr – first wins + WARNING."""
+        """T-06: Duplicate msgid with different msgstr - first wins + WARNING."""
         root_a, root_b, _root_c = multi_root_dir
 
         _create_locale(root_a, "zh_CN", {(u"Open", None): u"打开"})
@@ -153,7 +153,7 @@ class TestMultipleRoots:
         assert any("Duplicate msgid conflict" in r.message for r in caplog.records)
 
     def test_first_wins_with_context(self, multi_root_dir, caplog):
-        """Duplicate msgid+context with different msgstr – first wins + WARNING.
+        """Duplicate msgid+context with different msgstr - first wins + WARNING.
 
         Uses PO-only mode and translate() to properly test context merging,
         since the current MO compilation does not encode msgctxt into binary.
@@ -189,7 +189,7 @@ class TestNonExistentRoots:
         assert tx.tr("Hello") == u"你好"
 
     def test_all_nonexistent_roots(self, tmp_path):
-        """All roots are nonexistent – graceful fallback."""
+        """All roots are nonexistent - graceful fallback."""
         p1 = os.path.join(str(tmp_path), "nope1")
         p2 = os.path.join(str(tmp_path), "nope2")
 

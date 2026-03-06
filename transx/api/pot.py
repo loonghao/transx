@@ -145,29 +145,34 @@ class POTFile(object):
         # First unescape the entire header
         header = self._unescape_string(header)
 
+        valid_keys = set(METADATA_KEYS.values())
+        current_key = None
+
         # Split into lines and process each line
-        for line in header.split("\\n"):
-            line = line.strip()
-            if not line:
+        for raw_line in header.split("\n"):
+            if not raw_line.strip():
                 continue
 
-            # Check for continuation of previous value
-            if line.startswith(" ") and "current_key" in locals():
-                headers[current_key] += " " + line.strip()
+            # Check continuation before trimming leading spaces.
+            if raw_line[:1].isspace() and current_key:
+                headers[current_key] += " " + raw_line.strip()
                 continue
 
             # Look for "key: value" format
-            if ": " in line:
-                key, value = line.split(": ", 1)
+            if ":" in raw_line:
+                key, value = raw_line.split(":", 1)
                 key = key.strip()
                 value = value.strip()
-                if key in METADATA_KEYS:  # Only accept known metadata keys
+                if key in valid_keys:  # Only accept known metadata keys
                     headers[key] = value
                     current_key = key
+                else:
+                    current_key = None
             else:
                 current_key = None
 
         return headers
+
 
     def _write_message(self, message, file):
         """Write a single message to the file."""
@@ -666,7 +671,26 @@ class PotExtractor(object):
         if os.path.isfile(file_path):
             self.source_files.append(file_path)
 
+    def add_source_directory(self, directory, extensions=(".py",)):
+        """Recursively add source files from a directory.
+
+        Args:
+            directory: Directory path to scan
+            extensions: File extensions to include
+        """
+        if not os.path.isdir(directory):
+            return
+
+        normalized_exts = tuple(ext.lower() for ext in extensions)
+        for root, _dirs, files in os.walk(directory):
+            for filename in files:
+                if filename.lower().endswith(normalized_exts):
+                    file_path = os.path.join(root, filename)
+                    if file_path not in self.source_files:
+                        self.source_files.append(file_path)
+
     def extract_messages(self):
+
         """Extract translatable strings from source files."""
         for file_path in sorted(self.source_files):
 
