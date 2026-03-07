@@ -257,7 +257,9 @@ def test_batch_translation():
 
 def test_google_translator_unescapes_html_entities():
     """GoogleTranslator should decode HTML entities in extracted text."""
+    # Import local modules
     from transx.api.translate import GoogleTranslator
+
 
     translator = GoogleTranslator()
     assert translator._unescape_html_entities("A -&gt; B") == "A -> B"

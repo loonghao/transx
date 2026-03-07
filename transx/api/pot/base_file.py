@@ -447,12 +447,12 @@ class POTFile(object):
                 continue
 
             # Parse header comment (only plain comments, not structured ones like #. #: #,)
-            if line.startswith("#") and not current_message:
-                if not line.startswith("#.") and not line.startswith("#:") and not line.startswith("#,") and not line.startswith("#|"):
-                    if not self.header_comment:
-                        self.header_comment = ""
-                    self.header_comment += line + "\n"
-                    continue
+            if line.startswith("#") and not current_message and not line.startswith(("#.", "#:", "#,", "#|")):
+                if not self.header_comment:
+                    self.header_comment = ""
+                self.header_comment += line + "\n"
+                continue
+
 
             # Parse comments
             if line.startswith("#"):

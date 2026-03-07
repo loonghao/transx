@@ -5,7 +5,6 @@
 import logging
 import os
 
-
 # Import third-party modules
 import pytest
 
@@ -16,6 +15,7 @@ from transx.api.po import POFile
 
 
 def _create_locale(root, locale, translations, compile_mo=True):
+
     """Helper: create PO (and optionally MO) files under *root*/*locale*/LC_MESSAGES/.
 
     Args:
@@ -315,7 +315,9 @@ class TestStrictMode:
         os.makedirs(root_a)
         os.makedirs(root_b)
 
+        # Import local modules
         from transx.exceptions import LocaleNotFoundError
+
         with pytest.raises(LocaleNotFoundError):
             TransX(locales_root=[root_a, root_b], default_locale="xx_XX", strict_mode=True)
 

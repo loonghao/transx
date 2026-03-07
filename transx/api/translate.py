@@ -18,16 +18,18 @@ try:
     from urllib import urlencode
 
     # Import third-party modules
+    from HTMLParser import HTMLParser
     from urllib2 import HTTPError
     from urllib2 import Request
     from urllib2 import URLError
     from urllib2 import urlopen
-    from HTMLParser import HTMLParser
 except ImportError:
-    from urllib.error import HTTPError, URLError
-    from urllib.request import Request, urlopen
-    from urllib.parse import urlencode
     from html import unescape as html_unescape
+    from urllib.error import HTTPError, URLError
+    from urllib.parse import urlencode
+    from urllib.request import Request, urlopen
+
+
 
 
 # Import local modules
