@@ -5,13 +5,14 @@
 import logging
 import os
 
+
 try:
+    # Import third-party modules
     from HTMLParser import HTMLParser
 except ImportError:
     from html import unescape as html_unescape
 
 # Import local modules
-
 from transx.api.interpreter import InterpreterFactory
 from transx.api.locale import get_system_locale
 from transx.api.locale import normalize_language_code
@@ -19,7 +20,6 @@ from transx.api.mo import MOFile
 from transx.api.mo import compile_po_file
 from transx.api.po import POFile
 from transx.api.translation_catalog import TranslationCatalog
-
 from transx.constants import DEFAULT_LOCALE
 from transx.constants import DEFAULT_LOCALES_DIR
 from transx.constants import DEFAULT_MESSAGES_DOMAIN
@@ -31,6 +31,7 @@ from transx.internal.compat import ensure_unicode
 
 
 class TransX:
+
 
     """Main translation class for handling translations.
 

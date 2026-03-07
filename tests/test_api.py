@@ -1,22 +1,23 @@
 #!/usr/bin/env python
 """Test cases for API module."""
 
-# Import third-party modules
+# Import built-in modules
 from pathlib import Path
 from typing import cast
 
+# Import third-party modules
 import pytest
 
 # Import local modules
 from transx.api.pot import POTFile
 from transx.api.pot import PotExtractor
-
 from transx.constants import DEFAULT_CHARSET
 from transx.internal.filesystem import read_file
 from transx.internal.filesystem import write_file
 
 
 def _read_text(path: Path) -> str:
+
     return cast(str, read_file(str(path), encoding=DEFAULT_CHARSET))
 
 
@@ -380,7 +381,7 @@ def test_pot_extractor_build_keywords_error():
 def test_pot_extractor_should_skip_string(tmp_path: Path):
     """Test PotExtractor _should_skip_string filters correctly."""
     test_file = tmp_path / "skip_test.py"
-    write_file(str(test_file), '''
+    write_file(str(test_file), """
 print(tr("en_US"))  # Should be skipped (language code)
 print(tr("locales"))  # Should be skipped (skip literal)
 print(tr("http://example.com"))  # Should be skipped (URL)
@@ -388,7 +389,7 @@ print(tr("   "))  # Should be skipped (whitespace)
 print(tr("123.45"))  # Should be skipped (number)
 print(tr("---"))  # Should be skipped (separator)
 print(tr("Keep this"))  # Should NOT be skipped
-''', encoding=DEFAULT_CHARSET)
+""", encoding=DEFAULT_CHARSET)
 
     pot_file = tmp_path / "messages.pot"
     extractor = PotExtractor(source_files=[str(test_file)], pot_file=str(pot_file))
@@ -452,7 +453,7 @@ def test_pot_extractor_copyright_and_bugs_address(tmp_path: Path):
 def test_pot_file_load_with_comments_and_locations(tmp_path: Path):
     """Test POTFile load with comments, locations and flags."""
     pot_file = tmp_path / "test.pot"
-    content = '''# Test header comment
+    content = """# Test header comment
 msgid ""
 msgstr ""
 "Project-Id-Version: Test 1.0\\n"
@@ -467,7 +468,7 @@ msgstr "Test translation"
 # User comment
 msgid "Second message"
 msgstr "Second translation"
-'''
+"""
     write_file(str(pot_file), content, encoding=DEFAULT_CHARSET)
 
     pot = POTFile(path=str(pot_file))
@@ -510,8 +511,8 @@ def test_pot_file_escape_unescape():
     text = 'Hello "World"\\nNew\\tLine'
     escaped = pot._escape_string(text)
     assert '\\"' in escaped
-    assert '\\\\n' in escaped
-    assert '\\\\t' in escaped
+    assert "\\\\n" in escaped
+    assert "\\\\t" in escaped
 
     # Test unescape
     unescaped = pot._unescape_string('"' + escaped + '"')
@@ -521,13 +522,13 @@ def test_pot_file_escape_unescape():
 def test_pot_extractor_skip_language_codes(tmp_path: Path):
     """Test that language codes are skipped during extraction."""
     test_file = tmp_path / "lang_test.py"
-    write_file(str(test_file), '''
+    write_file(str(test_file), """
 print(tr("zh_CN"))
 print(tr("ja_JP"))
 print(tr("en_US"))
 print(tr("fr_FR"))
 print(tr("Keep me"))
-''', encoding=DEFAULT_CHARSET)
+""", encoding=DEFAULT_CHARSET)
 
     pot_file = tmp_path / "messages.pot"
     extractor = PotExtractor(source_files=[str(test_file)], pot_file=str(pot_file))
