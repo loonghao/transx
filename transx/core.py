@@ -5,7 +5,13 @@
 import logging
 import os
 
+try:
+    from HTMLParser import HTMLParser
+except ImportError:
+    from html import unescape as html_unescape
+
 # Import local modules
+
 from transx.api.interpreter import InterpreterFactory
 from transx.api.locale import get_system_locale
 from transx.api.locale import normalize_language_code
@@ -21,9 +27,11 @@ from transx.constants import MO_FILE_EXTENSION
 from transx.constants import PO_FILE_EXTENSION
 from transx.exceptions import CatalogNotFoundError
 from transx.exceptions import LocaleNotFoundError
+from transx.internal.compat import ensure_unicode
 
 
 class TransX:
+
     """Main translation class for handling translations.
 
     Example usage:
@@ -290,8 +298,10 @@ class TransX:
         if catalog:
             result = catalog.get_message(msgid)
             if result:
+                result = self._decode_html_entities(result)
                 locale_cache[cache_key] = result
                 return result
+
         return None
 
     def translate(self, msgid, context=None, **kwargs):
@@ -479,6 +489,20 @@ class TransX:
         self.logger.debug("No translation files found in '%s' for locale: %s" % (root, locale))
         return False
 
+    @staticmethod
+    def _decode_html_entities(text):
+        """Decode HTML entities in translation texts."""
+        if not text:
+            return text
+        try:
+            text = ensure_unicode(text)
+            if "html_unescape" in globals():
+                return html_unescape(text)
+            return HTMLParser().unescape(text)
+        except Exception:
+            return text
+
+
     def _merge_message(self, catalog, seen, msgid, msgstr, context, root, locale):
         """Merge a single translation message into the catalog with conflict detection.
 
@@ -494,7 +518,9 @@ class TransX:
             root: Root path this message came from
             locale: Locale code (for log messages)
         """
+        msgstr = self._decode_html_entities(msgstr)
         key = (msgid, context)
+
 
         if key in seen:
             existing_msgstr, existing_root = seen[key]
@@ -535,7 +561,9 @@ class TransX:
             msgid = context + "\x04" + msgid
         if self._context.current_locale not in self._catalogs:
             self._catalogs[self._context.current_locale] = TranslationCatalog(locale=self._context.current_locale)
+        msgstr = self._decode_html_entities(msgstr)
         self._catalogs[self._context.current_locale].add_message(msgid, msgstr)
+
 
     def _create_cache_key(self, template, params):
         """Create a cache key for template and parameters.

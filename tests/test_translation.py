@@ -255,7 +255,27 @@ def test_batch_translation():
     assert all(len(r) > 0 for r in results)
 
 
+def test_google_translator_unescapes_html_entities():
+    """GoogleTranslator should decode HTML entities in extracted text."""
+    from transx.api.translate import GoogleTranslator
+
+    translator = GoogleTranslator()
+    assert translator._unescape_html_entities("A -&gt; B") == "A -> B"
+    assert translator._unescape_html_entities("l&#39;outil") == "l'outil"
+
+
+def test_transx_runtime_decodes_html_entities(transx_instance):
+    """Runtime translation should decode HTML entities from loaded catalogs."""
+    transx_instance.add_translation("HTML Arrow", "A -&gt; B")
+    transx_instance.add_translation("French quote", "l&#39;outil")
+
+    assert transx_instance.tr("HTML Arrow") == "A -> B"
+    assert transx_instance.tr("French quote") == "l'outil"
+
+
 def test_nested_template_handling(transx_instance):
+
+
     """Test handling of nested template syntax."""
     username = text_type("hallong")
     key = text_type(u"我们")  # Use unicode literal

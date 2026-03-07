@@ -22,10 +22,13 @@ try:
     from urllib2 import Request
     from urllib2 import URLError
     from urllib2 import urlopen
+    from HTMLParser import HTMLParser
 except ImportError:
     from urllib.error import HTTPError, URLError
     from urllib.request import Request, urlopen
     from urllib.parse import urlencode
+    from html import unescape as html_unescape
+
 
 # Import local modules
 from transx.api.locale import normalize_language_code
@@ -248,7 +251,21 @@ class GoogleTranslator(Translator):
             result = result.replace(placeholder, char)
         return result
 
+    def _unescape_html_entities(self, text):
+        """Decode HTML entities that may appear in translator responses."""
+        text = ensure_unicode(text)
+        if not text:
+            return text
+
+        try:
+            if PY2:
+                return ensure_unicode(HTMLParser().unescape(text))
+            return ensure_unicode(html_unescape(text))
+        except Exception:
+            return text
+
     def translate(self, text, source_lang="auto", target_lang="en"):
+
         """Translate text using Google Translate API.
 
         Args:
@@ -363,8 +380,10 @@ class GoogleTranslator(Translator):
 
                     self.logger.debug("Extracted translation: %s", translated_text)
 
-                    # Restore special characters
+                    # Decode HTML entities then restore special characters
+                    translated_text = self._unescape_html_entities(translated_text)
                     return self._unescape_special_chars(translated_text)
+
 
                 except Exception as e:
                     self.logger.error("Failed to extract translation: %s", e)

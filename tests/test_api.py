@@ -220,7 +220,59 @@ def test_pot_extractor_processes_files_in_deterministic_order(tmp_path: Path):
 
 
 
+def test_pot_extractor_handles_nested_parentheses_with_top_level_kwargs(tmp_path: Path):
+    """Nested calls in args should not terminate tr(...) parsing early."""
+    test_file = tmp_path / "nested_calls.py"
+    write_file(
+        str(test_file),
+        """
+def build(a, b):
+    return a + b
+
+
+def demo():
+    print(tr(build("A", "B"), context="nested_ctx"))
+""",
+        encoding=DEFAULT_CHARSET,
+    )
+
+    pot_file = tmp_path / "messages.pot"
+    with PotExtractor(source_files=[str(test_file)], pot_file=str(pot_file)) as extractor:
+        extractor.extract_messages()
+        extractor.save()
+
+    content = _read_text(pot_file)
+    assert 'msgid "AB"' in content
+    assert 'msgctxt "nested_ctx"' in content
+
+
+
+def test_pot_extractor_ignores_non_literal_context_kwarg(tmp_path: Path):
+    """Non-literal context kwargs should not produce fake msgctxt values."""
+    test_file = tmp_path / "dynamic_context.py"
+    write_file(
+        str(test_file),
+        """
+def demo(ctx):
+    print(tr("Hello dynamic", context=ctx))
+""",
+        encoding=DEFAULT_CHARSET,
+    )
+
+    pot_file = tmp_path / "messages.pot"
+    with PotExtractor(source_files=[str(test_file)], pot_file=str(pot_file)) as extractor:
+        extractor.extract_messages()
+        extractor.save()
+
+    content = _read_text(pot_file)
+    assert 'msgid "Hello dynamic"' in content
+    assert 'msgctxt "{ctx}"' not in content
+
+
+
 def test_pot_parse_header_metadata_round_trip_with_continuation():
+
+
     """Metadata header parsing should keep valid keys and merge continuation lines."""
     pot = POTFile()
 
@@ -295,9 +347,12 @@ def test_pot_file_save_and_load(tmp_path: Path):
     # Verify messages
     assert "World" in pot2.translations
     assert pot2.translations["World"].msgstr == "World"
+    assert "greeting\x04Hello" in pot2.translations
+    assert pot2.translations["greeting\x04Hello"].msgstr == "Hello"
 
 
 def test_pot_file_update_metadata():
+
     """Test POTFile update_metadata method."""
     pot = POTFile()
     pot.update_metadata({"Project-Id-Version": "Test 1.0", "Language-Team": "Test Team"})

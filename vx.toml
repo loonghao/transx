@@ -1,0 +1,16 @@
+[tools]
+just = "latest"
+python = "3.12"
+uv = "latest"
+
+[settings]
+# Automatically install missing tools when entering dev environment
+auto_install = true
+# Cache duration for version checks
+cache_duration = "7d"
+
+[scripts]
+lint = "uvx nox -s lint"
+nox = "uvx nox"
+run-demo = "just run-demo"
+test = "uvx nox -s tests"

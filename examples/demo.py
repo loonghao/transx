@@ -21,13 +21,9 @@ import os
 import sys
 
 
-try:
-    # Import built-in modules
-    from builtins import str  # Python 2/3 compatibility
-except ImportError:
-    str = unicode  # Python 2 fallback
 
 # Configure logging
+
 logging.basicConfig(level=logging.DEBUG)
 
 # Add project root to Python path
@@ -88,7 +84,8 @@ def test_basic_translations(tx):
 
     trm = tx.tr
     print("Greeting: {0}".format(tx.tr("Hello", context="greeting")))
-    print("Hello Cutom: {0}".format(trm("Hello", context="yes")))
+    print("Hello Custom: {0}".format(trm("Hello", context="yes")))
+
 
     print("Morning: {0}".format(tx.tr("Hello", context="morning")))
 
@@ -98,11 +95,20 @@ def test_basic_translations(tx):
     # Using add_message (low-level API)
     print("\nUsing add_message directly:")
     catalog = tx._catalogs[tx._context.current_locale]
-    catalog.add_message("Goodbye", "さようなら")
-    catalog.add_message("Thanks", "ありがとう", context="greeting")  # Using context parameter
+    direct_message_map = {
+        "fr_FR": ("Au revoir", "Merci"),
+        "zh_CN": ("再见", "谢谢"),
+        "ja_JP": ("さようなら", "ありがとう"),
+        "ko_KR": ("안녕히 가세요", "감사합니다"),
+        "es_ES": ("Adiós", "Gracias")
+    }
+    goodbye, thanks = direct_message_map.get(tx._context.current_locale, ("Goodbye", "Thanks"))
+    catalog.add_message("Goodbye", goodbye)
+    catalog.add_message("Thanks", thanks, context="greeting")  # Using context parameter
 
     print("Direct message: {0}".format(catalog.get_message("Goodbye")))
     print("Direct with context: {0}".format(catalog.get_message("Thanks", context="greeting")))
+
 
     print(tx.tr("Hello: $USERNAME"))
     print(tx.tr("Hello: $${USERNAME} -> %USERNAME%"))

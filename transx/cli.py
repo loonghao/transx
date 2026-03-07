@@ -212,11 +212,13 @@ def extract_command(args):
         return 1
 
     # Ensure output directory exists
+    output_dir = os.path.dirname(os.path.abspath(args.output))
     try:
-        os.makedirs(os.path.dirname(args.output))
+        os.makedirs(output_dir)
     except OSError as e:
         if e.errno != errno.EEXIST:
             raise
+
 
     # Collect source files using walk_with_gitignore
     if os.path.isdir(args.source_path):
