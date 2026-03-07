@@ -92,7 +92,27 @@ def test_extract_command(tmpdir, sample_source_dir):
     assert os.path.exists(os.path.join(output_dir, normalize_language_code("zh_CN"), "LC_MESSAGES", "messages.po"))
 
 
+def test_extract_command_with_output_basename(tmpdir, sample_source_dir, monkeypatch):
+    """Extract should support basename-only output path in current working directory."""
+    output_pot = "messages.pot"
+    output_dir = os.path.join(str(tmpdir), "locales")
+
+    with monkeypatch.context() as m:
+        m.chdir(str(tmpdir))
+        exit_code = run_cli(
+            "extract",
+            sample_source_dir,
+            "-o", output_pot,
+            "-d", output_dir,
+            "-l", "en"
+        )
+
+    assert exit_code == 0
+    assert os.path.exists(os.path.join(str(tmpdir), output_pot))
+
+
 def test_extract_command_with_methods(tmpdir):
+
     """Test extract command with additional methods."""
     source_dir = os.path.join(str(tmpdir), "src")
     os.makedirs(source_dir)

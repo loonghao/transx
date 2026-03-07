@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: TransX Demo 1.0\n"
 "Report-Msgid-Bugs-To: transx@example.com\n"
-"POT-Creation-Date: 2026-03-03 09:01\n"
+"POT-Creation-Date: 2026-03-07 12:03\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: es_ES <LL@li.org>\n"
@@ -20,78 +20,78 @@ msgstr ""
 "Copyright-Holder: TransX Team\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: examples/demo.py:90
+#: demo.py:86
 msgctxt "greeting"
 msgid "Hello"
 msgstr "Hola"
 
 
-#: examples/demo.py:91
+#: demo.py:87
 msgctxt "yes"
 msgid "Hello"
 msgstr "Hola"
 
 
-#: examples/demo.py:93
+#: demo.py:90
 msgctxt "morning"
 msgid "Hello"
 msgstr "Hola"
 
 
-#: examples/demo.py:95
-#: examples/demo.py:197
+#: demo.py:92
+#: demo.py:203
 msgid "Welcome {name}"
 msgstr "Bienvenido {name}"
 
 
-#: examples/demo.py:96
-#: examples/demo.py:196
+#: demo.py:93
+#: demo.py:202
 msgid "Hello"
 msgstr "Hola"
 
 
-#: examples/demo.py:107
+#: demo.py:113
 msgid "Hello: $USERNAME"
 msgstr "Hola: $USERNAME"
 
 
-#: examples/demo.py:108
+#: demo.py:114
 msgid "Hello: $${USERNAME} -> %USERNAME%"
 msgstr "Hola: $${USERNAME} -&gt; %USERNAME%"
 
 
-#: examples/demo.py:134
+#: demo.py:140
 msgctxt "login"
 msgid "Hello"
 msgstr "Hola"
 
 
-#: examples/demo.py:135
+#: demo.py:141
 msgid "Hello\\nWorld"
 msgstr "Hola\\nMundo"
 
 
-#: examples/demo.py:136
+#: demo.py:142
 msgid "Tab\\there"
 msgstr "Tab\\taquí"
 
 
-#: examples/demo.py:137
+#: demo.py:143
 msgid "Tab\\there!"
 msgstr "¡Tab\\taquí!"
 
 
-#: examples/demo.py:138
+#: demo.py:144
 msgid "Path to the file: \"C:\\Program Files\\MyApp\""
 msgstr "Ruta al archivo: \"C:\\Program Files\\MyApp\""
 
 
-#: examples/demo.py:147
+#: demo.py:153
 msgid "如果出现错误，显示找不到 DCF_updateViewportList,或者找不到 CgAbBlastPanelOptChangeCallback，说明你的文件存在病毒，请运行一下打开优化工具，执行 remove unknown node and plugin 和 remove callback 两个按钮，然后保存一下文件"
 msgstr "Si se produce un error y muestra que no se puede encontrar DCF_updateViewportList, o no se puede encontrar CgAbBlastPanelOptChangeCallback, significa que su archivo tiene un virus. Ejecútelo para abrir la herramienta de optimización, ejecute eliminar nodos y complementos desconocidos y elimine los botones de devolución de llamada, y. luego guarde el archivo."
 
 
-#: examples/demo.py:198
+#: demo.py:204
 msgid "Settings"
 msgstr "Ajustes"
 
