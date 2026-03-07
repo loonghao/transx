@@ -1,3 +1,17 @@
+## v0.8.0 (2026-03-07)
+
+### Feat
+
+- improve multi-root workflow and POT parsing
+- support multiple locale roots
+
+### Fix
+
+- resolve remaining isort and ruff lint errors
+- stabilize i18n demo workflow and html entity decoding
+- prevent structured PO comments (#. #: #,) from being parsed as header comments
+- resolve test_api conflict and lint issues
+
 ## v0.7.0 (2026-03-03)
 
 ### Feat
