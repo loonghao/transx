@@ -2,6 +2,9 @@
 """Test cases for API module."""
 
 # Import third-party modules
+from pathlib import Path
+from typing import cast
+
 import pytest
 
 # Import local modules
@@ -13,9 +16,12 @@ from transx.internal.filesystem import read_file
 from transx.internal.filesystem import write_file
 
 
+def _read_text(path: Path) -> str:
+    return cast(str, read_file(str(path), encoding=DEFAULT_CHARSET))
 
 
-def test_pot_extractor(tmp_path):
+def test_pot_extractor(tmp_path: Path):
+
     """Test POT file extraction."""
     # Create test files
     test_dir = tmp_path / "test_files"
@@ -77,9 +83,10 @@ def greet():
 
     # Verify POT file exists and contains correct content
     assert pot_file.exists()
-    content = read_file(str(pot_file), encoding=DEFAULT_CHARSET)
+    content = _read_text(pot_file)
 
     # Verify basic translations are extracted
+
     assert 'msgid "Hello"' in content
     assert 'msgid "Welcome"' in content
     assert 'msgid "Hello, {name}!"' in content
@@ -101,7 +108,8 @@ def greet():
     assert "Content-Type: text/plain; charset=utf-8" in content
 
 
-def test_pot_extractor_supports_default_keywords(tmp_path):
+def test_pot_extractor_supports_default_keywords(tmp_path: Path):
+
     """All DEFAULT_KEYWORDS should be extractable."""
     test_file = tmp_path / "keywords.py"
     write_file(str(test_file), """
@@ -122,9 +130,10 @@ def demo(n):
         extractor.extract_messages()
         extractor.save()
 
-    content = read_file(str(pot_file), encoding=DEFAULT_CHARSET)
+    content = _read_text(pot_file)
 
     assert 'msgid "simple"' in content
+
     assert 'msgid "gettext"' in content
     assert 'msgid "ugettext"' in content
     assert 'msgid "domain message"' in content
@@ -140,7 +149,8 @@ def demo(n):
     assert 'msgid_plural "Files"' in content
 
 
-def test_pot_extractor_additional_keywords_list_and_dict(tmp_path):
+def test_pot_extractor_additional_keywords_list_and_dict(tmp_path: Path):
+
     """Support additional keywords provided as list and dict."""
     test_file = tmp_path / "custom_keywords.py"
     write_file(str(test_file), """
@@ -167,26 +177,30 @@ def demo(n):
         extractor.extract_messages()
         extractor.save()
 
-    content = read_file(str(pot_file), encoding=DEFAULT_CHARSET)
+    content = _read_text(pot_file)
     assert 'msgid "custom"' in content
     assert 'msgctxt "custom_context"' in content
 
-    dict_content = read_file(str(dict_pot_file), encoding=DEFAULT_CHARSET)
+    dict_content = _read_text(dict_pot_file)
     assert 'msgid "custom_ctx"' in dict_content
+
     assert 'msgctxt "ctx"' in dict_content
 
 
 
-def test_pot_extractor_invalid_additional_keyword_name(tmp_path):
+def test_pot_extractor_invalid_additional_keyword_name(tmp_path: Path):
+
     """Invalid additional keyword names should raise ValueError."""
     pot_file = tmp_path / "messages.pot"
     with pytest.raises(ValueError) as exc_info:
-        PotExtractor(source_files=[], pot_file=str(pot_file), additional_keywords=["invalid-keyword"])
+        _ = PotExtractor(source_files=[], pot_file=str(pot_file), additional_keywords=["invalid-keyword"])
     assert "Invalid keyword name" in str(exc_info.value)
 
 
 
-def test_pot_extractor_processes_files_in_deterministic_order(tmp_path):
+
+def test_pot_extractor_processes_files_in_deterministic_order(tmp_path: Path):
+
     """PotExtractor should process source files in sorted order."""
     b_file = tmp_path / "b_file.py"
     a_file = tmp_path / "a_file.py"
@@ -201,8 +215,9 @@ def test_pot_extractor_processes_files_in_deterministic_order(tmp_path):
         extractor.extract_messages()
         extractor.save()
 
-    content = read_file(str(pot_file), encoding=DEFAULT_CHARSET)
+    content = _read_text(pot_file)
     assert content.find('msgid "AAA"') < content.find('msgid "BBB"')
+
 
 
 def test_pot_parse_header_metadata_round_trip_with_continuation():
@@ -226,7 +241,8 @@ def test_pot_parse_header_metadata_round_trip_with_continuation():
     assert "X-Unknown-Key" not in parsed
 
 
-def test_readme_pot_extractor_workflow_smoke(tmp_path):
+def test_readme_pot_extractor_workflow_smoke(tmp_path: Path):
+
     """README extractor workflow should be runnable, including add_source_directory()."""
     src_dir = tmp_path / "src"
     src_dir.mkdir()
@@ -252,11 +268,12 @@ def main():
     extractor.extract_messages()
     extractor.save_pot(project="SmokeDemo", version="1.0")
 
-    content = read_file(str(pot_file), encoding=DEFAULT_CHARSET)
+    content = _read_text(pot_file)
     assert 'msgid "Open"' in content
     assert 'msgctxt "menu"' in content
     assert 'msgid "Hello"' in content
     assert "Project-Id-Version: SmokeDemo 1.0" in content
+
 
 
 
