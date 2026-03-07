@@ -456,12 +456,13 @@ class POTFile(object):
                     reading_msgctxt = False
                 continue
 
-            # Parse header comment
+            # Parse header comment (only plain comments, not structured ones like #. #: #,)
             if line.startswith("#") and not current_message:
-                if not self.header_comment:
-                    self.header_comment = ""
-                self.header_comment += line + "\n"
-                continue
+                if not line.startswith("#.") and not line.startswith("#:") and not line.startswith("#,") and not line.startswith("#|"):
+                    if not self.header_comment:
+                        self.header_comment = ""
+                    self.header_comment += line + "\n"
+                    continue
 
             # Parse comments
             if line.startswith("#"):
@@ -506,6 +507,12 @@ class POTFile(object):
                     current_message.msgid = "".join(current_msgid)
                     if current_locations:
                         current_message.locations = current_locations[:]  # Correctly handle locations
+                    if current_flags:
+                        current_message.flags = current_flags.copy()
+                    if current_auto_comments:
+                        current_message.auto_comments = current_auto_comments[:]
+                    if current_user_comments:
+                        current_message.user_comments = current_user_comments[:]
                     self._add_current_message(current_message)
                 # Reset message parts
                 current_msgid = []
@@ -517,6 +524,11 @@ class POTFile(object):
                     auto_comments=current_auto_comments[:],
                     user_comments=current_user_comments[:]
                 )
+                # Reset comment/flag collections for next message
+                current_locations = []
+                current_flags = set()
+                current_auto_comments = []
+                current_user_comments = []
                 if '"' in line:
                     current_msgid.append(self._parse_string(line[5:]))
 
@@ -545,6 +557,12 @@ class POTFile(object):
                 current_message.context = "".join(current_msgctxt)
             if current_locations:
                 current_message.locations = current_locations[:]  # Correctly handle locations
+            if current_flags:
+                current_message.flags = current_flags.copy()
+            if current_auto_comments:
+                current_message.auto_comments = current_auto_comments[:]
+            if current_user_comments:
+                current_message.user_comments = current_user_comments[:]
             self._add_current_message(current_message)
 
         # Parse header if exists
