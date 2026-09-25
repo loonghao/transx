@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """Translation functions for TransX."""
+
 # Import future modules
 # fmt: off
 # isort: skip
@@ -8,8 +9,11 @@ from __future__ import unicode_literals
 
 # Import built-in modules
 import abc
+import calendar
+from email.utils import parsedate
 import logging
 import os
+import random
 import time
 
 
@@ -48,9 +52,9 @@ from transx.internal.compat import text_type
 # fmt: on
 
 
-
 class Translator(object):
     """Base class for all translators."""
+
     if PY2:
         __metaclass__ = abc.ABCMeta
     else:
@@ -116,11 +120,13 @@ def translate_po_file(pot_file_path, lang, output_dir=None, translator=None):
     po.update(pot)
 
     # Set language-specific metadata
-    po.metadata.update({
-        "Language": lang,
-        "Language-Team": "%s <LL@li.org>" % lang,
-        "Plural-Forms": "nplurals=1; plural=0;" if lang.startswith("zh") else "nplurals=2; plural=(n != 1);"
-    })
+    po.metadata.update(
+        {
+            "Language": lang,
+            "Language-Team": "%s <LL@li.org>" % lang,
+            "Plural-Forms": "nplurals=1; plural=0;" if lang.startswith("zh") else "nplurals=2; plural=(n != 1);",
+        }
+    )
 
     # Optionally translate untranslated entries
     if translator:
@@ -157,31 +163,29 @@ class GoogleTranslator(Translator):
 
     BASE_URL = "https://translate.google.com/m"
 
-    def __init__(self, max_retries=5, initial_delay=1, max_delay=3600):
+    #: HTTP statuses that mean "try again later" rather than "give up".
+    RETRYABLE_STATUS_CODES = frozenset([429, 500, 502, 503, 504])
+
+    def __init__(self, max_retries=8, initial_delay=2, max_delay=3600, min_request_interval=1.0):
         """Initialize the translator.
 
         Args:
             max_retries (int): Maximum number of retry attempts
             initial_delay (int): Initial delay in seconds between retries
             max_delay (int): Maximum delay in seconds between retries
+            min_request_interval (float): Minimum seconds between two requests
         """
         self.max_retries = max_retries
         self.initial_delay = initial_delay
         self.max_delay = max_delay
         self._last_request_time = 0
-        self._min_request_interval = 0.5  # Minimum time between requests
+        self._min_request_interval = min_request_interval
         self._consecutive_failures = 0
         self._current_delay = initial_delay
         self.logger = logging.getLogger(__name__)
 
         # Map standard language codes to Google Translate supported codes
-        self.language_code_map = {
-            "zh_CN": "zh-CN",
-            "ja_JP": "ja",
-            "ko_KR": "ko",
-            "fr_FR": "fr",
-            "es_ES": "es"
-        }
+        self.language_code_map = {"zh_CN": "zh-CN", "ja_JP": "ja", "ko_KR": "ko", "fr_FR": "fr", "es_ES": "es"}
 
     def _wait_for_rate_limit(self):
         """Ensure minimum time between requests."""
@@ -191,12 +195,100 @@ class GoogleTranslator(Translator):
             time.sleep(self._min_request_interval - time_since_last)
         self._last_request_time = time.time()
 
-    def _handle_rate_limit(self):
-        """Handle rate limit with exponential backoff."""
+    def _parse_retry_after(self, value):
+        """Convert a ``Retry-After`` header value into a number of seconds.
+
+        The header is either a delta in seconds or an HTTP date. Anything
+        unparseable, negative, or absurdly large is rejected so the caller can
+        fall back to the computed backoff.
+
+        Args:
+            value: Raw ``Retry-After`` header value, already stripped
+
+        Returns:
+            float: Seconds to wait, or ``None`` when the value is unusable
+        """
+        if not value:
+            return None
+
+        try:
+            seconds = float(value)
+        except (TypeError, ValueError):
+            seconds = None
+
+        if seconds is None:
+            # Fall back to the HTTP-date form, e.g. "Wed, 21 Oct 2015 07:28:00 GMT".
+            try:
+                parsed = parsedate(value)
+                if parsed is None:
+                    return None
+                seconds = calendar.timegm(parsed) - time.time()
+            except (TypeError, ValueError, OverflowError):
+                return None
+
+        if seconds < 0:
+            return 0.0
+        if seconds > self.max_delay:
+            return None
+        return seconds
+
+    def _backoff_delay(self, retry_after=None):
+        """Compute how long to wait after a retryable failure.
+
+        The delay is exponential in the number of consecutive failures and is
+        then randomized (full jitter). Jitter matters because every client that
+        gets rate limited at the same moment would otherwise retry in lockstep
+        and immediately trip the limit again. A server supplied ``Retry-After``
+        always wins, since it knows its own window.
+
+        Args:
+            retry_after: Seconds requested by the server, if any
+
+        Returns:
+            float: Seconds to wait
+        """
         self._consecutive_failures += 1
-        delay = min(self._current_delay * (2 ** self._consecutive_failures), self.max_delay)
-        self.logger.warning("Rate limit hit. Waiting %s seconds before retry", delay)
-        time.sleep(delay)
+
+        if retry_after is not None:
+            delay = retry_after
+            reason = "Retry-After header"
+        else:
+            ceiling = min(self._current_delay * (2 ** (self._consecutive_failures - 1)), self.max_delay)
+            # Full jitter: randomize across the whole window instead of always
+            # waiting the full amount.
+            delay = random.uniform(0, ceiling) if ceiling else 0
+            reason = "exponential backoff"
+
+        delay = max(0.0, min(float(delay), float(self.max_delay)))
+        self.logger.warning(
+            "Rate limit hit (%s, attempt %s). Waiting %.2f seconds before retry",
+            reason,
+            self._consecutive_failures,
+            delay,
+        )
+        return delay
+
+    def _handle_rate_limit(self, retry_after=None):
+        """Sleep off a rate limit using the computed backoff.
+
+        Args:
+            retry_after: Seconds requested by the server, if any
+        """
+        time.sleep(self._backoff_delay(retry_after))
+
+    def _is_last_attempt(self, attempt):
+        """Return True when no further retry will happen after ``attempt``.
+
+        Sleeping through the full backoff only to give up anyway just stalls
+        the caller, so the final failure skips the wait and surfaces the error.
+
+        Args:
+            attempt: Zero-based index of the attempt that just failed
+
+        Returns:
+            bool: True if this was the last permitted attempt
+        """
+        return attempt >= self.max_retries - 1
 
     def _reset_rate_limit_state(self):
         """Reset rate limiting state after successful request."""
@@ -221,7 +313,7 @@ class GoogleTranslator(Translator):
             text_type("\\"): text_type("{{BACKSLASH}}"),
             text_type('\\"'): text_type("{{QUOTE}}"),
             text_type("\b"): text_type("{{BACKSPACE}}"),
-            text_type("\f"): text_type("{{FORMFEED}}")
+            text_type("\f"): text_type("{{FORMFEED}}"),
         }
         result = text
         for char, placeholder in replacements.items():
@@ -246,7 +338,7 @@ class GoogleTranslator(Translator):
             text_type("{{BACKSLASH}}"): text_type("\\"),
             text_type("{{QUOTE}}"): text_type('\\"'),
             text_type("{{BACKSPACE}}"): text_type("\b"),
-            text_type("{{FORMFEED}}"): text_type("\f")
+            text_type("{{FORMFEED}}"): text_type("\f"),
         }
         result = text
         for placeholder, char in replacements.items():
@@ -267,7 +359,6 @@ class GoogleTranslator(Translator):
             return text
 
     def translate(self, text, source_lang="auto", target_lang="en"):
-
         """Translate text using Google Translate API.
 
         Args:
@@ -327,8 +418,7 @@ class GoogleTranslator(Translator):
         self.logger.debug("Making request to URL: %s", url)
         self.logger.debug("Request params: %s", params)
 
-
-        for _attempt in range(self.max_retries):
+        for attempt in range(self.max_retries):
             try:
                 # Wait for rate limit if needed
                 self._wait_for_rate_limit()
@@ -386,20 +476,26 @@ class GoogleTranslator(Translator):
                     translated_text = self._unescape_html_entities(translated_text)
                     return self._unescape_special_chars(translated_text)
 
-
                 except Exception as e:
                     self.logger.error("Failed to extract translation: %s", e)
                     raise TranslationError("Failed to extract translation: " + str(e))
 
             except HTTPError as e:
                 self.logger.error("HTTP error occurred: %s", e)
-                if e.code == 429:  # Too Many Requests
-                    self._handle_rate_limit()
+                if e.code in self.RETRYABLE_STATUS_CODES:
+                    # Honour Retry-After when the server sends one; it is the
+                    # only reliable signal for how long the window lasts.
+                    retry_after = self._parse_retry_after(e.headers.get("Retry-After") if e.headers else None)
+                    if self._is_last_attempt(attempt):
+                        break
+                    self._handle_rate_limit(retry_after)
                     continue
                 raise TranslationError("HTTP error occurred: " + str(e))
 
             except URLError as e:
                 self.logger.error("URL error occurred: %s", e)
+                if self._is_last_attempt(attempt):
+                    break
                 self._handle_rate_limit()
                 continue
 
@@ -407,4 +503,8 @@ class GoogleTranslator(Translator):
                 self.logger.error("Translation error occurred: %s", e)
                 raise TranslationError("Translation error occurred: " + str(e))
 
-        raise TranslationError("Max retries exceeded")
+        raise TranslationError(
+            "Max retries exceeded after {0} attempts; the translation backend is "
+            "rate limiting requests. Retry later, or reduce the request rate by "
+            "translating fewer strings per run.".format(self.max_retries)
+        )
