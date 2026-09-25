@@ -424,7 +424,15 @@ class TransX:
         # for everything else. ``context`` is excluded because the chain drops
         # it anyway. The result cache is checked before the ``$`` scan so a
         # warm lookup never has to touch the string.
-        if context is None and not kwargs:
+        #
+        # ``type(text) is str`` is a gate, not a micro-optimisation: the full
+        # chain starts and ends with a ``TextTypeInterpreter`` that coerces
+        # non-str input (``None``, ``int``, ``bytes``, ...) via ``text_type``.
+        # Skipping it turned those calls into ``TypeError``, so anything that
+        # is not exactly ``str`` falls through to the chain and keeps the old
+        # behaviour. It has to come first because ``plain.get`` needs a
+        # hashable key.
+        if type(text) is str and context is None and not kwargs:
             plain = self._plain_dict(locale)
             result = plain.get(text)
             if result is not None:

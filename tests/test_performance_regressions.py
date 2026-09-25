@@ -62,6 +62,29 @@ def test_translate_and_tr_agree_on_missing_keys(transx_instance):
     assert transx_instance.translate("Definitely missing") == "Definitely missing"
 
 
+def test_tr_coerces_non_str_input_like_the_chain(transx_instance):
+    """Non-``str`` msgids must still be coerced, not rejected.
+
+    The full interpreter chain starts and ends with a ``TextTypeInterpreter``
+    that runs the message through ``text_type``. The fast path bypasses the
+    chain, so without an explicit ``str`` gate ``tr(None)`` / ``tr(123)`` /
+    ``tr(b"...")`` raised ``TypeError`` instead of returning the source text.
+    """
+    transx_instance.switch_locale("ja_JP")
+
+    # Coerced to ``str`` first, so the catalog lookup still hits.
+    assert transx_instance.tr(b"Hello") == "こんにちは"
+    # Values with no catalog entry come back as their ``text_type`` form.
+    assert transx_instance.tr(None) == "None"
+    assert transx_instance.tr(123) == "123"
+    assert transx_instance.tr(1.5) == "1.5"
+    assert transx_instance.tr(True) == "True"
+    # Every one of them comes back as ``str``, never as the raw object.
+    assert type(transx_instance.tr(123)) is str
+    # ``str`` input keeps taking the fast path.
+    assert transx_instance.tr("Hello") == "こんにちは"
+
+
 def test_variant_index_is_built_lazily():
     """Loading a catalog must not build the variant index up front."""
     catalog = TranslationCatalog(locale="zh_CN")
@@ -151,8 +174,8 @@ def project_tree(tmp_path):
 
     pkg = tmp_path / "pkg"
     pkg.mkdir()
-    # The nested file takes precedence for everything below ``pkg``, so
-    # ``pkg/stale.pyc`` is *not* covered by the root ``*.pyc`` rule.
+    # The nested file adds a rule of its own; it must not cancel the root ones,
+    # so ``pkg/stale.pyc`` and ``pkg/build/`` stay ignored by ``*.pyc`` / ``build/``.
     (pkg / ".gitignore").write_text("secret.py\n", encoding="utf-8")
 
     (pkg / "keep.py").write_text("x = 1\n", encoding="utf-8")
@@ -166,6 +189,12 @@ def project_tree(tmp_path):
     build.mkdir()
     (build / "generated.py").write_text("x = 1\n", encoding="utf-8")
 
+    # A nested build directory: the root ``build/`` rule has to reach it even
+    # though ``pkg`` carries its own .gitignore.
+    nested_build = pkg / "build"
+    nested_build.mkdir()
+    (nested_build / "generated.py").write_text("x = 1\n", encoding="utf-8")
+
     return tmp_path
 
 
@@ -174,6 +203,8 @@ def test_walk_with_gitignore_still_applies_nested_rules(project_tree):
     found = sorted(os.path.basename(p)
                    for p in walk_with_gitignore(str(project_tree), ["*.py"]))
 
+    # ``pkg/secret.py`` is dropped by the nested file and both ``build/``
+    # directories by the root one.
     assert found == ["keep.py"]
 
 
@@ -181,6 +212,38 @@ def test_walk_with_gitignore_without_patterns(project_tree):
     """All non-ignored files are returned when no pattern is given."""
     found = sorted(os.path.basename(p) for p in walk_with_gitignore(str(project_tree)))
 
-    # ``.gitignore`` itself is skipped, ``build/`` and ``*.pyc`` at the root are
-    # ignored, and ``pkg/secret.py`` is ignored by the nested .gitignore.
-    assert found == ["keep.py", "notes.txt", "stale.pyc"]
+    # ``.gitignore`` itself is skipped, every ``build/`` directory and every
+    # ``*.pyc`` file (at the root *and* below the nested .gitignore) is ignored,
+    # and ``pkg/secret.py`` is ignored by the nested .gitignore.
+    assert found == ["keep.py", "notes.txt"]
+
+
+def test_walk_with_gitignore_negation_re_includes(tmp_path):
+    """A nested ``!`` rule must be able to un-ignore what an ancestor ignored."""
+    (tmp_path / ".gitignore").write_text("*.pyc\n", encoding="utf-8")
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / ".gitignore").write_text("!keep.pyc\n", encoding="utf-8")
+    (pkg / "keep.pyc").write_text("x = 1\n", encoding="utf-8")
+    (pkg / "drop.pyc").write_text("x = 1\n", encoding="utf-8")
+    (tmp_path / "drop.pyc").write_text("x = 1\n", encoding="utf-8")
+
+    found = sorted(os.path.basename(p) for p in walk_with_gitignore(str(tmp_path)))
+
+    assert found == ["keep.pyc"]
+
+
+def test_walk_with_gitignore_honours_rules_above_the_root(tmp_path):
+    """Pointing transx at a subdirectory must still apply the parent rules."""
+    (tmp_path / ".gitignore").write_text("generated/\n*.pyc\n", encoding="utf-8")
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "keep.py").write_text("x = 1\n", encoding="utf-8")
+    (src / "stale.pyc").write_text("x = 1\n", encoding="utf-8")
+    generated = src / "generated"
+    generated.mkdir()
+    (generated / "api.py").write_text("x = 1\n", encoding="utf-8")
+
+    found = sorted(os.path.basename(p) for p in walk_with_gitignore(str(src), ["*.py"]))
+
+    assert found == ["keep.py"]
