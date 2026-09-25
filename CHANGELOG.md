@@ -1,3 +1,9 @@
+## v0.8.3 (2026-09-25)
+
+### Perf
+
+- faster PO/POT/MO parsing and less duplicated work (#43)
+
 ## v0.8.2 (2026-09-25)
 
 ### Fix
