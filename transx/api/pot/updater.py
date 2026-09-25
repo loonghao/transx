@@ -9,6 +9,7 @@ from __future__ import unicode_literals
 # Import built-in modules
 from collections import OrderedDict
 import datetime
+import logging
 import os
 
 # Import local modules
@@ -32,6 +33,8 @@ class PotUpdater(object):
         """
         self.pot_file = pot_file
         self.locales_dir = locales_dir
+        self.logger = logging.getLogger(__name__)
+        self._pot_po_file = None
 
         # Load the POT file
         self.pot_catalog = POTFile(pot_file)
@@ -39,6 +42,19 @@ class PotUpdater(object):
             self.pot_catalog.load()
         else:
             raise ValueError("POT file not found: {}".format(pot_file))
+
+    @property
+    def _pot_po(self):
+        """POT catalog in PO representation, parsed at most once.
+
+        ``update_po_file`` used to re-read and re-parse the POT file from disk
+        for every single language it processed.
+        """
+        if self._pot_po_file is None:
+            pot = POFile(self.pot_file)
+            pot.load()
+            self._pot_po_file = pot
+        return self._pot_po_file
 
     def create_language_catalogs(self, languages):
         """Create or update PO catalogs for specified languages.
@@ -50,7 +66,7 @@ class PotUpdater(object):
             # Create language directory
             lang = normalize_language_code(lang)
             if lang not in LANGUAGE_CODES:
-                print("Warning: Unknown language code %r" % lang)
+                self.logger.warning("Unknown language code %r", lang)
                 continue
 
             locale_dir = os.path.join(self.locales_dir, lang, "LC_MESSAGES")
@@ -67,9 +83,9 @@ class PotUpdater(object):
             lang: Language code for the PO file
 
         """
-        # Load POT file
-        pot = POFile(self.pot_file)
-        pot.load()
+        # Reuse the already parsed POT catalog instead of re-reading the file
+        # from disk for every single language.
+        pot = self._pot_po
 
         # Create language directory
         lang_dir = os.path.join(self.locales_dir, lang, "LC_MESSAGES")
@@ -93,7 +109,7 @@ class PotUpdater(object):
 
         # Save PO file
         po.save()
-        print("Created/updated PO file: {}".format(po_file_path))
+        self.logger.info("Created/updated PO file: %s", po_file_path)
 
     def _update_po_metadata(self, po_catalog, language):
         """Update PO file metadata based on POT metadata and language.

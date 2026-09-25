@@ -251,6 +251,10 @@ class POTFile(object):
             return ""
         if string.startswith('"') and string.endswith('"'):
             string = string[1:-1]  # Remove surrounding quotes
+        # Most catalog strings contain no escape sequence at all, so skip the
+        # (comparatively expensive) encode/decode round-trip in that case.
+        if "\\" not in string:
+            return string
         # Unescape special characters
         return string.encode("raw_unicode_escape").decode("unicode_escape")
 
@@ -428,6 +432,7 @@ class POTFile(object):
         self.translations.clear()
 
         content = read_file(file_path, encoding=DEFAULT_CHARSET)
+        parse_string = self._parse_string
         for line in content.splitlines():
             line = line.strip()
 
@@ -455,17 +460,20 @@ class POTFile(object):
                     reading_msgctxt = False
                 continue
 
-            # Parse header comment (only plain comments, not structured ones like #. #: #,)
-            if line.startswith("#") and not current_message and not line.startswith(("#.", "#:", "#,", "#|")):
-                header_comment_lines.append(line)
-                continue
+            # Dispatch on the first character instead of running a chain of
+            # ``startswith`` calls for every single line.
+            prefix = line[0]
 
+            if prefix == "#":  # Comment line
+                # Parse header comment (only plain comments, not structured
+                # ones like #. #: #,)
+                if not current_message and not line.startswith(("#.", "#:", "#,", "#|")):
+                    header_comment_lines.append(line)
+                    continue
 
-            # Parse comments
-            if line.startswith("#"):
-                if line.startswith("#:"):  # Location
-                    locations = line[2:].strip().split()
-                    for location in locations:
+                marker = line[1:2]
+                if marker == ":":  # Location
+                    for location in line[2:].strip().split():
                         parts = location.split(":")
                         if len(parts) >= 2:
                             # Join all parts except the last one to handle Windows paths
@@ -475,76 +483,78 @@ class POTFile(object):
                                 current_locations.append((normalize_path(filename.strip()), lineno))
                             except ValueError:
                                 current_locations.append(normalize_path(location))
-                elif line.startswith("#,"):  # Flags
-                    flags = line[2:].strip().split(",")
-                    current_flags.update(f.strip() for f in flags)
-                elif line.startswith("#."):  # Auto comment
+                elif marker == ",":  # Flags
+                    current_flags.update(f.strip() for f in line[2:].strip().split(","))
+                elif marker == ".":  # Auto comment
                     current_auto_comments.append(line[2:].strip())
-                elif line.startswith("#|"):  # Previous string
+                elif marker == "|":  # Previous string
                     pass  # Ignore previous strings for now
                 else:  # User comment
                     current_user_comments.append(line[1:].strip())
                 continue
 
-            # Parse msgctxt
-            if line.startswith("msgctxt"):
-                reading_msgctxt = True
-                reading_msgid = False
-                reading_msgstr = False
-                if '"' in line:
-                    current_msgctxt.append(self._parse_string(line[7:]))
+            if prefix == "m":  # msgctxt / msgid / msgstr
+                # Parse msgctxt
+                if line.startswith("msgctxt"):
+                    reading_msgctxt = True
+                    reading_msgid = False
+                    reading_msgstr = False
+                    if '"' in line:
+                        current_msgctxt.append(parse_string(line[7:]))
 
-            # Parse msgid
-            if line.startswith("msgid"):
-                reading_msgid = True
-                reading_msgstr = False
-                reading_msgctxt = False
-                if current_message is not None:
-                    # Update msgid and add the message
-                    current_message.msgid = "".join(current_msgid)
-                    if current_locations:
-                        current_message.locations = current_locations[:]  # Correctly handle locations
-                    if current_flags:
-                        current_message.flags = current_flags.copy()
-                    if current_auto_comments:
-                        current_message.auto_comments = current_auto_comments[:]
-                    if current_user_comments:
-                        current_message.user_comments = current_user_comments[:]
-                    self._add_current_message(current_message)
-                # Reset message parts
-                current_msgid = []
-                current_msgstr = []
-                current_message = Message(
-                    msgid="",  # Set empty string temporarily, will update later
-                    locations=current_locations[:],
-                    flags=current_flags.copy(),
-                    auto_comments=current_auto_comments[:],
-                    user_comments=current_user_comments[:]
-                )
-                # Reset comment/flag collections for next message
-                current_locations = []
-                current_flags = set()
-                current_auto_comments = []
-                current_user_comments = []
-                if '"' in line:
-                    current_msgid.append(self._parse_string(line[5:]))
+                # Parse msgid
+                if line.startswith("msgid"):
+                    reading_msgid = True
+                    reading_msgstr = False
+                    reading_msgctxt = False
+                    if current_message is not None:
+                        # Update msgid and add the message
+                        current_message.msgid = "".join(current_msgid)
+                        if current_locations:
+                            current_message.locations = current_locations[:]  # Correctly handle locations
+                        if current_flags:
+                            current_message.flags = current_flags.copy()
+                        if current_auto_comments:
+                            current_message.auto_comments = current_auto_comments[:]
+                        if current_user_comments:
+                            current_message.user_comments = current_user_comments[:]
+                        self._add_current_message(current_message)
+                    # Reset message parts
+                    current_msgid = []
+                    current_msgstr = []
+                    current_message = Message(
+                        msgid="",  # Set empty string temporarily, will update later
+                        locations=current_locations[:],
+                        flags=current_flags.copy(),
+                        auto_comments=current_auto_comments[:],
+                        user_comments=current_user_comments[:]
+                    )
+                    # Reset comment/flag collections for next message
+                    current_locations = []
+                    current_flags = set()
+                    current_auto_comments = []
+                    current_user_comments = []
+                    if '"' in line:
+                        current_msgid.append(self._parse_string(line[5:]))
 
-            # Parse msgstr
-            if line.startswith("msgstr"):
-                reading_msgstr = True
-                reading_msgid = False
-                reading_msgctxt = False
-                if '"' in line:
-                    current_msgstr.append(self._parse_string(line[6:]))
+                # Parse msgstr
+                if line.startswith("msgstr"):
+                    reading_msgstr = True
+                    reading_msgid = False
+                    reading_msgctxt = False
+                    if '"' in line:
+                        current_msgstr.append(parse_string(line[6:]))
+
+                continue
 
             # Continuation of previous string
             if line.startswith('"'):
                 if reading_msgctxt:
-                    current_msgctxt.append(self._parse_string(line))
+                    current_msgctxt.append(parse_string(line))
                 elif reading_msgid:
-                    current_msgid.append(self._parse_string(line))
+                    current_msgid.append(parse_string(line))
                 elif reading_msgstr:
-                    current_msgstr.append(self._parse_string(line))
+                    current_msgstr.append(parse_string(line))
 
         # Add the last message if there is one
         if current_message is not None:

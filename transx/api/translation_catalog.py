@@ -27,7 +27,9 @@ class TranslationCatalog:
         self.domain = domain
         self.charset = charset
         self._messages = {}  # {(msgid, context): Message object}
-        self._variants = {}  # {normalized_key: [(msgid, context), ...]}
+        # Variant index is built on demand: it is only needed for fuzzy
+        # matching, which the hot translation path never uses.
+        self._variants = None
 
         # Initialize from existing translations if provided
         if translations:
@@ -48,6 +50,21 @@ class TranslationCatalog:
         text = re.sub(r"\s+", " ", text).strip()
         return text
 
+    def _get_variants(self):
+        """Return the variant index, building it on first use.
+
+        Returns:
+            dict: {normalized_key: [(msgid, context), ...]}
+        """
+        variants = self._variants
+        if variants is None:
+            variants = {}
+            normalize = self._normalize_key
+            for key in self._messages:
+                variants.setdefault(normalize(key[0]), []).append(key)
+            self._variants = variants
+        return variants
+
     def add_message(self, msgid, msgstr="", context=None, is_plural=False):
         """Add a message to the catalog."""
         # Ensure strings are unicode in both Python 2 and 3
@@ -62,12 +79,12 @@ class TranslationCatalog:
 
         self._messages[(msgid, context)] = msgstr  # Changed here
 
-        # Add to variants index
-        norm_key = self._normalize_key(msgid)
-        if norm_key not in self._variants:
-            self._variants[norm_key] = []
-        if (msgid, context) not in self._variants[norm_key]:  # Changed here
-            self._variants[norm_key].append((msgid, context))  # Changed here
+        # Keep the (lazily built) variant index in sync when it already exists.
+        if self._variants is not None:
+            key = (msgid, context)
+            variants = self._variants.setdefault(self._normalize_key(msgid), [])
+            if key not in variants:
+                variants.append(key)
 
     def get_translation(self, msgid, context=None):
         """Get translation for a message.
@@ -88,8 +105,7 @@ class TranslationCatalog:
             return text_type(message) if message else msgid
 
         # Try to find a variant match
-        normalized = self._normalize_key(msgid)
-        variants = self._variants.get(normalized, [])
+        variants = self._get_variants().get(self._normalize_key(msgid), ())
         for variant_key in variants:
             if variant_key[1] == context:  # Match context
                 message = self._messages.get(variant_key)
@@ -126,4 +142,4 @@ class TranslationCatalog:
             text = text.decode(self.charset)
 
         norm_key = self._normalize_key(text)
-        return self._variants.get(norm_key, [])
+        return self._get_variants().get(norm_key, [])

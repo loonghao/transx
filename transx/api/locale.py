@@ -15,19 +15,17 @@ from transx.constants import LANGUAGE_CODES
 from transx.constants import LANGUAGE_MAP
 
 
-def normalize_language_code(lang_code):
-    """Normalize a language code to a standard format.
+#: Lowercased alias -> canonical code, built once instead of rebuilding the
+#: ``[code] + aliases`` list on every call.
+_LOWER_ALIASES = {}
+for _code, (_name, _aliases) in LANGUAGE_CODES.items():
+    for _alias in [_code] + list(_aliases):
+        _LOWER_ALIASES.setdefault(_alias.lower(), _code)
+_LOWER_CODES = {code.lower(): code for code in LANGUAGE_CODES}
 
-    Args:
-        lang_code: Language code to normalize (e.g., 'en', 'zh-CN', 'zh_cn')
 
-    Returns:
-        str: Normalized language code (e.g., 'en_US', 'zh_CN', 'ja_JP')
-            or None if the code is not recognized
-    """
-    if not lang_code:
-        return None
-
+def _normalize_language_code_uncached(lang_code):
+    """Normalize a language code without consulting the cache."""
     # Replace hyphens with underscores
     normalized = lang_code.replace("-", "_")
 
@@ -42,11 +40,9 @@ def normalize_language_code(lang_code):
 
     # Try case-insensitive match
     normalized_lower = normalized.lower()
-    for code, (_, aliases) in LANGUAGE_CODES.items():
-        if normalized_lower == code.lower():
-            return code
-        if normalized_lower in [a.lower() for a in aliases]:
-            return code
+    code = _LOWER_CODES.get(normalized_lower) or _LOWER_ALIASES.get(normalized_lower)
+    if code:
+        return code
 
     # Check common language mappings
     if normalized_lower in LANGUAGE_MAP:
@@ -57,6 +53,36 @@ def normalize_language_code(lang_code):
             return "{0}_{1}".format(normalized_lower, DEFAULT_COUNTRY_MAP[normalized_lower])
 
     return None
+
+
+#: Memoized results, keyed by the raw input. Locale codes are a small closed
+#: set, but normalization walks every entry of ``LANGUAGE_CODES`` and is on the
+#: path of ``switch_locale`` and of every ``Context`` locale assignment.
+_NORMALIZED_CACHE = {}
+
+
+def normalize_language_code(lang_code):
+    """Normalize a language code to a standard format.
+
+    Args:
+        lang_code: Language code to normalize (e.g., 'en', 'zh-CN', 'zh_cn')
+
+    Returns:
+        str: Normalized language code (e.g., 'en_US', 'zh_CN', 'ja_JP')
+            or None if the code is not recognized
+    """
+    if not lang_code:
+        return None
+
+    try:
+        cached = _NORMALIZED_CACHE.get(lang_code)
+    except TypeError:  # unhashable input
+        return _normalize_language_code_uncached(lang_code)
+
+    if cached is None:
+        cached = _normalize_language_code_uncached(lang_code)
+        _NORMALIZED_CACHE[lang_code] = cached
+    return cached
 
 
 def get_system_locale():

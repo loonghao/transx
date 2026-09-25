@@ -165,6 +165,8 @@ def is_ignored(path, root_dir, ignore_patterns):
     rel_path = os.path.relpath(path, root_dir)
     # Normalize path separators
     rel_path = rel_path.replace(os.path.sep, "/")
+    path_parts = rel_path.split("/")
+    basename = path_parts[-1]
 
     # Check each pattern
     for pattern in ignore_patterns:
@@ -172,20 +174,16 @@ def is_ignored(path, root_dir, ignore_patterns):
         if pattern.endswith("/"):
             pattern = pattern[:-1]
             # Check if any part of the path matches the pattern
-            path_parts = rel_path.split("/")
-            for i in range(len(path_parts)):
-                subpath = path_parts[i]
+            for subpath in path_parts:
                 if fnmatch.fnmatch(subpath, pattern):
                     return True
         # Handle file patterns
         else:
             # Check if the file matches the pattern
-            if fnmatch.fnmatch(os.path.basename(rel_path), pattern):
+            if fnmatch.fnmatch(basename, pattern):
                 return True
             # Check if any parent directory matches the pattern
-            path_parts = rel_path.split("/")
-            for i in range(len(path_parts)):
-                subpath = path_parts[i]
+            for subpath in path_parts:
                 if fnmatch.fnmatch(subpath, pattern):
                     return True
 
@@ -208,19 +206,58 @@ def should_ignore(path, root_dir=None):
         else:
             root_dir = path
 
+    checker = _resolve_ignore_checker(root_dir)
+    if not checker:
+        return False
+
+    gitignore_root, ignore_patterns = checker
+    return is_ignored(path, gitignore_root, ignore_patterns)
+
+
+def _resolve_ignore_checker(root_dir):
+    """Find the nearest .gitignore for a directory and load its patterns.
+
+    Args:
+        root_dir (str): Directory to start the upwards search from
+
+    Returns:
+        tuple: ``(gitignore_directory, patterns)``, or an empty tuple when no
+            .gitignore applies.
+    """
     # Find the nearest .gitignore by walking up the directory tree
     current_dir = root_dir
     while current_dir:
-        gitignore_path = os.path.join(current_dir, ".gitignore")
-        if os.path.isfile(gitignore_path):
-            ignore_patterns = get_gitignore_patterns(current_dir)
-            return is_ignored(path, current_dir, ignore_patterns)
+        if os.path.isfile(os.path.join(current_dir, ".gitignore")):
+            return (current_dir, get_gitignore_patterns(current_dir))
         parent_dir = os.path.dirname(current_dir)
         if parent_dir == current_dir:
             break
         current_dir = parent_dir
 
-    return False
+    return ()
+
+
+def _should_ignore_cached(path, root_dir, cache):
+    """``should_ignore`` with a per-walk cache of resolved .gitignore files.
+
+    Args:
+        path (str): Path to check
+        root_dir (str): Directory to resolve .gitignore rules from
+        cache (dict): Mutable cache shared by one directory walk
+
+    Returns:
+        bool: True if path should be ignored, False otherwise
+    """
+    try:
+        checker = cache[root_dir]
+    except KeyError:
+        checker = _resolve_ignore_checker(root_dir)
+        cache[root_dir] = checker
+    if not checker:
+        return False
+
+    gitignore_root, ignore_patterns = checker
+    return is_ignored(path, gitignore_root, ignore_patterns)
 
 
 def walk_with_gitignore(root_dir, file_patterns=None):
@@ -235,7 +272,11 @@ def walk_with_gitignore(root_dir, file_patterns=None):
     """
     matched_files = []
     root_dir = os.path.abspath(root_dir)
-    ignore_patterns = get_gitignore_patterns(root_dir)
+    # Resolving the applicable .gitignore used to repeat the upwards directory
+    # walk and re-read the file for every single entry; one resolution per
+    # directory per walk is enough. Resolving per directory (rather than once
+    # at the walk root) keeps nested .gitignore files working.
+    ignore_cache = {}
 
     for dirpath, dirnames, filenames in os.walk(root_dir):
         dirnames.sort()
@@ -249,7 +290,7 @@ def walk_with_gitignore(root_dir, file_patterns=None):
         i = len(dirnames) - 1
         while i >= 0:
             dirpath_full = os.path.join(dirpath, dirnames[i])
-            if is_ignored(dirpath_full, root_dir, ignore_patterns):
+            if _should_ignore_cached(dirpath_full, dirpath_full, ignore_cache):
                 del dirnames[i]
             i -= 1
 
@@ -262,7 +303,7 @@ def walk_with_gitignore(root_dir, file_patterns=None):
             filepath = os.path.join(dirpath, filename)
 
             # Skip ignored files
-            if is_ignored(filepath, root_dir, ignore_patterns):
+            if _should_ignore_cached(filepath, dirpath, ignore_cache):
                 continue
 
             # If patterns specified, only include matching files
