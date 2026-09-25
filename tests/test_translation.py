@@ -163,7 +163,36 @@ def transx_instance(tmp_path):
     return tx
 
 
-def test_basic_translation_api():
+@pytest.fixture
+def fake_google(monkeypatch):
+    """Serve canned Google responses instead of calling the network."""
+    import transx.api.translate as translate_module
+
+    requests = []
+
+    class _Headers(object):
+        def get(self, key, default=None):
+            return default
+
+    class _Response(object):
+        headers = _Headers()
+
+        def __init__(self, body):
+            self._body = body
+
+        def read(self):
+            return self._body.encode("utf-8")
+
+    def _fake_urlopen(request):
+        requests.append(request)
+        return _Response('<div class="result-container">Bonjour</div>')
+
+    monkeypatch.setattr(translate_module, "urlopen", _fake_urlopen)
+    monkeypatch.setattr(translate_module.time, "sleep", lambda seconds: None)
+    return requests
+
+
+def test_basic_translation_api(fake_google):
     """Test basic translation functionality."""
     # Import local modules
     from transx.api.translate import GoogleTranslator
@@ -174,17 +203,22 @@ def test_basic_translation_api():
     # Test simple translation
     result = translator.translate("Hello", "en", "zh-CN")
     assert isinstance(result, text_type)
-    assert len(result) > 0
+    assert result == "Bonjour"
 
     # Test with context
     result = translator.translate("Hello", "en", "zh-CN")
     assert isinstance(result, text_type)
-    assert len(result) > 0
+    assert result == "Bonjour"
 
-    # Test with unsupported language
-    result = translator.translate("Hello", "en", "xx-XX")
+    # A target language too short to be a language code is rejected before any
+    # request is made, and the source text is returned untouched. (A code that
+    # merely looks wrong, like "xx-XX", is still forwarded to the backend - the
+    # guard only checks the code is well formed, not that it is known.)
+    requests_before = len(fake_google)
+    result = translator.translate("Hello", "en", "x")
     assert isinstance(result, text_type)
     assert result == "Hello"  # Should return source text for unsupported language
+    assert len(fake_google) == requests_before, "no request should be made for an invalid language"
 
     # Test with empty text
     result = translator.translate("", "en", "zh-CN")
@@ -207,7 +241,7 @@ def test_basic_translation_api():
     assert len(result) > 0  # Translation should occur
 
 
-def test_translation_with_fallback():
+def test_translation_with_fallback(fake_google):
     """Test translation with fallback mechanisms."""
     # Import local modules
     from transx.api.translate import GoogleTranslator
@@ -222,7 +256,7 @@ def test_translation_with_fallback():
         "zh-CN"
     )
     assert isinstance(result, text_type)
-    assert len(result) > 0
+    assert result == "Bonjour"
 
     # Test translation to different languages
     result = translator.translate(
@@ -231,10 +265,11 @@ def test_translation_with_fallback():
         "ko"
     )
     assert isinstance(result, text_type)
-    assert len(result) > 0
+    assert result == "Bonjour"
+    assert len(fake_google) == 2, fake_google
 
 
-def test_batch_translation():
+def test_batch_translation(fake_google):
     """Test batch translation functionality."""
     # Import local modules
     from transx.api.translate import GoogleTranslator
@@ -253,6 +288,8 @@ def test_batch_translation():
     assert len(results) == len(texts)
     assert all(isinstance(r, text_type) for r in results)
     assert all(len(r) > 0 for r in results)
+    # Every text produces exactly one request - there is no batching yet.
+    assert len(fake_google) == len(texts), fake_google
 
 
 def test_google_translator_unescapes_html_entities():
