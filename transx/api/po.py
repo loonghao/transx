@@ -27,6 +27,7 @@ except ImportError:
 # Import local modules
 from transx.api.message import Message
 from transx.constants import HEADER_COMMENT
+from transx.internal.filesystem import read_file
 
 
 class POFile(object):
@@ -172,77 +173,80 @@ class POFile(object):
         reading_msgstr = False
         reading_msgctxt = False
 
-        with codecs.open(file, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
+        # Read the file in one go: line iteration through ``codecs`` costs one
+        # decode call per line, while a single read decodes the whole payload at
+        # once. The explicit newline normalisation mirrors what text-mode
+        # iteration would have produced.
+        content = read_file(file, encoding="utf-8")
+        unescape = self._unescape_string
 
-                # Skip empty lines
-                if not line:
-                    if current_message is not None:
-                        self._add_current_message(current_message)
-                        current_message = None
-                        current_locations = []
-                        current_flags = set()
-                        current_auto_comments = []
-                        current_user_comments = []
-                        current_msgid = []
-                        current_msgstr = []
-                        current_msgctxt = []
-                        reading_msgid = False
-                        reading_msgstr = False
-                        reading_msgctxt = False
-                    continue
+        for line in content.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+            line = line.strip()
 
-                # Parse source references
-                if line.startswith("#:"):
-                    locations = line[2:].strip().split()
-                    for location in locations:
+            # Skip empty lines
+            if not line:
+                if current_message is not None:
+                    self._add_current_message(current_message)
+                    current_message = None
+                    current_locations = []
+                    current_flags = set()
+                    current_auto_comments = []
+                    current_user_comments = []
+                    current_msgid = []
+                    current_msgstr = []
+                    current_msgctxt = []
+                    reading_msgid = False
+                    reading_msgstr = False
+                    reading_msgctxt = False
+                continue
+
+            # Dispatch on the first character: ``msgid``/``msgstr``/``msgctxt``
+            # and comments dominate real PO files, so a single character test
+            # avoids a long chain of ``startswith`` calls per line.
+            prefix = line[0]
+
+            if prefix == "#":  # Comment line
+                marker = line[1:2]
+                if marker == ":":
+                    # Parse source references
+                    for location in line[2:].strip().split():
                         if ":" in location:
                             filename, lineno = location.rsplit(":", 1)
                             try:
                                 current_locations.append((filename.strip(), int(lineno.strip())))
                             except ValueError:
                                 self.logger.warning("Invalid line number in location: %s", location)
-                    continue
-
-                # Parse flags
-                if line.startswith("#,"):
-                    flags = line[2:].strip().split(",")
-                    current_flags.update(flag.strip() for flag in flags)
-                    continue
-
-                # Parse automatic comments
-                if line.startswith("#."):
+                elif marker == ",":
+                    # Parse flags
+                    current_flags.update(flag.strip() for flag in line[2:].strip().split(","))
+                elif marker == ".":
+                    # Parse automatic comments
                     current_auto_comments.append(line[2:].strip())
-                    continue
-
-                # Parse user comments
-                if line.startswith("#") and not line.startswith("#:") and not line.startswith("#,") and not line.startswith("#."):
+                else:
+                    # Parse user comments
                     current_user_comments.append(line[1:].strip())
-                    continue
+                continue
 
-                # Parse msgctxt
+            if prefix == "m":  # msgctxt / msgid / msgstr
                 if line.startswith("msgctxt "):
                     reading_msgctxt = True
                     reading_msgid = False
                     reading_msgstr = False
-                    current_msgctxt = [self._unescape_string(line[8:])]
+                    current_msgctxt = [unescape(line[8:])]
                     continue
 
-                # Parse msgid
                 if line.startswith("msgid "):
                     reading_msgctxt = False
                     reading_msgid = True
                     reading_msgstr = False
-                    current_msgid = [self._unescape_string(line[6:])]
+                    current_msgid = [unescape(line[6:])]
                     continue
 
-                # Parse msgstr
                 if line.startswith("msgstr "):
                     reading_msgctxt = False
                     reading_msgid = False
                     reading_msgstr = True
-                    current_msgstr = [self._unescape_string(line[7:])]
+                    current_msgstr = [unescape(line[7:])]
                     current_message = Message(
                         msgid="".join(current_msgid),
                         msgstr="".join(current_msgstr),
@@ -254,17 +258,17 @@ class POFile(object):
                     )
                     continue
 
-                # Continue reading msgid/msgstr/msgctxt
-                if reading_msgid:
-                    current_msgid.append(self._unescape_string(line))
-                elif reading_msgstr:
-                    current_msgstr.append(self._unescape_string(line))
-                elif reading_msgctxt:
-                    current_msgctxt.append(self._unescape_string(line))
+            # Continue reading msgid/msgstr/msgctxt
+            if reading_msgid:
+                current_msgid.append(unescape(line))
+            elif reading_msgstr:
+                current_msgstr.append(unescape(line))
+            elif reading_msgctxt:
+                current_msgctxt.append(unescape(line))
 
-            # Add the last message if any
-            if current_message is not None:
-                self._add_current_message(current_message)
+        # Add the last message if any
+        if current_message is not None:
+            self._add_current_message(current_message)
 
     def _add_current_message(self, message):
         """Helper method to add the current message to translations.
@@ -318,6 +322,10 @@ class POFile(object):
             return ""
         if string.startswith('"') and string.endswith('"'):
             string = string[1:-1]  # Remove surrounding quotes
+        # Most catalog strings contain no escape sequence at all, so skip the
+        # (comparatively expensive) encode/decode round-trip in that case.
+        if "\\" not in string:
+            return string
         # Unescape special characters
         return string.encode("raw_unicode_escape").decode("unicode_escape")
 

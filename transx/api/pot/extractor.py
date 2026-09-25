@@ -9,6 +9,7 @@ from __future__ import unicode_literals
 # Import built-in modules
 from collections import OrderedDict
 import datetime
+import logging
 import os
 import re
 import tokenize
@@ -46,6 +47,7 @@ class PotExtractor(object):
         self.catalog = POTFile(path=pot_file)
         self.current_file = None
         self.current_line = 0
+        self.logger = logging.getLogger(__name__)
         self.keywords = self._build_keywords(additional_keywords)
         self._language_codes = self._build_language_code_set()
         self._skip_literals = {"locales", "LC_MESSAGES", "__main__", "__init__", "__file__"}
@@ -134,7 +136,7 @@ class PotExtractor(object):
 
         for file_path in unique_files.values():
 
-            print("Scanning %s for translatable messages..." % file_path)
+            self.logger.debug("Scanning %s for translatable messages...", file_path)
             self.current_file = file_path
             self.current_line = 0
 
@@ -150,7 +152,7 @@ class PotExtractor(object):
                 # them here would drop every entry unique to this file the moment a
                 # transient read error happens, since the stale sweep below would see
                 # them as no longer present in the scanned sources.
-                print("Error reading file %s: %s" % (file_path, str(e)))
+                self.logger.error("Error reading file %s: %s", file_path, str(e))
                 continue
 
             # Regenerate this file's locations from scratch: drop the references
@@ -402,8 +404,9 @@ class PotExtractor(object):
             # add_location() normalizes and deduplicates, so the raw source path
             # held here and the normalized form read back from disk collapse into
             # a single entry instead of rendering as a duplicated `#:` line.
+            # Locations are sorted once when the catalog is written, not on
+            # every duplicate hit.
             existing.add_location(self.current_file, line)
-            existing.locations.sort()  # Sort locations for consistent output
             # Update comments and flags
             existing.flags.update(message.flags)
             for comment in message.auto_comments:

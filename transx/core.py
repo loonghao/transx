@@ -86,6 +86,9 @@ class TransX:
                 self.parent = parent
                 self._default_locale = None
                 self._current_locale = None
+                # ``current_locale`` is read on every translation; resolve it
+                # once and invalidate it whenever a locale changes.
+                self._resolved_locale = None
 
             @property
             def default_locale(self):
@@ -97,31 +100,52 @@ class TransX:
                 """Set default locale."""
                 if value:
                     self._default_locale = normalize_language_code(value)
+                    self._resolved_locale = None
 
             @property
             def current_locale(self):
                 """Get current locale."""
-                return self._current_locale or self.default_locale
+                resolved = self._resolved_locale
+                if resolved is None:
+                    resolved = self._current_locale or self._default_locale or DEFAULT_LOCALE
+                    self._resolved_locale = resolved
+                return resolved
 
             @current_locale.setter
             def current_locale(self, value):
                 """Set current locale."""
                 if value:
                     self._current_locale = normalize_language_code(value)
+                    self._resolved_locale = None
 
             def switch_locale(self, locale):
                 """Switch to a new locale."""
                 if not locale:
                     raise ValueError("Locale cannot be empty")
                 self._current_locale = normalize_language_code(locale)
+                self._resolved_locale = None
 
         self._context = Context(self)
         self._translations = {}  # {locale: gettext.GNUTranslations}
         self._catalogs = {}  # {locale: TranslationCatalog}
-        self._translation_cache = {}  # {(locale, msgid, context): translated_text}
-        self._parameter_cache = {}  # {(template, param_hash): formatted_text}
-        self._interpreter_cache = {}  # {param_count: interpreter_chain}
-        self._locale_cache = {}  # {locale: {msgid: translated_text}}
+        # Final results of ``tr()``: {(locale, text, context, params_key): result}
+        self._parameter_cache = {}
+        # Formatted strings produced by ``translate()``: {(msgstr, params_key): result}
+        self._format_cache = {}
+        # Interpreter chains are created once per instance; they do not depend
+        # on the number of parameters, so no per-count bookkeeping is needed.
+        self._translation_chain = None
+        self._parameter_chain = None
+        self._locale_cache = {}  # {locale: {(msgid, context): translated_text}}
+        # Results of the parameterless ``tr()`` fast path, keyed by locale then
+        # by the source text. Kept separate from ``_locale_cache`` so a warm
+        # lookup is a plain string-keyed dict hit with no tuple to build.
+        self._plain_cache = {}  # {locale: {text: result}}
+        # Shortcuts to the dicts of the active locale, so a lookup does not have
+        # to go through the outer dicts on every single translation.
+        self._active_locale = None
+        self._active_cache = None
+        self._active_plain = None
 
         # Create the first locales directory if it doesn't exist
         if not os.path.exists(self.locales_root):
@@ -270,22 +294,57 @@ class TransX:
                         locales.add(item)
         return sorted(locales)
 
-    def _get_translation(self, msgid, context=None):
+    def _locale_dict(self, locale):
+        """Return the per-locale translation cache, creating it if needed.
+
+        Args:
+            locale (str): Locale whose cache should be returned
+
+        Returns:
+            dict: Mapping of ``(msgid, context)`` to translated text
+        """
+        if self._active_locale != locale:
+            self._active_locale = locale
+            cache = self._locale_cache.get(locale)
+            if cache is None:
+                cache = {}
+                self._locale_cache[locale] = cache
+            self._active_cache = cache
+            plain = self._plain_cache.get(locale)
+            if plain is None:
+                plain = {}
+                self._plain_cache[locale] = plain
+            self._active_plain = plain
+        return self._active_cache
+
+    def _plain_dict(self, locale):
+        """Return the per-locale cache of parameterless ``tr()`` results.
+
+        Args:
+            locale (str): Locale whose cache should be returned
+
+        Returns:
+            dict: Mapping of source text to the final translated text
+        """
+        if self._active_locale != locale:
+            self._locale_dict(locale)
+        return self._active_plain
+
+    def _get_translation(self, msgid, context=None, locale=None):
         """Get translation for the specified msgid and context.
 
         Args:
             msgid (str): Message ID to translate.
             context (str, optional): Message context.
+            locale (str, optional): Locale to use. Defaults to the current one.
 
         Returns:
             str: Translated text.
         """
         # Get from locale cache first
-        locale = self.current_locale
-        locale_cache = self._locale_cache.get(locale)
-        if locale_cache is None:
-            locale_cache = {}
-            self._locale_cache[locale] = locale_cache
+        if locale is None:
+            locale = self.current_locale
+        locale_cache = self._locale_dict(locale)
 
         cache_key = (msgid, context)
         result = locale_cache.get(cache_key)
@@ -326,24 +385,23 @@ class TransX:
             return msgstr
 
         # Create cache key for parameters
-        cache_key = self._create_cache_key(msgstr, kwargs)
+        cache_key = (msgstr, self._create_params_key(kwargs))
 
         # Check parameter cache
-        result = self._parameter_cache.get(cache_key)
+        result = self._format_cache.get(cache_key)
         if result is not None:
             return result
 
-        # Get or create interpreter chain based on parameter count
-        param_count = len(kwargs)
-        interpreter_chain = self._interpreter_cache.get(param_count)
+        # Get or create the interpreter chain
+        interpreter_chain = self._parameter_chain
         if interpreter_chain is None:
             interpreter_chain = InterpreterFactory.create_parameter_only_chain()
-            self._interpreter_cache[param_count] = interpreter_chain
+            self._parameter_chain = interpreter_chain
 
         try:
             # Use cached interpreter chain
             result = interpreter_chain.execute_safe(msgstr, kwargs)
-            self._parameter_cache[cache_key] = result
+            self._format_cache[cache_key] = result
             return result
         except Exception:
             return msgstr
@@ -359,8 +417,33 @@ class TransX:
         Returns:
             str: Translated text with parameters substituted.
         """
+        locale = self.current_locale
+
+        # Fast path: without parameters the interpreter chain can only change
+        # the text if it contains a ``$``, so a catalog lookup is the answer
+        # for everything else. ``context`` is excluded because the chain drops
+        # it anyway. The result cache is checked before the ``$`` scan so a
+        # warm lookup never has to touch the string.
+        #
+        # ``type(text) is str`` is a gate, not a micro-optimisation: the full
+        # chain starts and ends with a ``TextTypeInterpreter`` that coerces
+        # non-str input (``None``, ``int``, ``bytes``, ...) via ``text_type``.
+        # Skipping it turned those calls into ``TypeError``, so anything that
+        # is not exactly ``str`` falls through to the chain and keeps the old
+        # behaviour. It has to come first because ``plain.get`` needs a
+        # hashable key.
+        if type(text) is str and context is None and not kwargs:
+            plain = self._plain_dict(locale)
+            result = plain.get(text)
+            if result is not None:
+                return result
+            if "$" not in text:
+                result = self._get_translation(text, None, locale) or text
+                plain[text] = result
+                return result
+
         # Create cache key
-        cache_key = (self.current_locale, text, context, self._create_cache_key(text, kwargs)[1])
+        cache_key = (locale, text, context, self._create_params_key(kwargs))
 
         # Check cache
         result = self._parameter_cache.get(cache_key)
@@ -368,20 +451,18 @@ class TransX:
             return result
 
         # Get or create interpreter chains
-        param_count = len(kwargs) if kwargs else 0
-        interpreter_chains = self._interpreter_cache.get(param_count)
-        if interpreter_chains is None:
-            interpreter_chains = (
-                InterpreterFactory.create_translation_chain(self),
-                InterpreterFactory.create_parameter_only_chain()
-            )
-            self._interpreter_cache[param_count] = interpreter_chains
-
-        # Get cached interpreter chains
-        executor, fallback_chain = interpreter_chains
+        translation_chain = self._translation_chain
+        if translation_chain is None:
+            translation_chain = InterpreterFactory.create_translation_chain(self)
+            self._translation_chain = translation_chain
+        parameter_chain = self._parameter_chain
+        if parameter_chain is None:
+            parameter_chain = InterpreterFactory.create_parameter_only_chain()
+            self._parameter_chain = parameter_chain
 
         try:
-            result = executor.execute_safe(text, kwargs, fallback_chain.interpreters)
+            result = translation_chain.execute_safe(
+                text, kwargs, parameter_chain.interpreters)
             self._parameter_cache[cache_key] = result
             return result
         except Exception:
@@ -565,6 +646,42 @@ class TransX:
         msgstr = self._decode_html_entities(msgstr)
         self._catalogs[self._context.current_locale].add_message(msgid, msgstr)
 
+    #: Types that can go into a cache key unchanged - checked first because a
+    #: parameter set with many entries pays this check once per entry.
+    _ATOMIC_TYPES = (str, bytes, int, float, bool, type(None))
+
+    @staticmethod
+    def _freeze(value):
+        """Convert a parameter value into a hashable, stable representation."""
+        if isinstance(value, TransX._ATOMIC_TYPES):
+            return value
+        if isinstance(value, dict):
+            return tuple(sorted((k, TransX._freeze(v)) for k, v in value.items()))
+        if isinstance(value, (set, frozenset)):
+            # Set iteration order is not stable across processes, so sort by a
+            # total, type-agnostic key to keep the cache key deterministic.
+            return tuple(sorted((TransX._freeze(v) for v in value), key=repr))
+        if isinstance(value, (list, tuple)):
+            return tuple(TransX._freeze(v) for v in value)
+        return value
+
+    def _create_params_key(self, params):
+        """Create a hashable cache key for a set of formatting parameters.
+
+        The previous implementation collapsed the parameters into a single
+        ``hash()`` value, which both costs a full traversal of nested values
+        and can collide. Returning the frozen structure itself keeps the key
+        exact.
+
+        Args:
+            params (dict): Parameters for string formatting
+
+        Returns:
+            tuple or None: Cache key, or None when there are no parameters
+        """
+        if not params:
+            return None
+        return tuple(sorted((key, self._freeze(value)) for key, value in params.items()))
 
     def _create_cache_key(self, template, params):
         """Create a cache key for template and parameters.
@@ -576,15 +693,4 @@ class TransX:
         Returns:
             tuple: Cache key
         """
-        if not params:
-            return template, None
-
-        # Convert nested dictionaries to tuples
-        def dict_to_tuple(d):
-            if isinstance(d, dict):
-                return tuple(sorted((k, dict_to_tuple(v)) for k, v in d.items()))
-            return d
-
-        # Convert parameters to hashable format
-        hashable_params = dict_to_tuple(params)
-        return template, hash(hashable_params)
+        return template, self._create_params_key(params)

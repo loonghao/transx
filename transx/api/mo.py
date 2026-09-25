@@ -25,15 +25,20 @@ except ImportError:
 from transx.api.message import Message
 from transx.api.po import POFile
 from transx.constants import DEFAULT_ENCODING
-from transx.internal.compat import BytesIO
 from transx.internal.compat import binary_type
 from transx.internal.compat import ensure_unicode
 from transx.internal.compat import text_type
-from transx.internal.filesystem import read_file
+
+
+#: Size of the fixed MO header: magic number + 6 uint32 fields.
+MO_HEADER_SIZE = 4 * 7
 
 
 class MOFile(object):
     """Class representing a MO file."""
+
+    #: magic + revision + 5 offsets/sizes, all uint32
+    HEADER_FIELDS = 7
 
     def __init__(self, path=None, locale=None):
         """Initialize a new MO file handler.
@@ -53,6 +58,8 @@ class MOFile(object):
         self.hash_table_offset = 0
         self.translations = OrderedDict()
         self.metadata = OrderedDict()
+        # Built on demand; see ``_init_hash_table``.
+        self._hash_table = None
 
         if path is not None:
             if isinstance(path, (str, text_type)):
@@ -75,70 +82,72 @@ class MOFile(object):
         if file is None:
             raise ValueError("No file path specified")
 
-        content = read_file(file, binary=True)
-        self._parse(BytesIO(content))
+        with open(file, "rb") as fileobj:
+            self._parse(fileobj)
 
     def _parse(self, fileobj):
         """Parse MO file format.
 
+        The whole payload is read once and the string tables are decoded with a
+        single ``struct.unpack`` call per table instead of seeking and reading
+        four bytes at a time for every single message.
+
         See: https://www.gnu.org/software/gettext/manual/html_node/MO-Files.html
         """
-        # Read header
-        magic = struct.unpack("<I", fileobj.read(4))[0]
+        content = fileobj.read()
+
+        # Read header (magic + 6 * uint32)
+        if len(content) < MO_HEADER_SIZE:
+            raise ValueError("Invalid MO file: header is truncated")
+
+        magic = struct.unpack("<I", content[0:4])[0]
         if magic == 0xde120495:  # Big endian
             byte_order = ">"
-            self.magic = magic
         elif magic == 0x950412de:  # Little endian
             byte_order = "<"
-            self.magic = magic
         else:
             raise ValueError("Bad magic number: 0x%x" % magic)
+        self.magic = magic
 
-        # Use a unified unpacking function
-        def unpack(fmt):
-            return struct.unpack(byte_order + fmt, fileobj.read(struct.calcsize(byte_order + fmt)))[0]
+        (self.version, self.num_strings, self.orig_table_offset,
+         self.trans_table_offset, self.hash_table_size,
+         self.hash_table_offset) = struct.unpack(byte_order + "6I", content[4:MO_HEADER_SIZE])
 
-        self.version = unpack("I")
         if self.version not in (0, 1):
             raise ValueError("Bad version number: %d" % self.version)
 
-        self.num_strings = unpack("I")
-        self.orig_table_offset = unpack("I")
-        self.trans_table_offset = unpack("I")
-        self.hash_table_size = unpack("I")
-        self.hash_table_offset = unpack("I")
+        count = self.num_strings
+        if not count:
+            self._hash_table = None
+            return
 
-        # Read strings
-        for i in range(self.num_strings):
-            # Read original string
-            fileobj.seek(self.orig_table_offset + i * 8)
-            length = unpack("I")
-            offset = unpack("I")
+        # Read both string tables with one unpack call each.
+        table_fmt = byte_order + "%dI" % (count * 2)
+        table_size = count * 8
+        orig_table = struct.unpack(table_fmt, content[self.orig_table_offset:self.orig_table_offset + table_size])
+        trans_table = struct.unpack(table_fmt, content[self.trans_table_offset:self.trans_table_offset + table_size])
 
-            # Read translation
-            fileobj.seek(self.trans_table_offset + i * 8)
-            trans_length = unpack("I")
-            trans_offset = unpack("I")
+        translations = self.translations
+        decode = self._decode
+        for i in range(count):
+            offset = orig_table[i * 2 + 1]
+            msgid = decode(content[offset:offset + orig_table[i * 2]])
+            offset = trans_table[i * 2 + 1]
+            msgstr = decode(content[offset:offset + trans_table[i * 2]])
 
-            # Read string data
-            msgid = self._read_string(fileobj, offset, length)
-            msgstr = self._read_string(fileobj, trans_offset, trans_length)
-
-            # Add to translations
-            message = Message(msgid=msgid, msgstr=msgstr)
-            self.translations[msgid] = message
+            translations[msgid] = Message(msgid=msgid, msgstr=msgstr)
 
             # Parse metadata from empty msgid
             if not msgid and msgstr:
                 self._parse_metadata(msgstr)
 
-        # Initialize hash table for faster lookups
-        self._init_hash_table()
+        # The hash table is built lazily by ``gettext``; a plain dict lookup on
+        # ``translations`` is already faster than hashing into a second dict.
+        self._hash_table = None
 
-    def _read_string(self, fileobj, offset, length):
-        """Read a string from the file."""
-        fileobj.seek(offset)
-        data = fileobj.read(length)
+    @staticmethod
+    def _decode(data):
+        """Decode a raw MO string, preferring UTF-8."""
         try:
             # Try UTF-8 first
             return ensure_unicode(data.decode("utf-8"))
@@ -146,13 +155,23 @@ class MOFile(object):
             # Fall back to configured charset
             return ensure_unicode(data.decode(DEFAULT_ENCODING, errors="replace"))
 
+    def _read_string(self, fileobj, offset, length):
+        """Read a string from the file."""
+        fileobj.seek(offset)
+        return self._decode(fileobj.read(length))
+
     def _init_hash_table(self):
-        """Initialize hash table for faster lookups."""
+        """Initialize hash table for faster lookups.
+
+        Deprecated: kept for backwards compatibility. ``gettext`` resolves
+        lookups directly through the ``translations`` mapping, so this table is
+        only built when a caller explicitly asks for it.
+        """
         self._hash_table = {}
         if self.hash_table_size:
-            for msgid, _message in self.translations.items():
-                h = hash(msgid) % self.hash_table_size
-                self._hash_table[h] = msgid
+            for msgid in self.translations:
+                self._hash_table[hash(msgid) % self.hash_table_size] = msgid
+        return self._hash_table
 
     def _parse_metadata(self, msgstr):
         """Parse metadata from msgstr."""
@@ -286,16 +305,8 @@ class MOFile(object):
 
         msgid = ensure_unicode(msgid)
 
-        # Try hash table lookup first
-        if hasattr(self, "_hash_table") and self.hash_table_size:
-            h = hash(msgid) % self.hash_table_size
-            lookup_msgid = self._hash_table.get(h)
-            if lookup_msgid == msgid:
-                message = self.translations.get(lookup_msgid)
-                if message and message.msgstr:
-                    return message.msgstr
-
-        # Fall back to direct lookup
+        # ``translations`` is a dict keyed by msgid, which already is the
+        # fastest lookup available; a secondary hash table only adds work.
         message = self.translations.get(msgid)
         return message.msgstr if message and message.msgstr else msgid
 

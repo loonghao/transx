@@ -126,6 +126,33 @@ def ensure_dir(path):
         os.makedirs(path)
 
 
+def _load_gitignore_patterns(root_dir):
+    """Read one .gitignore file, keeping the patterns in file order.
+
+    Order is part of the semantics: gitignore rules are "last match wins",
+    which is what lets ``!pattern`` re-include a path an earlier rule ignored.
+
+    Args:
+        root_dir (str): Directory that may hold a .gitignore file
+
+    Returns:
+        tuple: Ordered patterns, or an empty tuple when there is no .gitignore
+    """
+    gitignore_path = os.path.join(root_dir, ".gitignore")
+    if not os.path.isfile(gitignore_path):
+        return ()
+
+    patterns = []
+    with open(gitignore_path, "r") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                # Normalize path separators
+                patterns.append(line.replace("\\", "/"))
+
+    return tuple(patterns)
+
+
 def get_gitignore_patterns(root_dir):
     """Get patterns from .gitignore file.
 
@@ -135,19 +162,7 @@ def get_gitignore_patterns(root_dir):
     Returns:
         set: Set of gitignore patterns
     """
-    patterns = set()
-    gitignore_path = os.path.join(root_dir, ".gitignore")
-
-    if os.path.isfile(gitignore_path):
-        with open(gitignore_path, "r") as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#"):
-                    # Normalize path separators
-                    line = line.replace("\\", "/")
-                    patterns.add(line)
-
-    return patterns
+    return set(_load_gitignore_patterns(root_dir))
 
 
 def is_ignored(path, root_dir, ignore_patterns):
@@ -161,35 +176,161 @@ def is_ignored(path, root_dir, ignore_patterns):
     Returns:
         bool: True if path should be ignored, False otherwise
     """
-    # Convert absolute path to relative path from root_dir
-    rel_path = os.path.relpath(path, root_dir)
-    # Normalize path separators
-    rel_path = rel_path.replace(os.path.sep, "/")
+    parent = os.path.dirname(path) or root_dir
+    return _match_ignore_specs(
+        (_build_ignore_spec(_relative_parts(parent, root_dir), ignore_patterns),),
+        (os.path.basename(path),))
 
-    # Check each pattern
-    for pattern in ignore_patterns:
-        # Handle directory-specific patterns
-        if pattern.endswith("/"):
-            pattern = pattern[:-1]
-            # Check if any part of the path matches the pattern
-            path_parts = rel_path.split("/")
-            for i in range(len(path_parts)):
-                subpath = path_parts[i]
-                if fnmatch.fnmatch(subpath, pattern):
-                    return True
-        # Handle file patterns
-        else:
-            # Check if the file matches the pattern
-            if fnmatch.fnmatch(os.path.basename(rel_path), pattern):
+
+def _relative_parts(path, start):
+    """Path components of ``path`` relative to ``start``, outermost first.
+
+    Args:
+        path (str): Path to express relatively
+        start (str): Directory the components are relative to
+
+    Returns:
+        tuple: Path components, or an empty tuple when ``path`` is ``start``
+    """
+    rel_path = os.path.relpath(path, start).replace(os.path.sep, "/")
+    return () if rel_path == "." else tuple(rel_path.split("/"))
+
+
+def _build_ignore_spec(parts, patterns):
+    """Prepare one level of the .gitignore stack for matching.
+
+    The components of the checked directory are resolved once per directory
+    instead of once per entry, and the ``!`` flag is resolved once per
+    .gitignore instead of once per pattern per entry.
+
+    Args:
+        parts (tuple): Components of the checked directory relative to the
+            directory holding the .gitignore
+        patterns (iterable): Ordered patterns of that .gitignore
+
+    Returns:
+        tuple: ``(parts, patterns, has_negation)``
+    """
+    patterns = tuple(patterns)
+    return (parts, patterns, any(pattern.startswith("!") for pattern in patterns))
+
+
+def _match_ignore_specs(specs, extra=()):
+    """Evaluate an ordered .gitignore stack against one path.
+
+    Args:
+        specs (tuple): Levels prepared by ``_build_ignore_spec``, outermost first
+        extra (tuple): Components below the directory the stack was built for --
+            ``(filename,)`` for a file, ``()`` for a subdirectory (whose own name
+            is already part of the stack resolved for it)
+
+    Returns:
+        bool: True if the path should be ignored, False otherwise
+    """
+    ignored = False
+    # A ``!`` rule can re-include a path at any level, so every level has to be
+    # evaluated when one is present. Without one the first match decides.
+    early_exit = not any(has_negation for _, _, has_negation in specs)
+
+    for parts, patterns, _has_negation in specs:
+        path_parts = parts + extra
+        if not path_parts:
+            # A directory's own .gitignore cannot exclude the directory itself.
+            continue
+        basename = path_parts[-1]
+
+        for pattern in patterns:
+            negated = pattern.startswith("!")
+            if negated:
+                pattern = pattern[1:]
+            # A trailing "/" only marks the rule as directory-oriented; the
+            # match itself still runs against a single path component.
+            if pattern.endswith("/"):
+                pattern = pattern[:-1]
+            if not pattern:
+                continue
+
+            # Check the entry itself, then every directory component above it.
+            if fnmatch.fnmatch(basename, pattern):
+                ignored = not negated
+            else:
+                for subpath in path_parts:
+                    if fnmatch.fnmatch(subpath, pattern):
+                        ignored = not negated
+                        break
+
+            if ignored and early_exit:
                 return True
-            # Check if any parent directory matches the pattern
-            path_parts = rel_path.split("/")
-            for i in range(len(path_parts)):
-                subpath = path_parts[i]
-                if fnmatch.fnmatch(subpath, pattern):
-                    return True
 
-    return False
+    return ignored
+
+
+def _ancestor_ignore_specs(walk_root):
+    """.gitignore stack that applies above the walk root, outermost first.
+
+    transx is often pointed at a subdirectory of a repository, so the rules
+    above the walk root still have to be honoured.
+
+    Args:
+        walk_root (str): Directory the walk starts from
+
+    Returns:
+        tuple: Levels prepared by ``_build_ignore_spec``
+    """
+    specs = []
+    current_dir = os.path.dirname(walk_root)
+    while current_dir:
+        patterns = _load_gitignore_patterns(current_dir)
+        if patterns:
+            specs.append(_build_ignore_spec(_relative_parts(walk_root, current_dir), patterns))
+        parent_dir = os.path.dirname(current_dir)
+        if parent_dir == current_dir:
+            break
+        current_dir = parent_dir
+
+    specs.reverse()
+    return tuple(specs)
+
+
+def _resolve_ignore_specs(dirpath, walk_root, cache):
+    """Ordered .gitignore stack that applies to ``dirpath``.
+
+    Git layers .gitignore files from the top of the tree down to the directory
+    being checked: a nested file *adds* to the rules inherited from its
+    ancestors and can only weaken them with ``!``. Resolving only the nearest
+    file (or only the walk root's file) gets both directions wrong -- the first
+    drops the ancestor rules, the second drops the nested ones.
+
+    Args:
+        dirpath (str): Directory to resolve the rules for
+        walk_root (str): Directory the current walk started from
+        cache (dict): Mutable cache shared by one directory walk
+
+    Returns:
+        tuple: Levels prepared by ``_build_ignore_spec``, outermost first
+    """
+    try:
+        return cache[dirpath]
+    except KeyError:
+        pass
+
+    parent_dir = os.path.dirname(dirpath)
+    if dirpath == walk_root or parent_dir == dirpath:
+        inherited = _ancestor_ignore_specs(dirpath) if dirpath == walk_root else ()
+    else:
+        # os.walk is top-down, so the parent's stack is always ready first: each
+        # directory only shifts its parent's components down one level and reads
+        # its own .gitignore.
+        inherited = tuple(
+            (parts + (os.path.basename(dirpath),), patterns, has_negation)
+            for parts, patterns, has_negation
+            in _resolve_ignore_specs(parent_dir, walk_root, cache))
+
+    own_patterns = _load_gitignore_patterns(dirpath)
+    specs = inherited + (_build_ignore_spec((), own_patterns),) if own_patterns else inherited
+
+    cache[dirpath] = specs
+    return specs
 
 
 def should_ignore(path, root_dir=None):
@@ -203,24 +344,33 @@ def should_ignore(path, root_dir=None):
         bool: True if path should be ignored, False otherwise
     """
     if root_dir is None:
-        if os.path.isfile(path):
-            root_dir = os.path.dirname(path)
-        else:
-            root_dir = path
+        root_dir = os.path.dirname(path) or path
 
-    # Find the nearest .gitignore by walking up the directory tree
-    current_dir = root_dir
-    while current_dir:
-        gitignore_path = os.path.join(current_dir, ".gitignore")
-        if os.path.isfile(gitignore_path):
-            ignore_patterns = get_gitignore_patterns(current_dir)
-            return is_ignored(path, current_dir, ignore_patterns)
-        parent_dir = os.path.dirname(current_dir)
-        if parent_dir == current_dir:
-            break
-        current_dir = parent_dir
+    root_dir = os.path.abspath(root_dir)
+    specs = _resolve_ignore_specs(root_dir, root_dir, {})
+    if not specs:
+        return False
 
-    return False
+    return _match_ignore_specs(specs, (os.path.basename(path),))
+
+
+def _should_ignore_cached(dirpath, walk_root, cache, extra=()):
+    """``should_ignore`` for one entry of ``dirpath``, with a per-walk cache.
+
+    Args:
+        dirpath (str): Directory whose .gitignore stack applies
+        walk_root (str): Directory the current walk started from
+        cache (dict): Mutable cache shared by one directory walk
+        extra (tuple): ``(filename,)`` for a file, ``()`` for a subdirectory
+
+    Returns:
+        bool: True if the entry should be ignored, False otherwise
+    """
+    specs = _resolve_ignore_specs(dirpath, walk_root, cache)
+    if not specs:
+        return False
+
+    return _match_ignore_specs(specs, extra)
 
 
 def walk_with_gitignore(root_dir, file_patterns=None):
@@ -235,7 +385,12 @@ def walk_with_gitignore(root_dir, file_patterns=None):
     """
     matched_files = []
     root_dir = os.path.abspath(root_dir)
-    ignore_patterns = get_gitignore_patterns(root_dir)
+    # Resolving the applicable .gitignore used to repeat the upwards directory
+    # walk and re-read the file for every single entry. Now each directory
+    # inherits its parent's already-resolved stack, so a walk reads every
+    # .gitignore at most once while still layering nested files on top of the
+    # ancestor rules the way git does.
+    ignore_cache = {}
 
     for dirpath, dirnames, filenames in os.walk(root_dir):
         dirnames.sort()
@@ -249,7 +404,7 @@ def walk_with_gitignore(root_dir, file_patterns=None):
         i = len(dirnames) - 1
         while i >= 0:
             dirpath_full = os.path.join(dirpath, dirnames[i])
-            if is_ignored(dirpath_full, root_dir, ignore_patterns):
+            if _should_ignore_cached(dirpath_full, root_dir, ignore_cache):
                 del dirnames[i]
             i -= 1
 
@@ -259,11 +414,11 @@ def walk_with_gitignore(root_dir, file_patterns=None):
             if filename == ".gitignore":
                 continue
 
-            filepath = os.path.join(dirpath, filename)
-
             # Skip ignored files
-            if is_ignored(filepath, root_dir, ignore_patterns):
+            if _should_ignore_cached(dirpath, root_dir, ignore_cache, (filename,)):
                 continue
+
+            filepath = os.path.join(dirpath, filename)
 
             # If patterns specified, only include matching files
             if file_patterns:
