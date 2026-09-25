@@ -1,3 +1,9 @@
+## v0.8.2 (2026-09-25)
+
+### Fix
+
+- **pot**: regenerate locations and header on re-extract (#40)
+
 ## v0.8.1 (2026-09-25)
 
 ### Fix
