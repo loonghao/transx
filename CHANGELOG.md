@@ -1,3 +1,9 @@
+## v0.8.1 (2026-09-25)
+
+### Fix
+
+- **translate**: honour Retry-After and add jitter to rate-limit backoff (#41)
+
 ## v0.8.0 (2026-03-07)
 
 ### Feat
