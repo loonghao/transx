@@ -18,6 +18,7 @@ import codecs
 import os
 import fnmatch
 from transx.internal.compat import PY2
+from transx.internal.compat import string_types
 from transx.internal.compat import text_type
 
 if PY2:
@@ -95,6 +96,11 @@ def normalize_path(path):
     """
     if not path:
         return path
+
+    # Accept os.PathLike objects (pathlib.Path and friends) the same way the
+    # os.path functions below do; os.fspath() is not available on Python 2.
+    if not isinstance(path, string_types):
+        path = text_type(path)
 
     # Convert to absolute path if not already
     if not os.path.isabs(path):

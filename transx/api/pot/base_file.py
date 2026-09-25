@@ -331,15 +331,17 @@ class POTFile(object):
 
             # Write locations (deduplicated)
             if message.locations:
-                locations = sorted(set(message.locations))  # Remove duplicates
-                for loc in locations:
+                # Deduplicate on the rendered form: a raw and a normalized path
+                # to the same line are distinct tuples but produce the very same
+                # `#:` line, which used to show up twice.
+                rendered = set()
+                for loc in message.locations:
                     if isinstance(loc, tuple):
-                        content.append("#: {}:{}\n".format(
-                            normalize_path(str(loc[0])),
-                            loc[1]
-                        ))
+                        rendered.add("{}:{}".format(normalize_path(str(loc[0])), loc[1]))
                     else:
-                        content.append("#: {}\n".format(normalize_path(str(loc))))
+                        rendered.add("{}".format(normalize_path(str(loc))))
+                for location in sorted(rendered):
+                    content.append("#: {}\n".format(location))
 
             # Write flags (deduplicated)
             if message.flags:
@@ -415,6 +417,13 @@ class POTFile(object):
         reading_msgstr = False
         reading_msgctxt = False
 
+        # Header comment lines are accumulated separately so that a file without
+        # a header comment keeps the generated default instead of inheriting it
+        # twice (the constructor already seeds `header_comment`). Appending to
+        # `self.header_comment` directly duplicated the whole block on every
+        # load, which is what made repeated extractions stack header copies.
+        header_comment_lines = []
+
         # Clear existing translations before loading
         self.translations.clear()
 
@@ -448,9 +457,7 @@ class POTFile(object):
 
             # Parse header comment (only plain comments, not structured ones like #. #: #,)
             if line.startswith("#") and not current_message and not line.startswith(("#.", "#:", "#,", "#|")):
-                if not self.header_comment:
-                    self.header_comment = ""
-                self.header_comment += line + "\n"
+                header_comment_lines.append(line)
                 continue
 
 
@@ -555,6 +562,11 @@ class POTFile(object):
                 current_message.user_comments = current_user_comments[:]
             self._add_current_message(current_message)
 
+        # Only replace the generated header comment when the file actually
+        # carries one; keep the default otherwise.
+        if header_comment_lines:
+            self.header_comment = "\n".join(header_comment_lines) + "\n"
+
         # Parse header if exists
         header_key = self._get_key("", None)
         if header_key in self.translations:
@@ -584,6 +596,44 @@ class POTFile(object):
             key = self._get_key(message.msgid, message.context)
             self.translations[key] = message
 
+    def remove_locations_for_file(self, file_path):
+        """Drop every location pointing at ``file_path``.
+
+        Used before re-scanning a source file so that the freshly extracted
+        locations replace the previous ones instead of piling up next to them.
+        Locations belonging to files that are *not* being re-scanned are kept,
+        which is what makes partial extractions safe.
+
+        Args:
+            file_path: Path of the source file whose locations should be dropped
+
+        Returns:
+            list: Keys of the messages that lost their last remaining location
+        """
+        target = normalize_path(file_path)
+        orphaned_keys = []
+
+        for key, message in self.translations.items():
+            if not message.locations:
+                continue
+
+            kept = [loc for loc in message.locations
+                    if not (isinstance(loc, tuple) and normalize_path(loc[0]) == target)]
+
+            if len(kept) == len(message.locations):
+                continue
+
+            if kept:
+                message.locations = kept
+            else:
+                # The message only existed in this file and was not found again
+                # during the re-scan, so it is stale.
+                message.locations = []
+                if message.msgid:
+                    orphaned_keys.append(key)
+
+        return orphaned_keys
+
     def add(self, msgid, msgstr="", flags=None, auto_comments=None, user_comments=None, context=None, locations=None):
         """Add a new message to the catalog.
 
@@ -611,4 +661,3 @@ class POTFile(object):
         key = self._get_key(msgid, context)
         self.translations[key] = message
         return message
-

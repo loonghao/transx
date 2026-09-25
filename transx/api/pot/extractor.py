@@ -7,6 +7,7 @@
 from __future__ import unicode_literals
 
 # Import built-in modules
+from collections import OrderedDict
 import datetime
 import os
 import re
@@ -22,6 +23,7 @@ from transx.internal.compat import PY2
 from transx.internal.compat import safe_eval_string
 from transx.internal.compat import string_types
 from transx.internal.compat import tokenize_source
+from transx.internal.filesystem import normalize_path
 
 
 class PotExtractor(object):
@@ -47,7 +49,19 @@ class PotExtractor(object):
         self.keywords = self._build_keywords(additional_keywords)
         self._language_codes = self._build_language_code_set()
         self._skip_literals = {"locales", "LC_MESSAGES", "__main__", "__init__", "__file__"}
+        # Keys of messages that lost every location while re-scanning. They are
+        # dropped once the scan finishes, so a string still present elsewhere in
+        # the same run is kept rather than deleted halfway through.
+        self._stale_keys = set()
         self._init_pot_metadata()
+
+    def _orphaned_after_rescan(self, orphaned_keys):
+        """Record messages that lost all locations during a re-scan.
+
+        Args:
+            orphaned_keys: Keys reported by ``remove_locations_for_file``
+        """
+        self._stale_keys.update(orphaned_keys)
 
 
 
@@ -111,11 +125,23 @@ class PotExtractor(object):
     def extract_messages(self):
 
         """Extract translatable strings from source files."""
+        # Deduplicate by normalized path so the same file listed twice (for
+        # example once explicitly and once through add_source_directory) is not
+        # scanned - and therefore not location-reset - twice.
+        unique_files = OrderedDict()
         for file_path in sorted(self.source_files):
+            unique_files.setdefault(normalize_path(file_path), file_path)
+
+        for file_path in unique_files.values():
 
             print("Scanning %s for translatable messages..." % file_path)
             self.current_file = file_path
             self.current_line = 0
+
+            # Regenerate this file's locations from scratch: drop the references
+            # recorded by previous runs so moved or deleted strings do not leave
+            # stale line numbers behind. They are re-added below as they are found.
+            self._orphaned_after_rescan(self.catalog.remove_locations_for_file(file_path))
 
             try:
                 if PY2:
@@ -128,6 +154,14 @@ class PotExtractor(object):
             except IOError as e:
                 print("Error reading file %s: %s" % (file_path, str(e)))
                 continue
+
+        # Drop entries that were only reachable through the re-scanned files and
+        # were not found again - they no longer exist in the scanned sources.
+        for key in self._stale_keys:
+            message = self.catalog.translations.get(key)
+            if message is not None and not message.locations:
+                del self.catalog.translations[key]
+        self._stale_keys.clear()
 
     def _is_valid_keyword_name(self, name):
         """Check whether a keyword name is a valid Python identifier."""

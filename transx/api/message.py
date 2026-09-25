@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """Message class for translation entries."""
+
 # fmt: off
 # isort: skip
 # Import future modules
@@ -8,13 +9,67 @@ from __future__ import unicode_literals
 # Import local modules
 # fmt: on
 from transx.internal.compat import ensure_unicode
+from transx.internal.filesystem import normalize_path
+
+
+def _normalize_location(filename, lineno):
+    """Normalize a source location so equivalent paths compare equal.
+
+    Paths reaching a catalog come from two different sources: the POT/PO reader
+    normalizes them, while the extractor passes through whatever path it was
+    given. Storing un-normalized paths makes two references to the very same
+    line look like distinct locations, which then renders as a duplicated
+    ``#:`` comment (see GH #39).
+
+    Args:
+        filename: Source file path
+        lineno: Line number in the source file
+
+    Returns:
+        tuple: A ``(normalized_path, lineno)`` tuple
+    """
+    normalized = normalize_path(ensure_unicode(filename))
+    try:
+        return (normalized, int(lineno))
+    except (TypeError, ValueError):
+        return (normalized, lineno)
+
+
+def _dedupe_locations(locations):
+    """Drop duplicate locations while preserving first-seen order.
+
+    Args:
+        locations: Iterable of location tuples
+
+    Returns:
+        list: Locations with duplicates removed
+    """
+    seen = set()
+    unique = []
+    for location in locations:
+        if location in seen:
+            continue
+        seen.add(location)
+        unique.append(location)
+    return unique
 
 
 class Message(object):
     """Representation of a single message in a catalog."""
 
-    def __init__(self, msgid, msgstr="", context=None, locations=None, flags=None,
-                 auto_comments=None, user_comments=None, previous_id=None, lineno=None, metadata=None):
+    def __init__(
+        self,
+        msgid,
+        msgstr="",
+        context=None,
+        locations=None,
+        flags=None,
+        auto_comments=None,
+        user_comments=None,
+        previous_id=None,
+        lineno=None,
+        metadata=None,
+    ):
         """Create a new Message instance.
 
         Args:
@@ -47,7 +102,7 @@ class Message(object):
 
         # Initialize other attributes
         self.context = ensure_unicode(context) if context else None
-        self.locations = [(ensure_unicode(f), line_num) for f, line_num in locations or []]
+        self.locations = _dedupe_locations([_normalize_location(f, line_num) for f, line_num in locations or []])
         self.flags = set(flags or [])
         self.auto_comments = [ensure_unicode(c) for c in auto_comments or []]
         self.user_comments = [ensure_unicode(c) for c in user_comments or []]
@@ -58,9 +113,7 @@ class Message(object):
     def __repr__(self):
         """Return a string representation of the message."""
         if self.msgid_plural:
-            return str("<Message(%r, %r, plural=%r)>" % (
-                str(self.msgid), str(self.msgstr), str(self.msgid_plural)
-            ))
+            return str("<Message(%r, %r, plural=%r)>" % (str(self.msgid), str(self.msgstr), str(self.msgid_plural)))
         return str("<Message(%r, %r)>" % (str(self.msgid), str(self.msgstr)))
 
     def __str__(self):
@@ -74,7 +127,9 @@ class Message(object):
             filename: Source file path
             lineno: Line number in the source file
         """
-        self.locations.append((ensure_unicode(filename), lineno))
+        location = _normalize_location(filename, lineno)
+        if location not in self.locations:
+            self.locations.append(location)
 
     def add_comment(self, comment, user=True):
         """Add a comment to the message.
@@ -158,7 +213,7 @@ class Message(object):
             user_comments=self.user_comments[:],
             previous_id=self.previous_id,
             lineno=self.lineno,
-            metadata=self.metadata.copy()
+            metadata=self.metadata.copy(),
         )
 
     def __hash__(self):
