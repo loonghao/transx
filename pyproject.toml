@@ -16,6 +16,7 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = ">=2.7,<4.0"
+pyside = "5.15.2"
 
 [tool.poetry.scripts]
 transx = "transx.cli:main"

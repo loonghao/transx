@@ -143,13 +143,14 @@ class POTFile(object):
         header = self._unescape_string(header)
 
         # Split into lines and process each line
+        current_key = None
         for line in header.split("\\n"):
             line = line.strip()
             if not line:
                 continue
 
             # Check for continuation of previous value
-            if line.startswith(" ") and "current_key" in locals():
+            if line.startswith(" ") and current_key is not None:
                 headers[current_key] += " " + line.strip()
                 continue
 
@@ -251,6 +252,10 @@ class POTFile(object):
             return ""
         if string.startswith('"') and string.endswith('"'):
             string = string[1:-1]  # Remove surrounding quotes
+        # Most catalog strings contain no escape sequence at all, so skip the
+        # (comparatively expensive) encode/decode round-trip in that case.
+        if "\\" not in string:
+            return string
         # Unescape special characters
         return string.encode("raw_unicode_escape").decode("unicode_escape")
 
@@ -410,6 +415,7 @@ class POTFile(object):
         self.translations.clear()
 
         content = read_file(file_path, encoding=DEFAULT_CHARSET)
+        parse_string = self._parse_string
         for line in content.splitlines():
             line = line.strip()
 
@@ -437,18 +443,21 @@ class POTFile(object):
                     reading_msgctxt = False
                 continue
 
-            # Parse header comment
-            if line.startswith("#") and not current_message:
-                if not self.header_comment:
-                    self.header_comment = ""
-                self.header_comment += line + "\n"
-                continue
+            # Dispatch on the first character instead of running a chain of
+            # ``startswith`` calls for every single line.
+            prefix = line[0]
 
-            # Parse comments
-            if line.startswith("#"):
-                if line.startswith("#:"):  # Location
-                    locations = line[2:].strip().split()
-                    for location in locations:
+            if prefix == "#":  # Comment line
+                if not current_message:
+                    # Parse header comment
+                    if not self.header_comment:
+                        self.header_comment = ""
+                    self.header_comment += line + "\n"
+                    continue
+
+                marker = line[1:2]
+                if marker == ":":  # Location
+                    for location in line[2:].strip().split():
                         parts = location.split(":")
                         if len(parts) >= 2:
                             # Join all parts except the last one to handle Windows paths
@@ -458,65 +467,67 @@ class POTFile(object):
                                 current_locations.append((normalize_path(filename.strip()), lineno))
                             except ValueError:
                                 current_locations.append(normalize_path(location))
-                elif line.startswith("#,"):  # Flags
-                    flags = line[2:].strip().split(",")
-                    current_flags.update(f.strip() for f in flags)
-                elif line.startswith("#."):  # Auto comment
+                elif marker == ",":  # Flags
+                    current_flags.update(f.strip() for f in line[2:].strip().split(","))
+                elif marker == ".":  # Auto comment
                     current_auto_comments.append(line[2:].strip())
-                elif line.startswith("#|"):  # Previous string
+                elif marker == "|":  # Previous string
                     pass  # Ignore previous strings for now
                 else:  # User comment
                     current_user_comments.append(line[1:].strip())
                 continue
 
-            # Parse msgctxt
-            if line.startswith("msgctxt"):
-                reading_msgctxt = True
-                reading_msgid = False
-                reading_msgstr = False
-                if '"' in line:
-                    current_msgctxt.append(self._parse_string(line[7:]))
+            if prefix == "m":  # msgctxt / msgid / msgstr
+                # Parse msgctxt
+                if line.startswith("msgctxt"):
+                    reading_msgctxt = True
+                    reading_msgid = False
+                    reading_msgstr = False
+                    if '"' in line:
+                        current_msgctxt.append(parse_string(line[7:]))
 
-            # Parse msgid
-            if line.startswith("msgid"):
-                reading_msgid = True
-                reading_msgstr = False
-                reading_msgctxt = False
-                if current_message is not None:
-                    # Update msgid and add the message
-                    current_message.msgid = "".join(current_msgid)
-                    if current_locations:
-                        current_message.locations = current_locations[:]  # Correctly handle locations
-                    self._add_current_message(current_message)
-                # Reset message parts
-                current_msgid = []
-                current_msgstr = []
-                current_message = Message(
-                    msgid="",  # Set empty string temporarily, will update later
-                    locations=current_locations[:],
-                    flags=current_flags.copy(),
-                    auto_comments=current_auto_comments[:],
-                    user_comments=current_user_comments[:]
-                )
-                if '"' in line:
-                    current_msgid.append(self._parse_string(line[5:]))
+                # Parse msgid
+                if line.startswith("msgid"):
+                    reading_msgid = True
+                    reading_msgstr = False
+                    reading_msgctxt = False
+                    if current_message is not None:
+                        # Update msgid and add the message
+                        current_message.msgid = "".join(current_msgid)
+                        if current_locations:
+                            current_message.locations = current_locations[:]  # Correctly handle locations
+                        self._add_current_message(current_message)
+                    # Reset message parts
+                    current_msgid = []
+                    current_msgstr = []
+                    current_message = Message(
+                        msgid="",  # Set empty string temporarily, will update later
+                        locations=current_locations[:],
+                        flags=current_flags.copy(),
+                        auto_comments=current_auto_comments[:],
+                        user_comments=current_user_comments[:]
+                    )
+                    if '"' in line:
+                        current_msgid.append(parse_string(line[5:]))
 
-            # Parse msgstr
-            if line.startswith("msgstr"):
-                reading_msgstr = True
-                reading_msgid = False
-                reading_msgctxt = False
-                if '"' in line:
-                    current_msgstr.append(self._parse_string(line[6:]))
+                # Parse msgstr
+                if line.startswith("msgstr"):
+                    reading_msgstr = True
+                    reading_msgid = False
+                    reading_msgctxt = False
+                    if '"' in line:
+                        current_msgstr.append(parse_string(line[6:]))
+
+                continue
 
             # Continuation of previous string
             if line.startswith('"'):
                 if reading_msgctxt:
-                    current_msgctxt.append(self._parse_string(line))
+                    current_msgctxt.append(parse_string(line))
                 elif reading_msgid:
-                    current_msgid.append(self._parse_string(line))
+                    current_msgid.append(parse_string(line))
                 elif reading_msgstr:
-                    current_msgstr.append(self._parse_string(line))
+                    current_msgstr.append(parse_string(line))
 
         # Add the last message if there is one
         if current_message is not None:
@@ -586,6 +597,15 @@ class POTFile(object):
         return message
 
 
+#: Every token that names a language (codes plus aliases), resolved once at
+#: import time. ``_should_skip_string`` used to rebuild ``[code] + aliases``
+#: for every entry of ``LANGUAGE_CODES`` on every candidate string.
+LANGUAGE_TOKENS = frozenset(
+    [token for code, (_name, aliases) in LANGUAGE_CODES.items()
+     for token in [code] + list(aliases)]
+)
+
+
 class PotExtractor(object):
     """Extract translatable strings from Python source files."""
 
@@ -601,6 +621,7 @@ class PotExtractor(object):
         self.catalog = POTFile(path=pot_file)
         self.current_file = None
         self.current_line = 0
+        self.logger = logging.getLogger(__name__)
         self._init_pot_metadata()
 
     def __enter__(self):
@@ -645,7 +666,7 @@ class PotExtractor(object):
     def extract_messages(self):
         """Extract translatable strings from source files."""
         for file_path in self.source_files:
-            print("Scanning %s for translatable messages..." % file_path)
+            self.logger.debug("Scanning %s for translatable messages...", file_path)
             self.current_file = file_path
             self.current_line = 0
 
@@ -658,7 +679,7 @@ class PotExtractor(object):
                         content = f.read()
                 self._process_tokens(content)
             except IOError as e:
-                print("Error reading file %s: %s" % (file_path, str(e)))
+                self.logger.error("Error reading file %s: %s", file_path, str(e))
                 continue
 
     def _process_tokens(self, content):
@@ -778,11 +799,6 @@ class PotExtractor(object):
         if not string or string.isspace():
             return True
 
-        # Skip language codes using the full LANGUAGE_CODES dictionary
-        for code, (_name, aliases) in LANGUAGE_CODES.items():
-            if string in [code] + aliases:
-                return True
-
         # Skip directory names
         if string in ("locales", "LC_MESSAGES"):
             return True
@@ -791,18 +807,20 @@ class PotExtractor(object):
         if string in ("__main__", "__init__", "__file__"):
             return True
 
-        # Skip strings that are just separators/formatting
-        if set(string).issubset({"=", "-", "_", "\n", " ", "."}):
+        # Skip URLs
+        if string.startswith(("http://", "https://", "ftp://")):
             return True
 
         # Skip strings that are just numbers
         if string.replace(".", "").isdigit():
             return True
 
-        # Skip URLs
-        return string.startswith(("http://", "https://", "ftp://"))
+        # Skip language codes using the full LANGUAGE_CODES dictionary
+        if string in LANGUAGE_TOKENS:
+            return True
 
-        return False
+        # Skip strings that are just separators/formatting
+        return set(string).issubset({"=", "-", "_", "\n", " ", "."})
 
     def _add_message(self, message, line):
         """Add a message to the catalog with location information.
@@ -819,10 +837,10 @@ class PotExtractor(object):
         if key in self.catalog.translations:
             # Get existing message
             existing = self.catalog.translations[key]
-            # Add new location if not already present
+            # Add new location if not already present.
+            # Sorting is done once when the catalog is written, not per hit.
             if location not in existing.locations:
                 existing.locations.append(location)
-                existing.locations.sort()  # Sort locations for consistent output
             # Update comments and flags
             existing.flags.update(message.flags)
             for comment in message.auto_comments:
@@ -876,6 +894,8 @@ class PotUpdater(object):
         """
         self.pot_file = pot_file
         self.locales_dir = locales_dir
+        self.logger = logging.getLogger(__name__)
+        self._pot_po_file = None
 
         # Load the POT file
         self.pot_catalog = POTFile(pot_file)
@@ -883,6 +903,19 @@ class PotUpdater(object):
             self.pot_catalog.load()
         else:
             raise ValueError("POT file not found: {}".format(pot_file))
+
+    @property
+    def _pot_po(self):
+        """POT catalog in PO representation, parsed at most once.
+
+        ``update_po_file`` used to re-read and re-parse the POT file from disk
+        for every single language it processed.
+        """
+        if self._pot_po_file is None:
+            pot = POFile(self.pot_file)
+            pot.load()
+            self._pot_po_file = pot
+        return self._pot_po_file
 
     def create_language_catalogs(self, languages):
         """Create or update PO catalogs for specified languages.
@@ -894,7 +927,7 @@ class PotUpdater(object):
             # Create language directory
             lang = normalize_language_code(lang)
             if lang not in LANGUAGE_CODES:
-                print("Warning: Unknown language code %r" % lang)
+                self.logger.warning("Unknown language code %r", lang)
                 continue
 
             locale_dir = os.path.join(self.locales_dir, lang, "LC_MESSAGES")
@@ -911,9 +944,9 @@ class PotUpdater(object):
             lang: Language code for the PO file
 
         """
-        # Load POT file
-        pot = POFile(self.pot_file)
-        pot.load()
+        # Reuse the already parsed POT catalog instead of re-reading the file
+        # for every language.
+        pot = self._pot_po
 
         # Create language directory
         lang_dir = os.path.join(self.locales_dir, lang, "LC_MESSAGES")
@@ -937,7 +970,7 @@ class PotUpdater(object):
 
         # Save PO file
         po.save()
-        print("Created/updated PO file: {}".format(po_file_path))
+        self.logger.info("Created/updated PO file: %s", po_file_path)
 
     def _update_po_metadata(self, po_catalog, language):
         """Update PO file metadata based on POT metadata and language.
