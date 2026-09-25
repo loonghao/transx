@@ -138,11 +138,6 @@ class PotExtractor(object):
             self.current_file = file_path
             self.current_line = 0
 
-            # Regenerate this file's locations from scratch: drop the references
-            # recorded by previous runs so moved or deleted strings do not leave
-            # stale line numbers behind. They are re-added below as they are found.
-            self._orphaned_after_rescan(self.catalog.remove_locations_for_file(file_path))
-
             try:
                 if PY2:
                     with open(file_path, "rb") as f:
@@ -150,10 +145,21 @@ class PotExtractor(object):
                 else:
                     with open(file_path, "r", encoding="utf-8") as f:
                         content = f.read()
-                self._process_tokens(content)
             except IOError as e:
+                # Leave the file's previously recorded locations untouched. Resetting
+                # them here would drop every entry unique to this file the moment a
+                # transient read error happens, since the stale sweep below would see
+                # them as no longer present in the scanned sources.
                 print("Error reading file %s: %s" % (file_path, str(e)))
                 continue
+
+            # Regenerate this file's locations from scratch: drop the references
+            # recorded by previous runs so moved or deleted strings do not leave
+            # stale line numbers behind. They are re-added below as they are found.
+            # Only reached once the file is known to be readable.
+            self._orphaned_after_rescan(self.catalog.remove_locations_for_file(file_path))
+
+            self._process_tokens(content)
 
         # Drop entries that were only reachable through the re-scanned files and
         # were not found again - they no longer exist in the scanned sources.
@@ -389,18 +395,15 @@ class PotExtractor(object):
             message: Message to add
             line: Line number where message was found
         """
-        # Add location information
-        location = (self.current_file, line)
-
         # Check if this message already exists
         key = self.catalog._get_key(message.msgid, message.context)
-        if key in self.catalog.translations:
-            # Get existing message
-            existing = self.catalog.translations[key]
-            # Add new location if not already present
-            if location not in existing.locations:
-                existing.locations.append(location)
-                existing.locations.sort()  # Sort locations for consistent output
+        existing = self.catalog.translations.get(key)
+        if existing is not None:
+            # add_location() normalizes and deduplicates, so the raw source path
+            # held here and the normalized form read back from disk collapse into
+            # a single entry instead of rendering as a duplicated `#:` line.
+            existing.add_location(self.current_file, line)
+            existing.locations.sort()  # Sort locations for consistent output
             # Update comments and flags
             existing.flags.update(message.flags)
             for comment in message.auto_comments:
@@ -411,7 +414,8 @@ class PotExtractor(object):
                     existing.user_comments.append(comment)
         else:
             # Add new message with location
-            message.locations = [location]
+            message.locations = []
+            message.add_location(self.current_file, line)
             self.catalog.translations[key] = message
 
     def save(self):

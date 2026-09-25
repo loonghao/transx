@@ -232,6 +232,72 @@ def test_message_add_location_normalizes_path():
     assert message.locations == [(normalize_path(raw), 7)], message.locations
 
 
+def test_unreadable_source_file_keeps_its_entries(project):
+    """A file in the scan set that cannot be read must not lose its entries.
+
+    Regenerating a file's locations from scratch only makes sense once the file
+    has actually been read. Resetting them first would make a transient read
+    error look like "the strings are gone", and the stale sweep would then
+    delete every entry unique to that file.
+    """
+    first_source = os.path.join(project["src"], "a.py")
+    second_source = os.path.join(project["src"], "b.py")
+    _write(first_source, "from transx import tr\n" 'a = tr("Alpha One")\n')
+    _write(second_source, "from transx import tr\n" 'b = tr("Beta Two")\n')
+
+    _extract([first_source, second_source], project["pot"])
+    content = _read(project["pot"])
+    assert 'msgid "Alpha One"' in content
+    assert 'msgid "Beta Two"' in content
+
+    # b.py stays in the scan set but can no longer be read.
+    os.remove(second_source)
+
+    _extract([first_source, second_source], project["pot"])
+    content = _read(project["pot"])
+    assert 'msgid "Alpha One"' in content
+    assert 'msgid "Beta Two"' in content, "entries of an unreadable file must be kept, not pruned as stale"
+
+
+def test_extractor_stores_normalized_locations(project):
+    """Locations added by the extractor must use the normalized form.
+
+    The reader normalizes paths, so the extractor must do the same - otherwise
+    catalog entries end up holding a mixture of raw and normalized paths and
+    equivalent references stop comparing equal.
+    """
+    source = os.path.join(project["src"], "sample.py")
+    _write(source, "from transx import tr\n" 'a = tr("Live Link")\n')
+
+    extractor = PotExtractor(source_files=[source], pot_file=project["pot"])
+    extractor.extract_messages()
+
+    message = extractor.catalog.translations["Live Link"]
+    assert message.locations == [(normalize_path(source), 2)], message.locations
+
+
+def test_reextraction_does_not_duplicate_locations_in_memory(project):
+    """Re-extracting must not append a second, differently-spelled location.
+
+    This walks the extractor path rather than Message's constructor, which is
+    where a raw source path used to slip in next to the normalized one that was
+    read back from disk.
+    """
+    source = os.path.join(project["src"], "sample.py")
+    _write(source, "from transx import tr\n" 'a = tr("Live Link")\n')
+
+    first = PotExtractor(source_files=[source], pot_file=project["pot"])
+    first.extract_messages()
+    first.save()
+
+    second = PotExtractor(source_files=[source], pot_file=project["pot"])
+    second.catalog.load()
+    second.extract_messages()
+
+    message = second.catalog.translations["Live Link"]
+    assert message.locations == [(normalize_path(source), 2)], message.locations
+
+
 def test_duplicate_source_file_is_scanned_once(project):
     """Listing the same file twice must not change the extraction result."""
     source = os.path.join(project["src"], "sample.py")
