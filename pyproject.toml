@@ -20,15 +20,6 @@ python = ">=2.7,<4.0"
 [tool.poetry.scripts]
 transx = "transx.cli:main"
 
-[tool.commitizen]
-name = "cz_conventional_commits"
-version = "0.8.3"
-tag_format = "v$version"
-version_files = [
-    "pyproject.toml:version",
-    "transx/__version__.py"
-]
-
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
