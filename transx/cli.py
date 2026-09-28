@@ -373,6 +373,7 @@ def translate_command(args):
     """Execute translate command."""
     translator = GoogleTranslator()
     logger = get_logger(__name__)
+    failed_count = 0
 
     # If specific files are provided
     if args.files:
@@ -397,6 +398,7 @@ def translate_command(args):
                     logger.info("Translated %s to %s", file_path, args.target_lang)
                 except Exception as e:
                     logger.error("Failed to translate %s: %s", file_path, str(e))
+                    failed_count += 1
 
     # If no files provided, translate all PO files in locales directory
     else:
@@ -413,6 +415,14 @@ def translate_command(args):
         except Exception as e:
             logger.error("Failed to translate PO files: %s", str(e))
             return 1
+
+    # Message level failures are fail-soft, so they have to be counted and
+    # surfaced here; otherwise a half translated run still exits 0 and CI
+    # stays green.
+    failed_count += getattr(translator, "failure_count", 0)
+    if failed_count:
+        logger.error("Failed to translate %d message(s)", failed_count)
+        return 1
 
     return 0
 

@@ -45,6 +45,8 @@ class POFile(object):
         self.translations = OrderedDict()
         self.metadata = OrderedDict()
         self.header_comment = ""  # Add header_comment attribute
+        #: Number of messages the last translate_messages() run could not translate.
+        self.translation_failures = 0
         self._init_metadata()
         self.logger = logging.getLogger(__name__)
 
@@ -837,6 +839,12 @@ class POFile(object):
     def translate_messages(self, translator, target_lang=None):
         """Translate untranslated messages using the provided translator.
 
+        Messages are translated in batches when the translator supports it, so
+        a run of N strings costs far fewer requests than N. A failed batch is
+        counted and skipped rather than aborting the run, and whatever has
+        been translated so far is saved after every batch so an interrupted
+        run keeps its progress.
+
         Args:
             translator: Translator instance to use
             target_lang: Target language code. If None, uses metadata language
@@ -848,28 +856,70 @@ class POFile(object):
             target_lang = self.metadata.get("Language", "en")
 
         translated_count = 0
+        failed_count = 0
 
+        # Collect the work up front so it can be handed over in batches.
+        pending = []
         for message in self.translations.values():
             if not message.msgstr and message.msgid:  # Skip empty msgid
-                try:
-                    # Preserve special characters and placeholders
-                    text_to_translate, special_chars = self._preserve_special_chars(message.msgid)
+                text_to_translate, special_chars = self._preserve_special_chars(message.msgid)
+                pending.append((message, text_to_translate, special_chars))
 
-                    # Translate text with preserved characters
-                    translated = translator.translate(
-                        text_to_translate,
+        supports_batch = hasattr(translator, "translate_batch")
+        batch_size = getattr(translator, "batch_size", 1) or 1
+        if not supports_batch:
+            batch_size = 1
+
+        for start in range(0, len(pending), batch_size):
+            chunk = pending[start:start + batch_size]
+            texts = [item[1] for item in chunk]
+
+            try:
+                if supports_batch:
+                    translated_texts = translator.translate_batch(
+                        texts,
                         source_lang="auto",
-                        target_lang=target_lang
+                        target_lang=target_lang,
                     )
+                else:
+                    translated_texts = [
+                        translator.translate(text, source_lang="auto", target_lang=target_lang) for text in texts
+                    ]
+            except Exception as e:
+                self.logger.error("Failed to translate %d message(s): %s", len(chunk), e)
+                failed_count += len(chunk)
+                continue
 
-                    if translated:
-                        # Restore special characters
-                        message.msgstr = self._restore_special_chars(translated, special_chars)
-                        translated_count += 1
+            if len(translated_texts) != len(chunk):
+                self.logger.error(
+                    "Translator returned %d result(s) for %d message(s)",
+                    len(translated_texts),
+                    len(chunk),
+                )
+                failed_count += len(chunk)
+                continue
 
-                except Exception as e:
-                    self.logger.error("Failed to translate '%s': %s", message.msgid, str(e))
+            chunk_translated = 0
+            for (message, _text, special_chars), translated in zip(chunk, translated_texts):
+                if not translated:
+                    failed_count += 1
                     continue
+                # Restore special characters
+                message.msgstr = self._restore_special_chars(translated, special_chars)
+                translated_count += 1
+                chunk_translated += 1
+
+            # Checkpoint progress so an interrupted run keeps what it finished.
+            if chunk_translated and batch_size > 1:
+                self.save()
+
+        self.translation_failures = failed_count
+        if failed_count:
+            self.logger.error(
+                "Failed to translate %d of %d untranslated message(s)",
+                failed_count,
+                len(pending),
+            )
 
         return translated_count
 

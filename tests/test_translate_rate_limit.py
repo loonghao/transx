@@ -67,7 +67,7 @@ def _raise(translator, error):
     return translate_module
 
 
-def _ok_response(translator, body='<div class="result-container">Hola</div>'):
+def _ok_response(translator, body='[[["Hola","Hello",null,null,10]],null,"en"]'):
     """Make every request succeed with ``body``."""
 
     class _Response(object):
@@ -240,7 +240,7 @@ def test_translation_succeeds_after_transient_failures(translator, monkeypatch):
             headers = _FakeHeaders()
 
             def read(self):
-                return b'<div class="result-container">Hola</div>'
+                return b'[[["Hola","Hello",null,null,10]],null,"en"]'
 
         return _Response()
 
