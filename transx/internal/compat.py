@@ -17,6 +17,7 @@ try:
     # Import third-party modules
     from StringIO import StringIO as BytesIO
 except ImportError:
+    # Import built-in modules
     from io import BytesIO
 
 # Re-exported with the "as" form so linters treat them as public names of
