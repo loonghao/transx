@@ -221,7 +221,7 @@ REQUEST_HEADERS = {
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/119.0.0.0 Mobile Safari/537.36"
     ),
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    "Accept": "application/json,text/plain,*/*",
     "Accept-Encoding": "gzip, deflate",
     "Accept-Language": "*",
     "Connection": "keep-alive"

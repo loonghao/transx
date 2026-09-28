@@ -185,7 +185,7 @@ def fake_google(monkeypatch):
 
     def _fake_urlopen(request):
         requests.append(request)
-        return _Response('<div class="result-container">Bonjour</div>')
+        return _Response('[[["Bonjour","Hello",null,null,10]],null,"en"]')
 
     monkeypatch.setattr(translate_module, "urlopen", _fake_urlopen)
     monkeypatch.setattr(translate_module.time, "sleep", lambda seconds: None)
