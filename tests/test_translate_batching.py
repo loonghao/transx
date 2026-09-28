@@ -22,6 +22,7 @@ import transx.api.translate as translate_module
 from transx.api.translate import GoogleTranslator
 from transx.exceptions import TranslationError
 from transx.internal.compat import PY2
+from transx.internal.compat import unquote_plus
 
 if PY2:  # pragma: no cover - exercised only on Python 2
     from urllib2 import HTTPError
@@ -81,8 +82,6 @@ def _extract_payload(url):
     query = url.split("?", 1)[1] if "?" in url else ""
     for pair in query.split("&"):
         if pair.startswith("q="):
-            from urllib.parse import unquote_plus
-
             return unquote_plus(pair[2:])
     return ""
 
@@ -244,12 +243,62 @@ def test_item_budget_splits_batches(translator, monkeypatch):
 def test_character_budget_splits_batches(translator, monkeypatch):
     recorder = _install(monkeypatch, _Recorder(lambda payload: _Response(_batch_response(payload.split("\n")))))
     translator.batch_size = 100
-    translator.max_batch_chars = 10
+    # Each string costs 6 characters: 5 of text plus the joining separator.
+    translator.max_batch_chars = 12
 
     translator.translate_batch(["12345", "67890", "abcde"], "en", "es")
 
-    # Two strings fit in 10 characters; the third starts a new request.
+    # Two strings fit in 12 characters; the third starts a new request.
     assert recorder.payloads == ["12345\n67890", "abcde"], recorder.payloads
+
+
+def test_budget_counts_the_separators(translator):
+    """The separators between strings must count towards the budget."""
+    translator.batch_size = 100
+    translator.max_batch_chars = 12
+
+    # Each item costs 6 (5 characters plus its separator), so two cost 12 and
+    # fit exactly while the third would push the batch to 18.
+    chunks = list(translator._iter_chunks(["12345", "67890", "abcde"]))
+
+    assert chunks == [["12345", "67890"], ["abcde"]], chunks
+
+    # One character less and only a single item fits: the separator is what
+    # tips it over, which is the behaviour this test pins down.
+    translator.max_batch_chars = 11
+    chunks = list(translator._iter_chunks(["12345", "67890", "abcde"]))
+
+    assert chunks == [["12345"], ["67890"], ["abcde"]], chunks
+
+
+def test_budget_measures_escaped_and_encoded_length(translator):
+    """Long CJK msgids must not push the request URL past the budget.
+
+    A raw character count badly understates CJK: URL encoding turns one
+    Chinese character into nine bytes. Budgeting on the raw count let a
+    payload that "fit" 3000 characters reach the endpoint as a ~25KB URL and
+    come back as a non-retryable 414.
+    """
+    translator.batch_size = 1000
+    translator.max_batch_chars = 3000
+
+    # 70 Chinese characters encode to 630 bytes each, plus one separator.
+    chunks = list(translator._iter_chunks(["你好" * 35] * 40))
+
+    assert len(chunks) == 10, len(chunks)
+    assert all(len(chunk) <= 4 for chunk in chunks), [len(chunk) for chunk in chunks]
+
+
+def test_cjk_request_url_stays_within_budget(translator, monkeypatch):
+    """The same nail-down end to end: no request may exceed the budget."""
+    recorder = _install(monkeypatch, _Recorder(lambda payload: _Response(_batch_response(payload.split("\n")))))
+
+    translator.translate_batch(["你好" * 35] * 40, "en", "zh-CN")
+
+    longest = max(len(url) for url in recorder.urls)
+    # Before the fix the same input produced a single ~25KB URL.
+    assert longest <= translator.max_batch_chars + 100, longest
+    assert len(recorder.urls) > 1, len(recorder.urls)
 
 
 def test_oversized_single_string_is_sent_alone(translator, monkeypatch):

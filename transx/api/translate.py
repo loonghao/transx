@@ -46,6 +46,7 @@ from transx.internal.compat import PY2
 from transx.internal.compat import binary_type
 from transx.internal.compat import decompress_gzip
 from transx.internal.compat import ensure_unicode
+from transx.internal.compat import quote_plus
 from transx.internal.compat import string_types
 from transx.internal.compat import text_type
 
@@ -620,13 +621,19 @@ class GoogleTranslator(Translator):
         chars = 0
 
         for text in texts:
-            length = len(text)
-            if chunk and (len(chunk) >= self.batch_size or chars + length > self.max_batch_chars):
+            # Budget what actually goes on the wire: the escaped text
+            # after URL encoding, plus the separator that joins it to
+            # the next string. Counting raw characters understates CJK
+            # badly - one Chinese character encodes to nine bytes - and
+            # an oversized payload is answered with a 414 that is not
+            # retryable and does not open the circuit.
+            cost = len(quote_plus(self._escape_special_chars(text))) + 1
+            if chunk and (len(chunk) >= self.batch_size or chars + cost > self.max_batch_chars):
                 yield chunk
                 chunk = []
                 chars = 0
             chunk.append(text)
-            chars += length
+            chars += cost
 
         if chunk:
             yield chunk
