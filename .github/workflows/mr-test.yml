@@ -24,7 +24,10 @@ jobs:
         target:
           - os: 'ubuntu-22.04'
             triple: 'x86_64-unknown-linux-gnu'
-          - os: 'macos-13'
+          # macos-13 is retired and its jobs queue indefinitely with no runner
+          # available. macos-15-intel is the in-service x64 macOS label, so the
+          # x86_64-apple-darwin triple below stays valid.
+          - os: 'macos-15-intel'
             triple: 'x86_64-apple-darwin'
           - os: 'windows-2022'
             triple: 'x86_64-pc-windows-msvc'
