@@ -54,7 +54,7 @@ jobs:
         # Hosted Windows runners drift up to ~2.5x run to run, so absolute iter/sec is not
         # comparable across runs. Alert is a report signal: it must not block a merge, and
         # the threshold keeps ~1.6x headroom over the worst drift observed (PIP-3802).
-        alert-threshold: '400%'
+        alert-threshold: '110%'
         comment-on-alert: true
         fail-on-alert: false
         alert-comment-cc-users: '@loonghao'
