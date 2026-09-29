@@ -17,7 +17,18 @@ try:
     # Import third-party modules
     from StringIO import StringIO as BytesIO
 except ImportError:
+    # Import built-in modules
     from io import BytesIO
+
+# Re-exported with the "as" form so linters treat them as public names of
+# this module rather than unused imports.
+try:
+    # Import built-in modules
+    from urllib import quote_plus as quote_plus
+    from urllib import unquote_plus as unquote_plus
+except ImportError:
+    from urllib.parse import quote_plus as quote_plus
+    from urllib.parse import unquote_plus as unquote_plus
 
 # Import local modules
 from transx.constants import DEFAULT_CHARSET
