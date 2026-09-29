@@ -76,13 +76,27 @@ def _ok(translations):
     return _handle
 
 
-@pytest.fixture
-def translator(monkeypatch, tmp_path):
-    """A translator whose memory lives in a temporary directory."""
-    instance = GoogleTranslator(path=str(tmp_path / "tm.json"))
+def _build(monkeypatch, path, offline=False):
+    """Build a translator whose memory lives at ``path``.
+
+    Args:
+        monkeypatch: pytest fixture used to neutralise the rate limiter
+        path: Explicit translation memory file path
+        offline (bool): When True no request may be sent
+
+    Returns:
+        GoogleTranslator: Instance that will not sleep or wait
+    """
+    instance = GoogleTranslator(path=path, offline=offline)
     monkeypatch.setattr(instance, "_wait_for_rate_limit", lambda: None)
     monkeypatch.setattr(translate_module.time, "sleep", lambda seconds: None)
     return instance
+
+
+@pytest.fixture
+def translator(monkeypatch, tmp_path):
+    """A translator whose memory lives in a temporary directory."""
+    return _build(monkeypatch, str(tmp_path / "tm.json"))
 
 
 def _install(monkeypatch, handler):
@@ -313,6 +327,44 @@ def test_offline_batch_keeps_going(translator, monkeypatch):
     assert translator.translate_batch(["Hello", "Goodbye"], "en", "es") == ["Hola", "Goodbye"]
     assert recorder.calls == []
     assert translator.failure_count == 1
+
+
+def test_offline_miss_is_not_remembered(monkeypatch, tmp_path):
+    """An offline fallback is a placeholder, not a translation.
+
+    Storing the source text as if it were the translation would make every
+    later run - online ones included - reuse it, so the string would never be
+    translated and failure_count would stay at zero forever.
+    """
+    path = str(tmp_path / "offline.json")
+    instance = _build(monkeypatch, path, offline=True)
+
+    assert instance.translate("Goodbye moon", "en", "es") == "Goodbye moon"
+    assert instance.failure_count == 1
+
+    assert instance.translation_memory.get("Goodbye moon", "en", "es") is None
+    assert not os.path.exists(path), "an offline miss must not persist the source text"
+
+
+def test_online_run_after_offline_miss_still_asks_the_backend(monkeypatch, tmp_path):
+    """A gap left by an offline run must stay visible to the next online run.
+
+    Two instances sharing one memory file stand in for two runs. The second
+    one is online, so it has to actually request the string the offline run
+    could not translate instead of replaying the source text.
+    """
+    path = str(tmp_path / "shared.json")
+
+    offline = _build(monkeypatch, path, offline=True)
+    assert offline.translate("Goodbye moon", "en", "es") == "Goodbye moon"
+    assert offline.failure_count == 1
+
+    online = _build(monkeypatch, path)
+    recorder = _install(monkeypatch, _ok(["Adios luna"]))
+
+    assert online.translate("Goodbye moon", "en", "es") == "Adios luna"
+    assert len(recorder.calls) == 1, "the gap must still be sent to the backend"
+    assert online.memory_hits == 0
 
 
 def test_offline_never_opens_the_socket(translator, monkeypatch):

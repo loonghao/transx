@@ -46,6 +46,7 @@ FORBIDDEN_APIS = [
     (re.compile(r"\bfrom\s+dataclasses\b"), "dataclasses"),
     (re.compile(r"\bimport\s+typing\b"), "typing"),
     (re.compile(r"\bfrom\s+typing\b"), "typing"),
+    (re.compile(r"\bcontextlib\.suppress\s*\("), "contextlib.suppress (use try/except)"),
 ]
 
 

@@ -738,6 +738,7 @@ class GoogleTranslator(Translator):
                 results.extend(cached)
                 continue
 
+            offline_fallback = False
             try:
                 translated_pending = self._translate_batch_online(pending, source_lang, target_lang)
             except TranslationError:
@@ -748,8 +749,17 @@ class GoogleTranslator(Translator):
                 # _translate_batch_online already counted the failure.
                 self.logger.debug("Offline with no remembered translation for %d string(s)", len(pending))
                 translated_pending = list(pending)
+                offline_fallback = True
 
-            self.translation_memory.put_all(pending, source_lang, target_lang, translated_pending)
+            if offline_fallback:
+                # The source text is a placeholder for a missing translation,
+                # not a translation. Remembering it would make every later run
+                # - online ones included - reuse it, so the string would never
+                # be translated and failure_count would stay at zero. The gap
+                # has to stay visible instead of being cached away.
+                pass
+            else:
+                self.translation_memory.put_all(pending, source_lang, target_lang, translated_pending)
             self.memory_hits += len(chunk) - len(pending)
 
             # Re-merge in the original order, since only the misses were sent.

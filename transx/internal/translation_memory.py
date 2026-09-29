@@ -19,7 +19,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 # Import built-in modules
-import contextlib
 import errno
 import hashlib
 import io
@@ -178,9 +177,16 @@ def _atomic_write(path, text):
             os.remove(path)
         os.rename(temp_path, path)
     except Exception:
+        # Best effort cleanup: the original exception is what the caller needs
+        # to see, so failing to remove the temporary file must not mask it.
         if os.path.exists(temp_path):
-            with contextlib.suppress(OSError):
+            # Spelled out rather than using contextlib.suppress, which is
+            # Python 3.4+ and would raise AttributeError on 2.7 - inside this
+            # very handler, where save() only catches (IOError, OSError).
+            try:  # noqa: SIM105 - contextlib.suppress is not importable on 2.7
                 os.remove(temp_path)
+            except OSError:
+                pass
         raise
 
 
