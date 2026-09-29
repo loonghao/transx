@@ -164,7 +164,7 @@ def test_translate_command_returns_one_on_message_failures(tmp_path):
 
     original_translator = cli_module.GoogleTranslator
     original_translate = cli_module.translate_po_file
-    cli_module.GoogleTranslator = lambda: _Failing()
+    cli_module.GoogleTranslator = lambda **kwargs: _Failing()
     cli_module.translate_po_file = lambda path, lang, translator=None: path
     try:
         assert translate_command(args) == 1
