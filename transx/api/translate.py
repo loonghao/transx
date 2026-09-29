@@ -49,6 +49,9 @@ from transx.internal.compat import ensure_unicode
 from transx.internal.compat import quote_plus
 from transx.internal.compat import string_types
 from transx.internal.compat import text_type
+from transx.internal.translation_memory import TranslationMemory
+from transx.internal.translation_memory import offline_enabled
+from transx.internal.translation_memory import resolve_tm_path
 
 
 # fmt: on
@@ -83,6 +86,25 @@ class DummyTranslator(Translator):
     def translate(self, text, source_lang="auto", target_lang="en"):
         """Return input text unchanged."""
         return text
+
+
+def _bind_locale_root(translator, locale_root):
+    """Point a translator's memory at the locale root, if it has one.
+
+    The memory path is only resolved once, when it is first needed, so a
+    translator built without an explicit path keeps following the locale root
+    it is later given instead of quietly settling for the user level default.
+
+    Args:
+        translator: Translator whose memory should be redirected
+        locale_root: Directory holding the ``<locale>/LC_MESSAGES`` tree
+    """
+    memory = getattr(translator, "translation_memory", None)
+    if memory is None or not locale_root:
+        return
+    if getattr(translator, "_tm_path_explicit", False):
+        return
+    memory.path = resolve_tm_path(locale_root=locale_root)
 
 
 def translate_po_file(pot_file_path, lang, output_dir=None, translator=None):
@@ -132,6 +154,7 @@ def translate_po_file(pot_file_path, lang, output_dir=None, translator=None):
 
     # Optionally translate untranslated entries
     if translator:
+        _bind_locale_root(translator, output_dir)
         logger.info("Auto-translating untranslated strings for %s..." % lang)
         translated = po.translate_messages(translator, target_lang=lang)
         failures = getattr(po, "translation_failures", 0)
@@ -188,6 +211,10 @@ class GoogleTranslator(Translator):
     #: Environment variable that replaces BASE_URL, for self-hosted endpoints.
     ENDPOINT_ENV_VAR = "TRANSX_TRANSLATE_ENDPOINT"
 
+    #: Identifies this engine in the translation memory, so entries cached
+    #: from another backend are never reused under this one's name.
+    ENGINE_ID = "google-gtx-v1"
+
     #: HTTP statuses that mean "try again later" rather than "give up".
     RETRYABLE_STATUS_CODES = frozenset([429, 500, 502, 503, 504])
 
@@ -208,6 +235,10 @@ class GoogleTranslator(Translator):
         batch_size=DEFAULT_BATCH_SIZE,
         max_batch_chars=DEFAULT_MAX_BATCH_CHARS,
         circuit_threshold=None,
+        translation_memory=None,
+        path=None,
+        offline=None,
+        locale_root=None,
     ):
         """Initialize the translator.
 
@@ -221,6 +252,13 @@ class GoogleTranslator(Translator):
             circuit_threshold (int): Consecutive retryable failures that open
                 the circuit. Defaults to ``max_retries``, so a single request
                 that burns its whole retry budget opens it.
+            translation_memory: Pre-built memory to use; one is created when
+                omitted
+            path: Explicit translation memory file path
+            offline: When True no request is ever sent; misses fall back to
+                the source text. Defaults to the TRANSX_OFFLINE environment
+                variable.
+            locale_root: Directory used to resolve a default memory path
         """
         self.max_retries = max_retries
         self.initial_delay = initial_delay
@@ -241,6 +279,28 @@ class GoogleTranslator(Translator):
 
         #: Number of strings this translator failed to translate.
         self.failure_count = 0
+
+        self.offline = offline_enabled(offline)
+        # An explicit path (or TRANSX_TM_PATH) must win over any locale root
+        # discovered later, so remember that it was forced.
+        self._tm_path_explicit = bool(path or os.environ.get(TranslationMemory.PATH_ENV_VAR))
+        self._locale_root = locale_root
+        if translation_memory is not None:
+            self.translation_memory = translation_memory
+        else:
+            # Without a path, an env var or a locale root there is nowhere
+            # sensible to persist, and falling back to a shared file in the
+            # user's home directory would silently couple unrelated runs
+            # together. Stay inert until a location is actually known.
+            self.translation_memory = TranslationMemory(
+                path=path,
+                engine_id=self.ENGINE_ID,
+                locale_root=locale_root,
+                enabled=bool(path or self._tm_path_explicit or locale_root),
+            )
+        #: Number of strings served by the memory instead of the network.
+        self.memory_hits = 0
+        self.translation_memory.load()
 
         # Map standard language codes to Google Translate supported codes
         self.language_code_map = {"zh_CN": "zh-CN", "ja_JP": "ja", "ko_KR": "ko", "fr_FR": "fr", "es_ES": "es"}
@@ -525,6 +585,11 @@ class GoogleTranslator(Translator):
         Raises:
             TranslationError: If the circuit is open or every attempt failed
         """
+        if self.offline:
+            raise TranslationError(
+                "Offline mode is enabled; refusing to send a translation request."
+            )
+
         if self._circuit_open:
             raise TranslationError(
                 "Translation circuit is open after %d consecutive failures; "
@@ -664,6 +729,45 @@ class GoogleTranslator(Translator):
         results = []
 
         for chunk in self._iter_chunks([ensure_unicode(text) for text in texts]):
+            cached = self.translation_memory.get_all(chunk, source_lang, target_lang)
+            pending = [text for text, hit in zip(chunk, cached) if hit is None]
+
+            # Nothing to ask the backend about: the whole chunk was remembered.
+            if not pending:
+                self.memory_hits += len(chunk)
+                results.extend(cached)
+                continue
+
+            try:
+                translated_pending = self._translate_batch_online(pending, source_lang, target_lang)
+            except TranslationError:
+                if not self.offline:
+                    raise
+                # Offline misses are expected: keep the source text so the
+                # catalog stays complete and report the gap instead of dying.
+                # _translate_batch_online already counted the failure.
+                self.logger.debug("Offline with no remembered translation for %d string(s)", len(pending))
+                translated_pending = list(pending)
+
+            self.translation_memory.put_all(pending, source_lang, target_lang, translated_pending)
+            self.memory_hits += len(chunk) - len(pending)
+
+            # Re-merge in the original order, since only the misses were sent.
+            merged = list(cached)
+            iterator = iter(translated_pending)
+            for index, hit in enumerate(merged):
+                if hit is None:
+                    merged[index] = next(iterator)
+            results.extend(merged)
+
+        self.translation_memory.save()
+        return results
+
+    def _translate_batch_online(self, texts, source_lang, target_lang):
+        """Translate strings that were not in the translation memory."""
+        results = []
+
+        for chunk in self._iter_chunks([ensure_unicode(text) for text in texts]):
             # Escape first, join second: the separator must survive escaping.
             escaped = [self._escape_special_chars(text) for text in chunk]
             payload = "\n".join(escaped)
@@ -733,4 +837,13 @@ class GoogleTranslator(Translator):
         if not isinstance(target_lang, string_types) or len(target_lang.strip()) < 2:
             return text  # Return original text for invalid target language
 
-        return self.translate_batch([text], source_lang, target_lang)[0]
+        try:
+            return self.translate_batch([text], source_lang, target_lang)[0]
+        except TranslationError:
+            if not self.offline:
+                raise
+            # Offline misses are expected, not exceptional: keep the source
+            # text so the catalog stays complete. translate_batch already
+            self.logger.debug("Offline with no remembered translation for: %s", text)
+            # counted the miss, so it is not counted again here.
+            return text

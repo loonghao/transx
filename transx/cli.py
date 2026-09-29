@@ -199,6 +199,17 @@ examples:
         "-t", "--target-lang",
         help="Target language code (required if specific files are provided)"
     )
+    translate_parser.add_argument(
+        "--offline",
+        action="store_true",
+        help="Never call the network: use only the translation memory and fall "
+             "back to the source text for misses"
+    )
+    translate_parser.add_argument(
+        "--tm-path",
+        help="Path to the translation memory file (default: "
+             "<locale root>/.transx/tm.json, overridden by TRANSX_TM_PATH)"
+    )
 
     return parser
 
@@ -371,9 +382,14 @@ def list_command(args):
 
 def translate_command(args):
     """Execute translate command."""
-    translator = GoogleTranslator()
+    offline = getattr(args, "offline", False)
+    tm_path = getattr(args, "tm_path", None)
+    locale_root = getattr(args, "directory", None)
+    translator = GoogleTranslator(offline=offline, path=tm_path, locale_root=locale_root)
     logger = get_logger(__name__)
     failed_count = 0
+    if offline:
+        logger.info("Offline mode: using the translation memory only")
 
     # If specific files are provided
     if args.files:
@@ -420,6 +436,9 @@ def translate_command(args):
     # surfaced here; otherwise a half translated run still exits 0 and CI
     # stays green.
     failed_count += getattr(translator, "failure_count", 0)
+    memory_hits = getattr(translator, "memory_hits", 0)
+    if memory_hits:
+        logger.info("Reused %d translation(s) from the translation memory", memory_hits)
     if failed_count:
         logger.error("Failed to translate %d message(s)", failed_count)
         return 1
