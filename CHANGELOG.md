@@ -4,6 +4,23 @@
 
 - faster PO/POT/MO parsing and less duplicated work (#43)
 
+## [0.9.0](https://github.com/loonghao/transx/compare/v0.8.3...v0.9.0) (2026-09-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* **translate:** `transx translate` now exits non-zero when any message fails to translate. Use `|| true` to opt out.
+
+### Features
+
+* **translate:** persist translations in a translation memory ([#50](https://github.com/loonghao/transx/issues/50)) ([6d679f2](https://github.com/loonghao/transx/commit/6d679f2fd08c3b30e23ffdbfb033cf26b6b8efcf))
+
+
+### Bug Fixes
+
+* **translate:** batch requests and fail fast when the backend blocks us ([d19f29d](https://github.com/loonghao/transx/commit/d19f29d1aa49a53a96db15735e0ea716246d88c0))
+* **translate:** budget batches on the encoded payload length ([5a3c6f7](https://github.com/loonghao/transx/commit/5a3c6f7c0ce29ef958fc1f8b19783f54bd157366))
+
 ## v0.8.2 (2026-09-25)
 
 ### Fix
