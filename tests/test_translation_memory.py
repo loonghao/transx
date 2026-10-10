@@ -29,6 +29,12 @@ from transx.internal.translation_memory import make_key
 from transx.internal.translation_memory import offline_enabled
 from transx.internal.translation_memory import resolve_tm_path
 
+#: A loopback endpoint, so offline mode exercises the miss path instead of
+#: refusing the request outright. See ``_build``. The path deliberately does
+#: not match a profile hint, so these tests keep the default Google profile
+#: whose response shape they mock.
+LOOPBACK_ENDPOINT = "http://127.0.0.1:65001/translate_a/single"
+
 if PY2:  # pragma: no cover - exercised only on Python 2
     from urllib2 import HTTPError
 else:
@@ -76,17 +82,25 @@ def _ok(translations):
     return _handle
 
 
-def _build(monkeypatch, path, offline=False):
+def _build(monkeypatch, path, offline=False, endpoint=LOOPBACK_ENDPOINT):
     """Build a translator whose memory lives at ``path``.
+
+    Offline mode now allows a loopback endpoint, because blocking it would
+    make local translation services unusable in exactly the mode they exist
+    for. These tests therefore point the translator at a loopback URL, so
+    "offline" still means "no string leaves this machine" while the offline
+    miss path under test stays reachable.
 
     Args:
         monkeypatch: pytest fixture used to neutralise the rate limiter
         path: Explicit translation memory file path
-        offline (bool): When True no request may be sent
+        offline (bool): When True no request may leave this machine
+        endpoint: Endpoint URL to use
 
     Returns:
         GoogleTranslator: Instance that will not sleep or wait
     """
+    monkeypatch.setenv("TRANSX_TRANSLATE_ENDPOINT", endpoint)
     instance = GoogleTranslator(path=path, offline=offline)
     monkeypatch.setattr(instance, "_wait_for_rate_limit", lambda: None)
     monkeypatch.setattr(translate_module.time, "sleep", lambda seconds: None)
@@ -103,6 +117,24 @@ def _install(monkeypatch, handler):
     recorder = _Recorder(handler)
     monkeypatch.setattr(translate_module, "urlopen", recorder)
     return recorder
+
+
+def _raise_connection_error():
+    """A handler that fails the way an unreachable local service does.
+
+    Used by the offline tests: the loopback endpoint is reachable in
+    principle, so offline mode must let the request through and then fall back
+    to the source text when it fails.
+    """
+    if PY2:  # pragma: no cover - exercised only on Python 2
+        from urllib2 import URLError
+    else:
+        from urllib.error import URLError
+
+    def _handle():
+        raise URLError("connection refused")
+
+    return _handle
 
 
 # --- Key design --------------------------------------------------------------
@@ -294,6 +326,11 @@ def test_missing_file_is_not_an_error(tmp_path):
 
 
 # --- Offline -----------------------------------------------------------------
+#
+# Offline mode allows a loopback endpoint. It means "no string leaves this
+# machine", not "no request at all": a local translation service is already on
+# the machine, so blocking it would make the offline path useless. The tests
+# below cover both halves - loopback is allowed, and anything else is refused.
 
 
 def test_offline_hit_needs_no_network(translator, monkeypatch):
@@ -310,10 +347,11 @@ def test_offline_hit_needs_no_network(translator, monkeypatch):
 def test_offline_miss_falls_back_to_source(translator, monkeypatch):
     """An offline miss must return the source text, not raise."""
     translator.offline = True
-    recorder = _install(monkeypatch, _ok(["unused"]))
+    # Nothing is listening on the loopback endpoint, so every request fails
+    # and the miss path is what runs.
+    _install(monkeypatch, _raise_connection_error())
 
     assert translator.translate("Hello", "en", "es") == "Hello"
-    assert recorder.calls == []
     assert translator.failure_count == 1
 
 
@@ -322,10 +360,9 @@ def test_offline_batch_keeps_going(translator, monkeypatch):
     translator.translate("Hello", "en", "es")
 
     translator.offline = True
-    recorder = _install(monkeypatch, _ok(["unused"]))
+    _install(monkeypatch, _raise_connection_error())
 
     assert translator.translate_batch(["Hello", "Goodbye"], "en", "es") == ["Hola", "Goodbye"]
-    assert recorder.calls == []
     assert translator.failure_count == 1
 
 
@@ -338,6 +375,7 @@ def test_offline_miss_is_not_remembered(monkeypatch, tmp_path):
     """
     path = str(tmp_path / "offline.json")
     instance = _build(monkeypatch, path, offline=True)
+    _install(monkeypatch, _raise_connection_error())
 
     assert instance.translate("Goodbye moon", "en", "es") == "Goodbye moon"
     assert instance.failure_count == 1
@@ -356,6 +394,7 @@ def test_online_run_after_offline_miss_still_asks_the_backend(monkeypatch, tmp_p
     path = str(tmp_path / "shared.json")
 
     offline = _build(monkeypatch, path, offline=True)
+    _install(monkeypatch, _raise_connection_error())
     assert offline.translate("Goodbye moon", "en", "es") == "Goodbye moon"
     assert offline.failure_count == 1
 
@@ -367,14 +406,24 @@ def test_online_run_after_offline_miss_still_asks_the_backend(monkeypatch, tmp_p
     assert online.memory_hits == 0
 
 
-def test_offline_never_opens_the_socket(translator, monkeypatch):
+def test_offline_never_reaches_a_remote_host(monkeypatch, tmp_path):
+    """Offline must refuse any endpoint that is not on this machine.
+
+    Loopback is allowed because a local service never sends a string off the
+    machine. Anything else is exactly what offline mode exists to prevent.
+    """
+    path = str(tmp_path / "remote.json")
+    instance = _build(
+        monkeypatch, path, offline=True, endpoint="https://translate.googleapis.com/x"
+    )
+
     def _explode():
-        raise AssertionError("offline mode must not reach urlopen")
+        raise AssertionError("offline mode must not reach the network")
 
     _install(monkeypatch, _explode)
-    translator.offline = True
 
-    assert translator.translate("anything", "en", "es") == "anything"
+    with pytest.raises(TranslationError):
+        instance.translate("anything", "en", "es")
 
 
 def test_offline_from_environment(monkeypatch, tmp_path):
