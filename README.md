@@ -327,6 +327,89 @@ transx update messages.pot -o ./locales
 ```
 
 
+### Translate PO Files
+```bash
+# Translate PO files for the given languages
+transx update messages.pot -l "zh_CN,ja_JP"
+
+# Translate with an explicit provider profile
+transx translate -l zh_CN --profile libretranslate
+
+# Translate using only the translation memory, no network
+transx translate -l zh_CN --offline
+```
+
+
+### Translation Providers
+
+Automatic translation talks to a **provider profile**. A profile owns everything
+specific to one backend: how the request is built, how the response is parsed,
+whether strings can be batched, how they are escaped, and the engine id recorded
+in the translation memory.
+
+Three profiles are built in:
+
+| Profile | Backend | Default endpoint | Batching |
+|---|---|---|---|
+| `google` (default) | Google Translate JSON endpoint | `https://translate.googleapis.com/translate_a/single` | Yes, newline-joined |
+| `libretranslate` | [LibreTranslate](https://libretranslate.com/), usually self-hosted | `http://localhost:5000/translate` | Yes, JSON list |
+| `ollama` | A local [Ollama](https://ollama.com/) model | `http://localhost:11434/api/generate` | No, one request per string |
+
+Select one with `--profile` or `TRANSX_TRANSLATE_PROFILE`. When neither is set,
+the profile is inferred from `TRANSX_TRANSLATE_ENDPOINT`: a URL containing
+`/translate` selects `libretranslate`, one containing `/api/generate` selects
+`ollama`, and anything else falls back to `google`. An unknown profile name is an
+error and lists the valid choices.
+
+Run LibreTranslate locally:
+
+```bash
+docker run -p 5000:5000 libretranslate/libretranslate
+```
+
+Then point TransX at it:
+
+```bash
+export TRANSX_TRANSLATE_ENDPOINT=http://localhost:5000/translate
+transx translate -l zh_CN
+```
+
+Each profile records its own engine id in the translation memory, so a string
+translated by one backend is never reused as if another had produced it. The
+`ollama` engine id includes the model name, so two models do not share entries.
+
+#### Environment Variables
+
+| Variable | Purpose |
+|---|---|
+| `TRANSX_TRANSLATE_PROFILE` | Profile name: `google`, `libretranslate` or `ollama` |
+| `TRANSX_TRANSLATE_ENDPOINT` | Override the endpoint URL; also hints the profile when it is not set explicitly |
+| `TRANSX_TRANSLATE_API_KEY` | API key, sent only by profiles that use one, and only when set |
+| `TRANSX_TRANSLATE_MODEL` | Model name for the `ollama` profile |
+| `TRANSX_OFFLINE` | Never send a string to another machine |
+| `TRANSX_TM_PATH` | Path to the translation memory file |
+
+#### Offline Mode
+
+Offline mode means **no string leaves this machine**. Endpoints on this machine
+(`localhost`, `127.0.0.1`, `::1`) are still allowed, because a local translation
+service is already on it; anything else is refused. That is what makes the
+`libretranslate` and `ollama` profiles useful offline.
+
+```bash
+# Allowed: the endpoint is on this machine
+TRANSX_OFFLINE=1 TRANSX_TRANSLATE_ENDPOINT=http://127.0.0.1:5000/translate transx translate -l zh_CN
+
+# Refused: the endpoint is on another machine
+TRANSX_OFFLINE=1 transx translate -l zh_CN
+```
+
+> ⚠️ **Security**: pointing `TRANSX_TRANSLATE_ENDPOINT` at a **public**
+> LibreTranslate instance sends your internal strings off your machine to a third
+> party. Self-host it, or use the `ollama` profile with a local model, if the
+> strings are not public.
+
+
 ### Compile MO Files
 ```bash
 # Compile a single PO file
@@ -356,6 +439,7 @@ transx list -d /path/to/locales
 - `-l, --languages`: Comma-separated list of language codes
 - `-p, --project`: Project name (for POT generation)
 - `-v, --version`: Project version (for POT generation)
+- `-p, --profile`: Translation provider profile (`translate` command only)
 
 
 For detailed help on any command:

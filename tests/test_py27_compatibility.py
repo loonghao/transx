@@ -126,6 +126,7 @@ def test_no_python3_only_apis():
 #: out of scope here; this guard exists to stop new code from regressing.
 NEW_MODULES = [
     os.path.join("internal", "translation_memory.py"),
+    os.path.join("internal", "translate_profiles.py"),
 ]
 
 
