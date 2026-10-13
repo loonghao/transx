@@ -331,6 +331,23 @@ def test_ollama_cleans_model_output(raw, expected):
     assert OllamaProfile().clean_output(raw) == expected
 
 
+@pytest.mark.parametrize(
+    "raw",
+    [
+        # A translation may legitimately continue with a sentence that opens
+        # with the same words a model uses to introduce a note. Cutting there
+        # would silently write a truncated msgstr, so the text must survive.
+        "Open the file.\n\nNote the file must be writable.",
+        "Done.\nLet me know if it fails.",
+        "Open the file.\n\nThe above is the literal rendering.",
+        "Warning.\nHere the value must stay positive.",
+    ],
+)
+def test_ollama_keeps_legitimate_follow_on_text(raw):
+    """Tail notes are stripped, but not real translation that merely sounds alike."""
+    assert OllamaProfile().clean_output(raw) == raw
+
+
 def test_ollama_raises_when_output_cannot_be_aligned(server, monkeypatch, no_sleep):
     """A misaligned response must raise rather than guess.
 

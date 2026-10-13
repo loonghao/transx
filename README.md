@@ -356,10 +356,20 @@ Three profiles are built in:
 | `ollama` | A local [Ollama](https://ollama.com/) model | `http://localhost:11434/api/generate` | No, one request per string |
 
 Select one with `--profile` or `TRANSX_TRANSLATE_PROFILE`. When neither is set,
-the profile is inferred from `TRANSX_TRANSLATE_ENDPOINT`: a URL containing
-`/translate` selects `libretranslate`, one containing `/api/generate` selects
-`ollama`, and anything else falls back to `google`. An unknown profile name is an
-error and lists the valid choices.
+the profile is inferred from `TRANSX_TRANSLATE_ENDPOINT`, matching the path
+fragments below in order — the first match wins:
+
+| Path fragment in the endpoint URL | Profile |
+| --- | --- |
+| `/api/generate` | `ollama` |
+| `/translate_a/single` | `google` |
+| `/translate` | `libretranslate` |
+
+A URL matching none of them falls back to `google`. Note that Google's own
+endpoint contains `/translate` too, so it is matched by the more specific
+`/translate_a/single` rule first; pointing `TRANSX_TRANSLATE_ENDPOINT` at a
+plain `/translate` URL therefore selects `libretranslate`, not `google`. An
+unknown profile name is an error and lists the valid choices.
 
 Run LibreTranslate locally:
 

@@ -30,9 +30,9 @@ from transx.internal.translation_memory import offline_enabled
 from transx.internal.translation_memory import resolve_tm_path
 
 #: A loopback endpoint, so offline mode exercises the miss path instead of
-#: refusing the request outright. See ``_build``. The path deliberately does
-#: not match a profile hint, so these tests keep the default Google profile
-#: whose response shape they mock.
+#: refusing the request outright. See ``_build``. The path carries the Google
+#: hint (``/translate_a/single``), which is what keeps these tests on the
+#: default Google profile whose response shape they mock.
 LOOPBACK_ENDPOINT = "http://127.0.0.1:65001/translate_a/single"
 
 if PY2:  # pragma: no cover - exercised only on Python 2

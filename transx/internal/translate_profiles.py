@@ -295,7 +295,14 @@ class TranslateProfile(object):
         """
         if isinstance(translated, list):
             return translated if len(translated) == expected_count else None
-        parts = ensure_unicode(translated).split(self.batch_separator)
+        payload = ensure_unicode(translated)
+        if expected_count == 1:
+            # One input, one response body: whatever the endpoint echoed back
+            # is the translation. Splitting would only mistake a sentence break
+            # inside a single string for a batch boundary, which is why the
+            # endpoint's own newlines must be kept verbatim here.
+            return [payload]
+        parts = payload.split(self.batch_separator)
         return parts if len(parts) == expected_count else None
 
     # -- budgeting ----------------------------------------------------------
@@ -532,6 +539,40 @@ class OllamaProfile(TranslateProfile):
         "result:",
     )
 
+    #: Whole phrases that only ever introduce a model's trailing commentary.
+    #: Matched against the start of the tail, so a translation that merely
+    #: continues with a sentence beginning in the same words is kept. The
+    #: "let me know" forms are the offer to keep talking a model appends; they
+    #: are pinned to that closing shape so a translated sentence such as "Let
+    #: me know if it fails." survives intact.
+    _TAIL_NOTE_PREFIXES = (
+        "note:",
+        "notes:",
+        "here is the translation",
+        "here's the translation",
+        "here is your translation",
+        "here's your translation",
+        "the above is the translation",
+        "the above translation",
+        "translation notes:",
+        "let me know if you",
+        "let me know if there",
+        "let me know whether you",
+    )
+
+    @classmethod
+    def _starts_tail_note(cls, tail):
+        """Report whether ``tail`` is commentary rather than more translation.
+
+        Args:
+            tail: Text following a paragraph or line break
+
+        Returns:
+            bool: True when the tail is a note the model appended
+        """
+        stripped = ensure_unicode(tail).strip().lower().lstrip("(")
+        return any(stripped.startswith(phrase) for phrase in cls._TAIL_NOTE_PREFIXES)
+
     def get_engine_id(self):
         """Include the model name so models never share memory entries."""
         model = self.model or self.default_model
@@ -617,14 +658,14 @@ class OllamaProfile(TranslateProfile):
                 result = result[len(prefix) :].strip()
                 lowered = result.lower()
 
-        # A trailing note the model added after the translation.
+        # A trailing note the model added after the translation. The markers
+        # demand a colon or a whole phrase: a translation may legitimately
+        # continue with a sentence starting in "Note", "Here" or "Let me", and
+        # dropping that tail would silently write a truncated msgstr.
         for marker in ("\n\n", "\n"):
             if marker in result:
                 head, tail = result.split(marker, 1)
-                if head.strip() and any(
-                    tail.lower().lstrip("(").startswith(word)
-                    for word in ("note", "here", "the above", "translation:", "let me")
-                ):
+                if head.strip() and self._starts_tail_note(tail):
                     result = head.strip()
                     break
 
