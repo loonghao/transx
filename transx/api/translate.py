@@ -11,7 +11,6 @@ from __future__ import unicode_literals
 import abc
 import calendar
 from email.utils import parsedate
-import json
 import logging
 import os
 import random
@@ -20,7 +19,6 @@ import time
 
 try:
     # Import built-in modules
-    from urllib import urlencode
 
     # Import third-party modules
     from HTMLParser import HTMLParser
@@ -31,7 +29,6 @@ try:
 except ImportError:
     from html import unescape as html_unescape
     from urllib.error import HTTPError, URLError
-    from urllib.parse import urlencode
     from urllib.request import Request, urlopen
 
 
@@ -46,15 +43,31 @@ from transx.internal.compat import PY2
 from transx.internal.compat import binary_type
 from transx.internal.compat import decompress_gzip
 from transx.internal.compat import ensure_unicode
-from transx.internal.compat import quote_plus
 from transx.internal.compat import string_types
 from transx.internal.compat import text_type
+from transx.internal.translate_profiles import API_KEY_ENV_VAR
+from transx.internal.translate_profiles import ENDPOINT_ENV_VAR
+from transx.internal.translate_profiles import MODEL_ENV_VAR
+from transx.internal.translate_profiles import PROFILE_ENV_VAR
+from transx.internal.translate_profiles import create_profile
+from transx.internal.translate_profiles import is_loopback_url
+from transx.internal.translate_profiles import resolve_profile_name
 from transx.internal.translation_memory import TranslationMemory
 from transx.internal.translation_memory import offline_enabled
 from transx.internal.translation_memory import resolve_tm_path
 
 
 # fmt: on
+
+
+class OfflineEndpointBlocked(TranslationError):
+    """Raised when offline mode blocks a request to a remote endpoint.
+
+    Offline is about keeping strings on this machine, so a request headed for
+    another host is a configuration error, not a miss. It must stay distinct
+    from a plain miss, which offline mode treats as normal and answers with the
+    source text instead of failing.
+    """
 
 
 class Translator(object):
@@ -209,7 +222,7 @@ class GoogleTranslator(Translator):
     BASE_URL = "https://translate.googleapis.com/translate_a/single"
 
     #: Environment variable that replaces BASE_URL, for self-hosted endpoints.
-    ENDPOINT_ENV_VAR = "TRANSX_TRANSLATE_ENDPOINT"
+    ENDPOINT_ENV_VAR = ENDPOINT_ENV_VAR
 
     #: Identifies this engine in the translation memory, so entries cached
     #: from another backend are never reused under this one's name.
@@ -239,6 +252,7 @@ class GoogleTranslator(Translator):
         path=None,
         offline=None,
         locale_root=None,
+        profile=None,
     ):
         """Initialize the translator.
 
@@ -255,10 +269,13 @@ class GoogleTranslator(Translator):
             translation_memory: Pre-built memory to use; one is created when
                 omitted
             path: Explicit translation memory file path
-            offline: When True no request is ever sent; misses fall back to
-                the source text. Defaults to the TRANSX_OFFLINE environment
-                variable.
+            offline: When True no request is ever sent, except to a loopback
+                endpoint; misses fall back to the source text. Defaults to the
+                TRANSX_OFFLINE environment variable.
             locale_root: Directory used to resolve a default memory path
+            profile: Provider profile name, or a ready profile instance.
+                Defaults to TRANSX_TRANSLATE_PROFILE, then to a name inferred
+                from TRANSX_TRANSLATE_ENDPOINT, then to ``google``.
         """
         self.max_retries = max_retries
         self.initial_delay = initial_delay
@@ -281,6 +298,7 @@ class GoogleTranslator(Translator):
         self.failure_count = 0
 
         self.offline = offline_enabled(offline)
+        self.profile = self._resolve_profile(profile)
         # An explicit path (or TRANSX_TM_PATH) must win over any locale root
         # discovered later, so remember that it was forced.
         self._tm_path_explicit = bool(path or os.environ.get(TranslationMemory.PATH_ENV_VAR))
@@ -294,7 +312,7 @@ class GoogleTranslator(Translator):
             # together. Stay inert until a location is actually known.
             self.translation_memory = TranslationMemory(
                 path=path,
-                engine_id=self.ENGINE_ID,
+                engine_id=self.profile.get_engine_id(),
                 locale_root=locale_root,
                 enabled=bool(path or self._tm_path_explicit or locale_root),
             )
@@ -303,7 +321,44 @@ class GoogleTranslator(Translator):
         self.translation_memory.load()
 
         # Map standard language codes to Google Translate supported codes
-        self.language_code_map = {"zh_CN": "zh-CN", "ja_JP": "ja", "ko_KR": "ko", "fr_FR": "fr", "es_ES": "es"}
+        self.language_code_map = dict(self.profile.language_code_map)
+
+    def _resolve_profile(self, profile):
+        """Build the profile this translator talks to.
+
+        Args:
+            profile: Profile name, profile instance, or None to derive one
+
+        Returns:
+            TranslateProfile: The resolved profile
+
+        Raises:
+            TranslationError: If an explicitly requested profile is unknown
+        """
+        if hasattr(profile, "build_request"):
+            # Already a profile instance; use it as given.
+            return profile
+
+        endpoint = os.environ.get(ENDPOINT_ENV_VAR)
+        name = resolve_profile_name(profile or os.environ.get(PROFILE_ENV_VAR), endpoint)
+
+        # No base_url is pinned when the override is unset, so the profile
+        # keeps reading the variable on every request and a translator built
+        # before the variable was set still honours it.
+        # create_profile raises for an unknown name, so a typo in
+        # TRANSX_TRANSLATE_PROFILE fails loudly instead of quietly translating
+        # through the wrong backend.
+        return create_profile(
+            name,
+            base_url=endpoint or None,
+            api_key=os.environ.get(API_KEY_ENV_VAR) or None,
+            model=os.environ.get(MODEL_ENV_VAR) or None,
+        )
+
+    @property
+    def engine_id(self):
+        """Identifier this translator records under translation memory keys."""
+        return self.profile.get_engine_id()
 
     def reset_circuit(self):
         """Close the circuit and forget every failure counter."""
@@ -423,27 +478,17 @@ class GoogleTranslator(Translator):
     def _escape_special_chars(self, text):
         """Escape special characters for translation.
 
+        Google's placeholders are not universal, so the escaping belongs to the
+        profile: a JSON body carries newlines natively and must not see
+        ``{{NEWLINE}}`` substituted for them.
+
         Args:
             text (str): Text to escape
 
         Returns:
             str: Escaped text
         """
-        text = ensure_unicode(text)
-
-        replacements = {
-            text_type("\n"): text_type("{{NEWLINE}}"),
-            text_type("\r"): text_type("{{RETURN}}"),
-            text_type("\t"): text_type("{{TAB}}"),
-            text_type("\\"): text_type("{{BACKSLASH}}"),
-            text_type('\\"'): text_type("{{QUOTE}}"),
-            text_type("\b"): text_type("{{BACKSPACE}}"),
-            text_type("\f"): text_type("{{FORMFEED}}"),
-        }
-        result = text
-        for char, placeholder in replacements.items():
-            result = result.replace(char, placeholder)
-        return result
+        return self.profile.escape(text)
 
     def _unescape_special_chars(self, text):
         """Restore special characters after translation.
@@ -454,21 +499,7 @@ class GoogleTranslator(Translator):
         Returns:
             str: Unescaped text
         """
-        text = ensure_unicode(text)
-
-        replacements = {
-            text_type("{{NEWLINE}}"): text_type("\n"),
-            text_type("{{RETURN}}"): text_type("\r"),
-            text_type("{{TAB}}"): text_type("\t"),
-            text_type("{{BACKSLASH}}"): text_type("\\"),
-            text_type("{{QUOTE}}"): text_type('\\"'),
-            text_type("{{BACKSPACE}}"): text_type("\b"),
-            text_type("{{FORMFEED}}"): text_type("\f"),
-        }
-        result = text
-        for placeholder, char in replacements.items():
-            result = result.replace(placeholder, char)
-        return result
+        return self.profile.unescape(text)
 
     def _unescape_html_entities(self, text):
         """Decode HTML entities that may appear in translator responses."""
@@ -492,10 +523,13 @@ class GoogleTranslator(Translator):
         Returns:
             str: Endpoint URL
         """
-        return os.environ.get(self.ENDPOINT_ENV_VAR) or self.BASE_URL
+        return self.profile.base_url
 
     def _build_url(self, payload, source_lang, target_lang):
         """Build the request URL for an already escaped payload.
+
+        Kept for callers that only need the URL; the profile builds the whole
+        request, of which this is the Google-shaped part.
 
         Args:
             payload: Escaped text, newline-joined when it holds a batch
@@ -505,22 +539,11 @@ class GoogleTranslator(Translator):
         Returns:
             str: Full request URL
         """
-        params = [
-            ("client", "gtx"),
-            ("sl", source_lang),
-            ("tl", target_lang),
-            ("dt", "t"),
-            ("q", payload.encode("utf-8")),
-        ]
-        return self._resolve_base_url() + "?" + urlencode(params)
+        request = self.profile.build_request(payload, source_lang, target_lang)
+        return request["url"]
 
     def _extract_translation(self, response_data):
-        """Flatten the translated segments of a JSON response.
-
-        The endpoint answers with nested arrays; the translated text of each
-        segment sits at ``data[0][i][0]``. Segments are joined without a
-        separator so the newlines the endpoint echoes back survive for the
-        caller to split on.
+        """Extract the translated payload from a response body.
 
         Args:
             response_data (str): Decoded response body
@@ -531,28 +554,10 @@ class GoogleTranslator(Translator):
         Raises:
             TranslationError: If the body holds no usable translation
         """
-        try:
-            data = json.loads(response_data)
-        except ValueError as e:
-            raise TranslationError("Failed to parse translation response: %s" % e)
-
-        segments = data[0] if isinstance(data, list) and data else None
-        if not segments:
-            raise TranslationError("Could not find translation in response")
-
-        parts = []
-        for segment in segments:
-            if not segment:
-                continue
-            text = segment[0]
-            if text is None:
-                continue
-            parts.append(ensure_unicode(text))
-
-        if not parts:
-            raise TranslationError("Could not find translation in response")
-
-        return "".join(parts)
+        translated = self.profile.parse_response(response_data)
+        if isinstance(translated, list):
+            return self.profile.batch_separator.join(translated)
+        return translated
 
     def _record_failure(self, attempt):
         """Account for a retryable failure.
@@ -571,13 +576,15 @@ class GoogleTranslator(Translator):
             return True
         return self._is_last_attempt(attempt)
 
-    def _request_translation(self, payload, source_lang, target_lang):
+    def _request_translation(self, payload, source_lang, target_lang, escaped_texts=None):
         """Send one request and return the translated payload.
 
         Args:
-            payload: Escaped text, newline-joined when it holds a batch
+            payload: Escaped text, joined when it holds a batch
             source_lang: Source language code
             target_lang: Target language code
+            escaped_texts: Individual escaped strings, for profiles whose body
+                carries a list rather than a joined payload
 
         Returns:
             str: Translated payload, separators preserved
@@ -585,9 +592,14 @@ class GoogleTranslator(Translator):
         Raises:
             TranslationError: If the circuit is open or every attempt failed
         """
-        if self.offline:
-            raise TranslationError(
-                "Offline mode is enabled; refusing to send a translation request."
+        request = self.profile.build_request(payload, source_lang, target_lang, escaped_texts=escaped_texts)
+        url = request["url"]
+
+        if self.offline and not is_loopback_url(url):
+            raise OfflineEndpointBlocked(
+                "Offline mode is enabled; refusing to send a translation request "
+                "to %s. Only a loopback endpoint (localhost/127.0.0.1/::1) may be "
+                "used while offline." % self.profile.base_url
             )
 
         if self._circuit_open:
@@ -596,7 +608,6 @@ class GoogleTranslator(Translator):
                 "no further requests will be sent." % self._circuit_failures
             )
 
-        url = self._build_url(payload, source_lang, target_lang)
         self.logger.debug("Making request to URL: %s", url)
 
         for attempt in range(self.max_retries):
@@ -605,8 +616,11 @@ class GoogleTranslator(Translator):
                 self._wait_for_rate_limit()
 
                 # Create and send request
-                request = Request(url, headers=REQUEST_HEADERS)
-                response = urlopen(request)
+                headers = dict(REQUEST_HEADERS)
+                headers.update(request.get("headers") or {})
+                data = request.get("data")
+                http_request = Request(url, data=data, headers=headers)
+                response = urlopen(http_request)
 
                 # Read and process response
                 response_data = response.read()
@@ -625,13 +639,16 @@ class GoogleTranslator(Translator):
 
                 self.logger.debug("Raw response: %s", response_data)
 
-                translated = self._extract_translation(response_data)
+                translated = self.profile.parse_response(response_data)
 
                 # A success clears every failure counter, including the circuit.
                 self._reset_rate_limit_state()
                 self._circuit_failures = 0
                 self._circuit_open = False
 
+                # A list is passed through as parsed. Flattening it here would
+                # lose the split a list based profile already did, and the
+                # per-item fallback would then have to re-split it.
                 self.logger.debug("Extracted translation: %s", translated)
                 return translated
 
@@ -649,7 +666,12 @@ class GoogleTranslator(Translator):
             except URLError as e:
                 self.logger.error("URL error occurred: %s", e)
                 if self._record_failure(attempt):
-                    break
+                    # Name the endpoint: "connection refused" alone does not
+                    # say which local service has to be started.
+                    raise TranslationError(
+                        "Could not reach the translation endpoint at %s (%s). "
+                        "Is the service running?" % (self.profile.base_url, e)
+                    )
                 self._handle_rate_limit()
 
             except TranslationError:
@@ -665,16 +687,17 @@ class GoogleTranslator(Translator):
                 "translation backend is rate limiting requests." % self._circuit_failures
             )
         raise TranslationError(
-            "Max retries exceeded after {0} attempts; the translation backend is "
-            "rate limiting requests. Retry later, or reduce the request rate by "
-            "translating fewer strings per run.".format(self.max_retries)
+            "Max retries exceeded after {0} attempts against {1}; the translation "
+            "backend is rate limiting requests. Retry later, or reduce the request "
+            "rate by translating fewer strings per run.".format(self.max_retries, self.profile.base_url)
         )
 
     def _iter_chunks(self, texts):
         """Split strings into batches bounded by count and by characters.
 
         A string longer than ``max_batch_chars`` is sent on its own rather
-        than dropped, so no input is ever skipped.
+        than dropped, so no input is ever skipped. A profile that cannot batch
+        gets one string per chunk, so batching is never assumed.
 
         Args:
             texts: Sequence of strings
@@ -682,6 +705,9 @@ class GoogleTranslator(Translator):
         Yields:
             list: The next batch of strings
         """
+        # A profile without a batch API must never be handed several strings,
+        # however large batch_size is configured.
+        effective_batch_size = self.batch_size if self.profile.supports_batch else 1
         chunk = []
         chars = 0
 
@@ -691,9 +717,10 @@ class GoogleTranslator(Translator):
             # the next string. Counting raw characters understates CJK
             # badly - one Chinese character encodes to nine bytes - and
             # an oversized payload is answered with a 414 that is not
-            # retryable and does not open the circuit.
-            cost = len(quote_plus(self._escape_special_chars(text))) + 1
-            if chunk and (len(chunk) >= self.batch_size or chars + cost > self.max_batch_chars):
+            # retryable and does not open the circuit. The profile decides
+            # how a string is measured, since a JSON body is not URL encoded.
+            cost = self.profile.measure(text)
+            if chunk and (len(chunk) >= effective_batch_size or chars + cost > self.max_batch_chars):
                 yield chunk
                 chunk = []
                 chars = 0
@@ -728,6 +755,26 @@ class GoogleTranslator(Translator):
         """
         results = []
 
+        # Translate project language codes into the backend's spelling once,
+        # here rather than in translate(): translate_batch is public, so a
+        # caller may hand it "zh_CN" directly, and the raw code would then
+        # reach the backend unchanged.
+        if source_lang and source_lang != "auto":
+            source_lang = self.profile.map_language_code(source_lang)
+        if target_lang:
+            target_lang = self.profile.map_language_code(target_lang)
+
+        # Offline means no string leaves this machine. Checked once, before
+        # any chunk is sent, so a remote endpoint fails loudly: catching this
+        # later would turn it into "offline miss, keep the source text", which
+        # looks like success while sending nothing anywhere.
+        if self.offline and not is_loopback_url(self.profile.base_url):
+            raise OfflineEndpointBlocked(
+                "Offline mode is enabled; refusing to send a translation request "
+                "to %s. Only a loopback endpoint (localhost/127.0.0.1/::1) may be "
+                "used while offline." % self.profile.base_url
+            )
+
         for chunk in self._iter_chunks([ensure_unicode(text) for text in texts]):
             cached = self.translation_memory.get_all(chunk, source_lang, target_lang)
             pending = [text for text, hit in zip(chunk, cached) if hit is None]
@@ -741,6 +788,10 @@ class GoogleTranslator(Translator):
             offline_fallback = False
             try:
                 translated_pending = self._translate_batch_online(pending, source_lang, target_lang)
+            except OfflineEndpointBlocked:
+                # A remote endpoint in offline mode is a configuration error,
+                # not a miss. Falling back here would look like success.
+                raise
             except TranslationError:
                 if not self.offline:
                     raise
@@ -779,27 +830,59 @@ class GoogleTranslator(Translator):
 
         for chunk in self._iter_chunks([ensure_unicode(text) for text in texts]):
             # Escape first, join second: the separator must survive escaping.
-            escaped = [self._escape_special_chars(text) for text in chunk]
-            payload = "\n".join(escaped)
+            escaped = [self.profile.escape(text) for text in chunk]
+            payload = self.profile.join_batch(escaped)
 
             try:
-                translated = self._request_translation(payload, source_lang, target_lang)
+                translated = self._request_translation(
+                    payload, source_lang, target_lang, escaped_texts=escaped
+                )
             except Exception:
                 self.failure_count += len(chunk)
                 raise
 
-            parts = translated.split("\n")
-            if len(parts) != len(chunk):
+            parts = self.profile.split_response(translated, len(chunk))
+            if parts is None:
+                # The response does not line up with the input. Retrying one
+                # string at a time is the only way to know which result belongs
+                # to which input.
                 self.logger.debug(
-                    "Batch of %d came back as %d parts; translating one by one",
+                    "Batch of %d did not come back aligned; translating one by one",
                     len(chunk),
-                    len(parts),
                 )
                 try:
-                    parts = [self._request_translation(item, source_lang, target_lang) for item in escaped]
+                    per_item = [
+                        self._request_translation(
+                            item, source_lang, target_lang, escaped_texts=[item]
+                        )
+                        for item in escaped
+                    ]
                 except Exception:
                     self.failure_count += len(chunk)
                     raise
+
+                parts = []
+                for translated_item in per_item:
+                    aligned = self.profile.split_response(translated_item, 1)
+                    if aligned is None:
+                        # Still wrong after sending the string alone. Guessing
+                        # which part is the translation would silently write
+                        # the wrong text into a PO entry, so fail loudly.
+                        self.failure_count += len(chunk)
+                        raise TranslationError(
+                            "Could not align the translation response for a single "
+                            "string using the %s profile; refusing to guess."
+                            % self.profile.name
+                        )
+                    parts.extend(aligned)
+
+            if len(parts) != len(chunk):
+                self.failure_count += len(chunk)
+                raise TranslationError(
+                    "Translation backend returned %d string(s) for %d input(s) "
+                    "using the %s profile; refusing to align them by position."
+                    % (len(parts), len(chunk), self.profile.name)
+                )
 
             for part in parts:
                 part = self._unescape_html_entities(part)
@@ -837,18 +920,23 @@ class GoogleTranslator(Translator):
         source_lang = "auto" if source_lang is None else source_lang
         target_lang = "en" if target_lang is None else target_lang
 
-        # Validate language codes
-        if source_lang != "auto":
-            source_lang = self.language_code_map.get(source_lang, source_lang)
-            if not isinstance(source_lang, string_types) or len(source_lang.strip()) < 2:
-                return text  # Return original text for invalid source language
+        # Validate language codes. The check runs on what the caller passed,
+        # not on the mapped code: a profile may legitimately map to a
+        # single-letter code ("zh_CN" becomes "zh" for LibreTranslate), and
+        # rejecting that here would silently drop the translation. The mapping
+        # itself happens in translate_batch, which is also a public entry point.
+        if source_lang != "auto" and (
+            not isinstance(source_lang, string_types) or len(source_lang.strip()) < 2
+        ):
+            return text  # Return original text for invalid source language
 
-        target_lang = self.language_code_map.get(target_lang, target_lang)
         if not isinstance(target_lang, string_types) or len(target_lang.strip()) < 2:
             return text  # Return original text for invalid target language
 
         try:
             return self.translate_batch([text], source_lang, target_lang)[0]
+        except OfflineEndpointBlocked:
+            raise
         except TranslationError:
             if not self.offline:
                 raise
