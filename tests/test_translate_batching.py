@@ -419,3 +419,27 @@ def test_failure_count_tracks_untranslated_items(translator, monkeypatch):
         translator.translate_batch(["a", "b", "c"], "en", "es")
 
     assert translator.failure_count == 3
+
+
+def test_single_string_keeps_the_endpoints_sentence_breaks(translator, monkeypatch):
+    """One input must come back whole, even when the endpoint splits it.
+
+    ``translate()`` is the most used entry point and always sends one string.
+    The endpoint echoes a newline after every segment but the last, so a single
+    string it happened to split by sentence comes back as several segments.
+    Treating those newlines as a batch boundary used to raise instead of
+    returning the translation, which is a regression against the default
+    behaviour: the result must be the joined payload, matching the segments the
+    endpoint sent.
+    """
+
+    def _handler(payload):
+        # The endpoint split the one string it was given into two sentences.
+        return _Response(_batch_response(["Hola mundo.", "Adios mundo."]))
+
+    _install(monkeypatch, _Recorder(_handler))
+
+    assert translator.translate("Hello world. Goodbye world.", "en", "es") == (
+        "Hola mundo.\nAdios mundo."
+    )
+

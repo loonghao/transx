@@ -21,6 +21,7 @@ from transx.constants import POT_FILE_EXTENSION
 from transx.internal.filesystem import walk_with_gitignore
 from transx.internal.logging import get_logger
 from transx.internal.logging import setup_logging
+from transx.internal.translate_profiles import PROFILE_NAMES
 
 
 def create_parser():
@@ -202,13 +203,19 @@ examples:
     translate_parser.add_argument(
         "--offline",
         action="store_true",
-        help="Never call the network: use only the translation memory and fall "
-             "back to the source text for misses"
+        help="Never send a string to another machine: use the translation "
+             "memory, and allow only a loopback endpoint for misses"
     )
     translate_parser.add_argument(
         "--tm-path",
         help="Path to the translation memory file (default: "
              "<locale root>/.transx/tm.json, overridden by TRANSX_TM_PATH)"
+    )
+    translate_parser.add_argument(
+        "-p", "--profile",
+        help="Translation provider profile (%s). Overrides TRANSX_TRANSLATE_PROFILE; "
+             "when unset the profile is inferred from TRANSX_TRANSLATE_ENDPOINT."
+             % ", ".join(PROFILE_NAMES)
     )
 
     return parser
@@ -385,7 +392,10 @@ def translate_command(args):
     offline = getattr(args, "offline", False)
     tm_path = getattr(args, "tm_path", None)
     locale_root = getattr(args, "directory", None)
-    translator = GoogleTranslator(offline=offline, path=tm_path, locale_root=locale_root)
+    profile = getattr(args, "profile", None)
+    translator = GoogleTranslator(
+        offline=offline, path=tm_path, locale_root=locale_root, profile=profile
+    )
     logger = get_logger(__name__)
     failed_count = 0
     if offline:
